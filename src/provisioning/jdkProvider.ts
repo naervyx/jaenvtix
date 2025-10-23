@@ -44,7 +44,6 @@ const PLATFORM_MAP: Record<NodeJS.Platform, string> = {
 const ARCH_MAP: Record<NodeJS.Architecture, string> = {
     arm: 'arm',
     arm64: 'aarch64',
-    ia32: 'x86',
     loong64: 'loongarch64',
     mips: 'mips',
     mipsel: 'mipsel',
@@ -209,7 +208,14 @@ export class JdkProvider {
         const platformKey = os.platform() as NodeJS.Platform;
         const platform = PLATFORM_MAP[platformKey] ?? 'linux';
         const archKey = os.arch() as NodeJS.Architecture;
-        const arch = ARCH_MAP[archKey] ?? 'x64';
+        const arch = ARCH_MAP[archKey];
+        if (!arch) {
+            const message =
+                `Unsupported CPU architecture detected: ${archKey}. Jaenvtix requires a 64-bit host to provision JDKs. ` +
+                'Please run VS Code on a 64-bit operating system and processor.';
+            console.error(message);
+            throw new Error(message);
+        }
         const preferOracle = options.preferOracle !== false;
 
         const attempted: Array<{ vendor: VendorPreference; reason?: string }> = [];
