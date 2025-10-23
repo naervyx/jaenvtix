@@ -1,65 +1,160 @@
-# jaenvtix README
+# Jaenvtix — Auto‑Setup (JDK & Maven) for Visual Studio Code
 
-This is the README for your extension "jaenvtix". After writing up a brief description, we recommend including the following sections.
-
-## Features
-
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+A **lightweight, deterministic** extension that, when you open a **Java/Maven** project, **detects the Java version** from `pom.xml`, **provisions** a compatible **Oracle JDK** for your OS/arch — with **OpenJDK fallback** (e.g., Amazon Corretto) when Oracle isn’t viable — **couples** a Maven/mvnd to that JDK, updates `~/.m2/toolchains.xml`, and writes `.vscode/settings.json` for the workspace. Result: **open the project and immediately run, debug, test, and use Maven with zero setup**.
 
 ---
 
-## Working with Markdown
+## Recommended extensions
 
-You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
+For the best Java experience, Jaenvtix can **suggest** (optional):
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets
+- **[Extension Pack for Java](https://marketplace.cursorapi.com/items/?itemName=vscjava.vscode-java-pack)** (Language Support, Debugger, Test Runner, Maven/Gradle).
 
-## For more information
+These are **optional** — Jaenvtix works without them, but features like **IntelliSense/Debug/Testing** rely on these extensions.
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+---
 
-**Enjoy!**
+## Quick start
+
+1. **Install** Jaenvtix in VS Code/Cursor.
+2. **Open** a folder containing a `pom.xml` (multi‑module projects are supported).
+3. Follow the **prompts**: Oracle‑first → manual or fallback when needed.
+4. When done, use:
+    - **Run/Debug** (F5 or ▶️ in the editor)
+    - **Test Explorer** for JUnit/TestNG
+    - **Terminal** with `mvn-jaenvtix` (wrapper with fixed `JAVA_HOME`)
+
+> Tip: if the project has `mvnw`, it is **respected**; `JAVA_HOME` is still pinned to the provisioned JDK.
+
+---
+
+## Configure your environment
+
+- **Status Bar**: shows the **active JDK** for the workspace.
+- **Debugger**: use the **Run and Debug** view (default `launch.json` patterns work).
+- **Maven**: Jaenvtix writes `maven.executable.path` pointing to `mvn-jaenvtix` and enables `maven.terminal.useJavaHome = true`.
+- **Toolchains**: merges/updates `~/.m2/toolchains.xml` with entries by **version** and **vendor**.
+
+---
+
+## Commands
+
+Open the **Command Palette** (⌘⇧P on macOS, Ctrl+Shift+P on Windows/Linux) and search for **Jaenvtix**:
+
+| Command | Description |
+|---|---|
+| **Jaenvtix: Detect Java version** | Re‑scans `pom.xml` files and determines the target version (multi‑module → highest version). |
+| **Jaenvtix: Provision/Update JDK** | Downloads/installs (Oracle‑first; OpenJDK fallback when needed). |
+| **Jaenvtix: Reinstall mvnd** | Reinstalls **mvnd** coupled to the JDK of this version. |
+| **Jaenvtix: Open toolchains.xml** | Opens `~/.m2/toolchains.xml` in the editor. |
+| **Jaenvtix: Clean cache/temporary files** | Safely removes `~/.jaenvtix/temp` and downloaded artifacts. |
+
+---
+
+## Feature details
+
+- **Oracle‑first**: prioritizes **Oracle JDK**; uses **OpenJDK** (e.g., Amazon Corretto) when Oracle is not automatable/viable.
+- **LTS first**: native support for **8, 11, 17, 21, 25**; **non‑LTS (Preview)** is optional, with stability warning.
+- **Per‑version isolation**: each JDK has its own **mvnd**/Maven **coupled** (avoids project conflicts).
+- **Zero friction**: `JAVA_HOME` pinned per workspace; run, debug, tests, and Maven ready on open.
+- **No global installs**: everything lives under the user **HOME** (`~/.jaenvtix/`).
+- **Transparency & compliance**: surfaces source/license; asks for consent to terms when required.
+- **Integrity**: validates **checksums** when available; on failure, aborts with a clear warning.
+
+---
+
+## Folder layout
+
+```
+~/.jaenvtix/
+  temp/                           # Temporary downloads
+  jdk-1.8/
+    <jdk-version...>/            # Priority is Oracle JDK or use OpenJDK for fallback
+    mvn-custom/
+      bin/
+        mvnd.exe
+        mvn-jaenvtix.cmd        # Wrapper pinning JAVA_HOME to THIS JDK
+  jdk-11/...
+  jdk-17/...
+  jdk-21/...
+  jdk-25/...
+```
+
+> Note: We do not create our own "toolchains/" folder; we will place it in the default path **create or update `~/.m2/toolchains.xml`**.
+
+---
+
+## System requirements
+
+- **Desktop**: VS Code or Cursor.
+- **Network** for downloads (or point to an already downloaded **local JDK**).
+- **Extraction tools**:
+    - **Windows**: PowerShell `Expand-Archive`
+    - **macOS/Linux**: `tar` and `unzip` available on `PATH`
+
+---
+
+## Extension settings
+
+Tune behavior via **Settings** (or `settings.json`):
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `jaenvtix.preferOracle` | boolean | `true` | Prefer Oracle JDK when possible. |
+| `jaenvtix.allowPreviewJdk` | boolean | `false` | Allow non‑LTS (preview) with warning. |
+| `jaenvtix.fallbackVendor` | string | `"corretto"` | Fallback OpenJDK vendor (`corretto`, `temurin`, etc.). |
+| `jaenvtix.checksumPolicy` | string | `"best-effort"` | `strict` (fail without checksum) or `best-effort`. |
+| `jaenvtix.cleanupDownloads` | boolean | `true` | Remove temporary artifacts after install. |
+| `jaenvtix.toolchainsPath` | string | _auto_ | Alternate path for `toolchains.xml`.
+
+Example (`.vscode/settings.json`):
+
+```json
+{
+  "jaenvtix.preferOracle": true,
+  "jaenvtix.allowPreviewJdk": false,
+  "jaenvtix.fallbackVendor": "corretto",
+  "jaenvtix.checksumPolicy": "strict"
+}
+```
+
+---
+
+## FAQ
+
+**My project has `mvnw`. Does Jaenvtix interfere?**  
+No. We respect the project’s `mvnw`. `JAVA_HOME` still points to the provisioned JDK.
+
+**How is the Java version decided in multi‑module builds?**  
+We use the **highest** version found across modules (from the `maven-compiler-plugin`’s `<release>`, properties like `maven.compiler.release`, `maven.compiler.source/target`, or `java.version`).
+
+**What if Oracle requires a login/consent we can’t automate?**  
+We offer manual install (choose file/folder) **or** fallback to OpenJDK.
+
+**macOS blocked the extracted binary**  
+Remove the quarantine attribute manually and reopen VS Code.
+
+---
+
+## Locales
+
+Available in **en-US**. More locales may be added on demand.
+
+---
+
+## Report issues, ideas, and contribute
+
+Contributions are **welcome**! Open **issues** and **PRs** with suggestions, improvements, and fixes.
+
+---
+
+## Data and telemetry
+
+Jaenvtix **don't collect telemetry**. The extension performs **downloads** of JDK/Maven from official sources (Oracle/OpenJDK) and may ask for your **consent** to terms/licenses when required by those sources.
+
+---
+
+## License
+
+**MIT**
+
