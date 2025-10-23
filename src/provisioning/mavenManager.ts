@@ -26,12 +26,13 @@ export class MavenManager {
                 '@echo off',
                 `set "JAVA_HOME=${javaHome.replace(/"/g, '""')}"`,
                 'set "PATH=%JAVA_HOME%\\bin;%PATH%"',
-                'mvn %*',
+                'call mvn %*',
+                'exit /b %ERRORLEVEL%',
             ].join('\r\n');
             await fs.writeFile(cmdPath, cmdContent, 'utf-8');
 
             const ps1Path = path.join(binDir, 'mvn-jaenvtix.ps1');
-            const escapedJavaHome = javaHome.replace(/`/g, '``');
+            const escapedJavaHome = javaHome.replace(/`/g, '``').replace(/"/g, '`"');
             const psContent = [
                 '$ErrorActionPreference = "Stop"',
                 `$env:JAVA_HOME = "${escapedJavaHome}"`,
