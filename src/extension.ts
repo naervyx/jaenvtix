@@ -1,5 +1,14 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as os from 'os';
 import { TextDecoder } from 'util';
+import {
+    JdkProvider,
+    VendorPreference,
+    ChecksumPolicy,
+    JdkProvisionResult,
+} from './provisioning/jdkProvider';
+import { MavenManager } from './provisioning/mavenManager';
 
 type WorkspaceScanResult = {
     hasPom: boolean;
@@ -222,9 +231,14 @@ class ProvisioningService implements vscode.Disposable {
     private lastDetection: WorkspaceScanResult | undefined;
     private lastKnownRelease: string | undefined;
     private lastProvisionedRelease: string | undefined;
+    private lastInstallation: JdkProvisionResult | undefined;
     private readonly promptedReleases = new Set<string>();
 
-    constructor(private readonly statusBar: StatusBarProvider) {}
+    constructor(
+        private readonly statusBar: StatusBarProvider,
+        private readonly jdkProvider: JdkProvider,
+        private readonly mavenManager: MavenManager,
+    ) {}
 
     public async handleDetection(result: WorkspaceScanResult, reason: ScanReason): Promise<void> {
         this.lastDetection = result;
@@ -266,6 +280,7 @@ class ProvisioningService implements vscode.Disposable {
         if (this.lastKnownRelease !== result.highestRelease) {
             this.lastKnownRelease = result.highestRelease;
             this.lastProvisionedRelease = undefined;
+            this.lastInstallation = undefined;
             this.promptedReleases.delete(result.highestRelease);
         }
 
@@ -326,6 +341,13 @@ class ProvisioningService implements vscode.Disposable {
                 },
             },
             {
+                label: '$(zap) Reinstall mvnd',
+                description: 'Download and configure the Apache Maven Daemon for the active JDK',
+                run: async () => {
+                    await this.reinstallMvnd();
+                },
+            },
+            {
                 label: '$(info) Show current status',
                 description: 'Display the last detected release and provisioning source',
                 run: async () => {
@@ -376,74 +398,217 @@ class ProvisioningService implements vscode.Disposable {
         }
 
         if (selection === 'Provision automatically') {
-            const provisionOptions: Array<vscode.QuickPickItem & { label: string; detail: string }> = [
-                {
-                    label: 'Oracle JDK (recommended)',
-                    detail: 'Downloads Oracle builds when license automation is available.',
-                },
-                {
-                    label: 'OpenJDK fallback',
-                    detail: 'Uses a community distribution such as Amazon Corretto or Temurin.',
-                },
-            ];
-
-            const provisionSelection = await vscode.window.showQuickPick(provisionOptions, {
-                placeHolder: `Select the distribution for Java ${release}`,
-            });
-
-            if (provisionSelection) {
-                this.lastProvisionedRelease = release;
-                this.statusBar.showProvisioned(release, provisionSelection.label);
-                await vscode.window.showInformationMessage(
-                    `Jaenvtix will provision ${provisionSelection.label} for Java ${release}.`,
-                );
-            } else {
-                this.statusBar.showDetectedRelease(release);
-            }
-
+            await this.provisionRelease(release);
             return;
         }
 
         if (selection === 'Use existing JDK') {
-            const existingOptions: Array<vscode.QuickPickItem & { value: string }> = [
-                {
-                    label: '$(file-directory) Browse for JAVA_HOME…',
-                    description: 'Select a local installation to bind to this workspace',
-                    value: 'browse',
-                },
-                {
-                    label: '$(gear) Enter path manually…',
-                    description: 'Type the path to the desired JDK',
-                    value: 'manual',
-                },
-            ];
+            await this.handleExistingJdkSelection(release);
+        }
+    }
 
-            const existingSelection = await vscode.window.showQuickPick(existingOptions, {
-                placeHolder: 'Connect to an existing JDK installation',
+    private getProvisioningSettings(): {
+        preferOracle: boolean;
+        fallbackVendor: VendorPreference;
+        checksumPolicy: ChecksumPolicy;
+        cleanupDownloads: boolean;
+    } {
+        const configuration = vscode.workspace.getConfiguration('jaenvtix');
+        const fallback = configuration.get<string>('fallbackVendor', 'corretto') as VendorPreference;
+        const checksum = configuration.get<string>('checksumPolicy', 'best-effort') as ChecksumPolicy;
+
+        return {
+            preferOracle: configuration.get<boolean>('preferOracle', true),
+            fallbackVendor: fallback,
+            checksumPolicy: checksum,
+            cleanupDownloads: configuration.get<boolean>('cleanupDownloads', true),
+        };
+    }
+
+    private async provisionRelease(release: string): Promise<void> {
+        try {
+            const installation = await this.executeProvisioningFlow(release);
+            const label = `${installation.vendor} ${installation.version}`;
+            this.lastProvisionedRelease = release;
+            this.lastInstallation = installation;
+            this.statusBar.showProvisioned(release, label);
+            await vscode.window.showInformationMessage(
+                `Provisioned ${label} for Java ${release}. Wrapper scripts are stored in ${path.join(installation.installationRoot, 'bin')}.`,
+            );
+        } catch (error) {
+            await this.handleProvisioningFailure(release, error);
+            this.statusBar.showDetectedRelease(release);
+        }
+    }
+
+    private async executeProvisioningFlow(release: string): Promise<JdkProvisionResult> {
+        const settings = this.getProvisioningSettings();
+        const progressOptions: vscode.ProgressOptions = {
+            title: `Provisioning Java ${release}`,
+            location: vscode.ProgressLocation.Notification,
+            cancellable: true,
+        };
+
+        return vscode.window.withProgress(progressOptions, async (progress, token) => {
+            const installation = await this.jdkProvider.ensureInstalled({
+                release,
+                preferOracle: settings.preferOracle,
+                fallbackVendor: settings.fallbackVendor,
+                checksumPolicy: settings.checksumPolicy,
+                cleanupDownloads: settings.cleanupDownloads,
+                progress,
+                token,
             });
 
-            if (!existingSelection) {
+            progress.report({ message: 'Configuring Maven wrapper…' });
+            await this.mavenManager.ensureWrapper(installation.installationRoot, installation.javaHome);
+
+            return installation;
+        });
+    }
+
+    private async handleProvisioningFailure(release: string, error: unknown): Promise<void> {
+        const manualPath = this.jdkProvider.getInstallationRoot(release);
+        const message = error instanceof Error ? error.message : String(error);
+        const manualOption = 'Manual installation help';
+        const settingsOption = 'Open Jaenvtix settings';
+
+        const selection = await vscode.window.showErrorMessage(
+            `Jaenvtix could not provision Java ${release}: ${message}`,
+            manualOption,
+            settingsOption,
+        );
+
+        if (selection === manualOption) {
+            await vscode.window.showInformationMessage(
+                `Download a JDK ${release} archive from your preferred vendor, extract it to ${manualPath}, and then run “Use existing JDK” to register the installation.`,
+                { modal: true },
+            );
+        } else if (selection === settingsOption) {
+            await vscode.commands.executeCommand('workbench.action.openSettings', 'jaenvtix');
+        }
+    }
+
+    private async handleExistingJdkSelection(release: string): Promise<void> {
+        const existingOptions: Array<vscode.QuickPickItem & { value: string }> = [
+            {
+                label: '$(file-directory) Browse for JAVA_HOME…',
+                description: 'Select a local installation to bind to this workspace',
+                value: 'browse',
+            },
+            {
+                label: '$(gear) Enter path manually…',
+                description: 'Type the path to the desired JDK',
+                value: 'manual',
+            },
+        ];
+
+        const existingSelection = await vscode.window.showQuickPick(existingOptions, {
+            placeHolder: 'Connect to an existing JDK installation',
+        });
+
+        if (!existingSelection) {
+            this.statusBar.showDetectedRelease(release);
+            return;
+        }
+
+        if (existingSelection.value === 'manual') {
+            const input = await vscode.window.showInputBox({
+                prompt: 'Enter the absolute path to the JDK you would like to use',
+                placeHolder: '/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home',
+            });
+            const trimmed = input?.trim();
+            if (!trimmed) {
                 this.statusBar.showDetectedRelease(release);
                 return;
             }
 
-            if (existingSelection.value === 'manual') {
-                const input = await vscode.window.showInputBox({
-                    prompt: 'Enter the absolute path to the JDK you would like to use',
-                    placeHolder: '/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home',
-                });
-                if (input) {
-                    this.lastProvisionedRelease = release;
-                    this.statusBar.showProvisioned(release, `Existing (${input})`);
-                    await vscode.window.showInformationMessage(`Jaenvtix will use the JDK at ${input}.`);
-                } else {
-                    this.statusBar.showDetectedRelease(release);
-                }
-            } else {
-                this.lastProvisionedRelease = release;
-                this.statusBar.showProvisioned(release, 'Existing (selected path)');
-                await vscode.window.showInformationMessage('Jaenvtix will prompt you to pick a folder in a future version.');
+            await this.registerExistingJavaHome(release, trimmed, 'Existing (manual)');
+            return;
+        }
+
+        const folderSelection = await vscode.window.showOpenDialog({
+            openLabel: 'Select JAVA_HOME',
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+        });
+
+        if (!folderSelection || folderSelection.length === 0) {
+            this.statusBar.showDetectedRelease(release);
+            return;
+        }
+
+        await this.registerExistingJavaHome(release, folderSelection[0].fsPath, 'Existing (selected)');
+    }
+
+    private async registerExistingJavaHome(release: string, javaHome: string, label: string): Promise<void> {
+        const javaBin = path.join(javaHome, 'bin', os.platform() === 'win32' ? 'java.exe' : 'java');
+        try {
+            await vscode.workspace.fs.stat(vscode.Uri.file(javaBin));
+        } catch {
+            const continueOption = 'Use anyway';
+            const response = await vscode.window.showWarningMessage(
+                `The selected location does not contain ${path.basename(javaBin)}. Continue?`,
+                continueOption,
+                'Cancel',
+            );
+            if (response !== continueOption) {
+                this.statusBar.showDetectedRelease(release);
+                return;
             }
+        }
+
+        const installation = await this.jdkProvider.persistExternalInstallation(release, javaHome, label);
+        await this.mavenManager.ensureWrapper(installation.installationRoot, javaHome);
+
+        this.lastProvisionedRelease = release;
+        this.lastInstallation = installation;
+        this.statusBar.showProvisioned(release, label);
+        await vscode.window.showInformationMessage(
+            `Jaenvtix will use the JDK at ${javaHome} for Java ${release}. Wrapper scripts are stored in ${path.join(installation.installationRoot, 'bin')}.`,
+        );
+    }
+
+    public async reinstallMvnd(): Promise<void> {
+        const release = this.lastProvisionedRelease ?? this.lastKnownRelease;
+        if (!release) {
+            await vscode.window.showInformationMessage('Provision a JDK before reinstalling mvnd.');
+            return;
+        }
+
+        const settings = this.getProvisioningSettings();
+        const options: vscode.ProgressOptions = {
+            title: `Reinstalling mvnd for Java ${release}`,
+            location: vscode.ProgressLocation.Notification,
+            cancellable: true,
+        };
+
+        try {
+            const mvndHome = await vscode.window.withProgress(options, async (progress, token) => {
+                const installation = await this.jdkProvider.ensureInstalled({
+                    release,
+                    preferOracle: settings.preferOracle,
+                    fallbackVendor: settings.fallbackVendor,
+                    checksumPolicy: settings.checksumPolicy,
+                    cleanupDownloads: settings.cleanupDownloads,
+                    progress,
+                    token,
+                });
+
+                this.lastInstallation = installation;
+                progress.report({ message: 'Fetching mvnd…' });
+                return this.mavenManager.reinstallMvnd(installation.installationRoot, progress, token);
+            });
+
+            if (mvndHome) {
+                await vscode.window.showInformationMessage(
+                    `Apache mvnd is ready at ${mvndHome}. Add it to your PATH to use the Maven Daemon.`,
+                );
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            await vscode.window.showErrorMessage(`Failed to reinstall mvnd: ${message}`);
         }
     }
 
@@ -456,7 +621,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     console.log('Jaenvtix extension activating…');
 
     const statusBarProvider = new StatusBarProvider();
-    const provisioningService = new ProvisioningService(statusBarProvider);
+    const jdkProvider = new JdkProvider();
+    const mavenManager = new MavenManager();
+    const provisioningService = new ProvisioningService(statusBarProvider, jdkProvider, mavenManager);
     const scanner = new WorkspaceScanner(async (result, reason) => {
         await provisioningService.handleDetection(result, reason);
     });
@@ -477,7 +644,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await provisioningService.showQuickActions(scanner);
     });
 
-    context.subscriptions.push(detectCommand, provisionCommand, statusCommand);
+    const reinstallMvndCommand = vscode.commands.registerCommand('jaenvtix.reinstallMvnd', async () => {
+        await provisioningService.reinstallMvnd();
+    });
+
+    context.subscriptions.push(detectCommand, provisionCommand, statusCommand, reinstallMvndCommand);
 
     await scanner.triggerInitialScan();
 
