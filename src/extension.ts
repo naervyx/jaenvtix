@@ -9,6 +9,8 @@ import {
     JdkProvisionResult,
 } from './provisioning/jdkProvider';
 import { MavenManager } from './provisioning/mavenManager';
+import { ToolchainManager } from './services/toolchainManager';
+import { WorkspaceConfigurator } from './services/workspaceConfigurator';
 
 type WorkspaceScanResult = {
     hasPom: boolean;
@@ -227,6 +229,11 @@ class WorkspaceScanner implements vscode.Disposable {
     }
 }
 
+type ProvisioningOutcome = {
+    installation: JdkProvisionResult;
+    mavenExecutable: string;
+};
+
 class ProvisioningService implements vscode.Disposable {
     private lastDetection: WorkspaceScanResult | undefined;
     private lastKnownRelease: string | undefined;
@@ -238,6 +245,8 @@ class ProvisioningService implements vscode.Disposable {
         private readonly statusBar: StatusBarProvider,
         private readonly jdkProvider: JdkProvider,
         private readonly mavenManager: MavenManager,
+        private readonly toolchainManager: ToolchainManager,
+        private readonly workspaceConfigurator: WorkspaceConfigurator,
     ) {}
 
     public async handleDetection(result: WorkspaceScanResult, reason: ScanReason): Promise<void> {
@@ -348,6 +357,20 @@ class ProvisioningService implements vscode.Disposable {
                 },
             },
             {
+                label: '$(file-code) Open toolchains.xml',
+                description: 'Review the Maven toolchains configuration merged by Jaenvtix',
+                run: async () => {
+                    await this.openToolchainsXml();
+                },
+            },
+            {
+                label: '$(trash) Clean Jaenvtix cache',
+                description: 'Remove temporary downloads under ~/.jaenvtix/temp',
+                run: async () => {
+                    await this.cleanCache();
+                },
+            },
+            {
                 label: '$(info) Show current status',
                 description: 'Display the last detected release and provisioning source',
                 run: async () => {
@@ -427,7 +450,9 @@ class ProvisioningService implements vscode.Disposable {
 
     private async provisionRelease(release: string): Promise<void> {
         try {
-            const installation = await this.executeProvisioningFlow(release);
+            const outcome = await this.executeProvisioningFlow(release);
+            const installation = outcome.installation;
+            await this.finalizeProvisioning(release, installation, outcome.mavenExecutable);
             const label = `${installation.vendor} ${installation.version}`;
             this.lastProvisionedRelease = release;
             this.lastInstallation = installation;
@@ -441,7 +466,7 @@ class ProvisioningService implements vscode.Disposable {
         }
     }
 
-    private async executeProvisioningFlow(release: string): Promise<JdkProvisionResult> {
+    private async executeProvisioningFlow(release: string): Promise<ProvisioningOutcome> {
         const settings = this.getProvisioningSettings();
         const progressOptions: vscode.ProgressOptions = {
             title: `Provisioning Java ${release}`,
@@ -461,10 +486,63 @@ class ProvisioningService implements vscode.Disposable {
             });
 
             progress.report({ message: 'Configuring Maven wrapper…' });
-            await this.mavenManager.ensureWrapper(installation.installationRoot, installation.javaHome);
+            const mavenExecutable = await this.mavenManager.ensureWrapper(
+                installation.installationRoot,
+                installation.javaHome,
+            );
 
-            return installation;
+            return { installation, mavenExecutable };
         });
+    }
+
+    private resolveToolchainsPath(): string {
+        const configuration = vscode.workspace.getConfiguration('jaenvtix');
+        const override = configuration.get<string>('toolchainsPath', '').trim();
+        return override || this.toolchainManager.getDefaultPath();
+    }
+
+    private async finalizeProvisioning(
+        release: string,
+        installation: JdkProvisionResult,
+        mavenExecutable: string,
+    ): Promise<void> {
+        const toolchainsPath = this.resolveToolchainsPath();
+        try {
+            await this.toolchainManager.mergeToolchains(
+                [
+                    {
+                        vendor: installation.vendor,
+                        version: release,
+                        javaHome: installation.javaHome,
+                    },
+                ],
+                toolchainsPath,
+            );
+        } catch (error) {
+            console.error('Jaenvtix: failed to update toolchains.xml', error);
+            const message = error instanceof Error ? error.message : String(error);
+            await vscode.window.showWarningMessage(`Jaenvtix could not update toolchains.xml: ${message}`);
+        }
+
+        const folders = vscode.workspace.workspaceFolders ?? [];
+        for (const folder of folders) {
+            try {
+                await this.workspaceConfigurator.apply({
+                    workspaceRoot: folder.uri.fsPath,
+                    javaHome: installation.javaHome,
+                    release,
+                    vendor: installation.vendor,
+                    mavenExecutable,
+                    toolchainsPath,
+                });
+            } catch (error) {
+                console.error(`Jaenvtix: failed to update workspace settings for ${folder.name}`, error);
+                const message = error instanceof Error ? error.message : String(error);
+                await vscode.window.showWarningMessage(
+                    `Jaenvtix could not update settings for ${folder.name}: ${message}`,
+                );
+            }
+        }
     }
 
     private async handleProvisioningFailure(release: string, error: unknown): Promise<void> {
@@ -560,7 +638,8 @@ class ProvisioningService implements vscode.Disposable {
         }
 
         const installation = await this.jdkProvider.persistExternalInstallation(release, javaHome, label);
-        await this.mavenManager.ensureWrapper(installation.installationRoot, javaHome);
+        const mavenExecutable = await this.mavenManager.ensureWrapper(installation.installationRoot, javaHome);
+        await this.finalizeProvisioning(release, installation, mavenExecutable);
 
         this.lastProvisionedRelease = release;
         this.lastInstallation = installation;
@@ -585,7 +664,7 @@ class ProvisioningService implements vscode.Disposable {
         };
 
         try {
-            const mvndHome = await vscode.window.withProgress(options, async (progress, token) => {
+            const result = await vscode.window.withProgress(options, async (progress, token) => {
                 const installation = await this.jdkProvider.ensureInstalled({
                     release,
                     preferOracle: settings.preferOracle,
@@ -598,17 +677,52 @@ class ProvisioningService implements vscode.Disposable {
 
                 this.lastInstallation = installation;
                 progress.report({ message: 'Fetching mvnd…' });
-                return this.mavenManager.reinstallMvnd(installation.installationRoot, progress, token);
+                const mvndHome = await this.mavenManager.reinstallMvnd(
+                    installation.installationRoot,
+                    progress,
+                    token,
+                );
+
+                return { installation, mvndHome };
             });
 
-            if (mvndHome) {
-                await vscode.window.showInformationMessage(
-                    `Apache mvnd is ready at ${mvndHome}. Add it to your PATH to use the Maven Daemon.`,
+            if (result) {
+                const mavenExecutable = await this.mavenManager.ensureWrapper(
+                    result.installation.installationRoot,
+                    result.installation.javaHome,
                 );
+                await this.finalizeProvisioning(release, result.installation, mavenExecutable);
+
+                if (result.mvndHome) {
+                    await vscode.window.showInformationMessage(
+                        `Apache mvnd is ready at ${result.mvndHome}. Add it to your PATH to use the Maven Daemon.`,
+                    );
+                }
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             await vscode.window.showErrorMessage(`Failed to reinstall mvnd: ${message}`);
+        }
+    }
+
+    public async openToolchainsXml(): Promise<void> {
+        try {
+            const targetPath = await this.toolchainManager.ensureExists(this.resolveToolchainsPath());
+            const document = await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath));
+            await vscode.window.showTextDocument(document, { preview: false });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            await vscode.window.showErrorMessage(`Unable to open toolchains.xml: ${message}`);
+        }
+    }
+
+    public async cleanCache(): Promise<void> {
+        try {
+            await this.jdkProvider.cleanTemporaryArtifacts();
+            await vscode.window.showInformationMessage('Jaenvtix temporary cache cleared.');
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            await vscode.window.showErrorMessage(`Failed to clean Jaenvtix cache: ${message}`);
         }
     }
 
@@ -623,7 +737,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const statusBarProvider = new StatusBarProvider();
     const jdkProvider = new JdkProvider();
     const mavenManager = new MavenManager();
-    const provisioningService = new ProvisioningService(statusBarProvider, jdkProvider, mavenManager);
+    const toolchainManager = new ToolchainManager();
+    const workspaceConfigurator = new WorkspaceConfigurator();
+    const provisioningService = new ProvisioningService(
+        statusBarProvider,
+        jdkProvider,
+        mavenManager,
+        toolchainManager,
+        workspaceConfigurator,
+    );
     const scanner = new WorkspaceScanner(async (result, reason) => {
         await provisioningService.handleDetection(result, reason);
     });
@@ -647,8 +769,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const reinstallMvndCommand = vscode.commands.registerCommand('jaenvtix.reinstallMvnd', async () => {
         await provisioningService.reinstallMvnd();
     });
+    const openToolchainsCommand = vscode.commands.registerCommand('jaenvtix.openToolchainsXml', async () => {
+        await provisioningService.openToolchainsXml();
+    });
+    const cleanCacheCommand = vscode.commands.registerCommand('jaenvtix.cleanCache', async () => {
+        await provisioningService.cleanCache();
+    });
 
-    context.subscriptions.push(detectCommand, provisionCommand, statusCommand, reinstallMvndCommand);
+    context.subscriptions.push(
+        detectCommand,
+        provisionCommand,
+        statusCommand,
+        reinstallMvndCommand,
+        openToolchainsCommand,
+        cleanCacheCommand,
+    );
 
     await scanner.triggerInitialScan();
 

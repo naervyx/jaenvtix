@@ -33,6 +33,7 @@ These are **optional** — Jaenvtix works without them, but features like **Inte
 - **Status Bar**: shows the **active JDK** for the workspace.
 - **Debugger**: use the **Run and Debug** view (default `launch.json` patterns work).
 - **Maven**: Jaenvtix writes `maven.executable.path` pointing to `mvn-jaenvtix` and enables `maven.terminal.useJavaHome = true`.
+- **Workspace metadata**: `.vscode/settings.json` is updated with `jaenvtix.*` keys (release, vendor, `javaHome`, `mavenExecutable`, `toolchainsPath`). If the project ships a `mvnw`, it is preserved and wired automatically.
 - **Toolchains**: merges/updates `~/.m2/toolchains.xml` with entries by **version** and **vendor**.
 
 ---
@@ -46,8 +47,8 @@ Open the **Command Palette** (⌘⇧P on macOS, Ctrl+Shift+P on Windows/Linux) a
 | **Jaenvtix: Detect Java version** | Re‑scans `pom.xml` files and determines the target version (multi‑module → highest version). |
 | **Jaenvtix: Provision/Update JDK** | Downloads/installs (Oracle‑first; OpenJDK fallback when needed). |
 | **Jaenvtix: Reinstall mvnd** | Reinstalls **mvnd** coupled to the JDK of this version. |
-| **Jaenvtix: Open toolchains.xml** | Opens `~/.m2/toolchains.xml` in the editor. |
-| **Jaenvtix: Clean cache/temporary files** | Safely removes `~/.jaenvtix/temp` and downloaded artifacts. |
+| **Jaenvtix: Open toolchains.xml** | Ensures/opens `~/.m2/toolchains.xml` in the editor for review. |
+| **Jaenvtix: Clean cache/temporary files** | Removes `~/.jaenvtix/temp` and recreates the directory for fresh downloads. |
 
 ---
 
