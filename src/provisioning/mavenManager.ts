@@ -111,6 +111,14 @@ export class MavenManager {
         const platform = os.platform();
         const arch = os.arch();
 
+        if (arch !== 'x64' && arch !== 'arm64') {
+            const message =
+                `Unsupported CPU architecture detected: ${arch}. Jaenvtix requires a 64-bit host to provision mvnd. ` +
+                'Please run VS Code on a 64-bit operating system and processor.';
+            console.error(message);
+            throw new Error(message);
+        }
+
         if (platform === 'win32') {
             return {
                 url: `https://downloads.apache.org/maven/mvnd/${MVND_VERSION}/apache-mvnd-${MVND_VERSION}-windows-amd64.zip`,
