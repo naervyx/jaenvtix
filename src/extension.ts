@@ -163,11 +163,11 @@ class WorkspaceScanner implements vscode.Disposable {
 
     private extractRelease(contents: string): number | undefined {
         const regexes = [
-            /<maven\.compiler\.release>\s*([0-9]+)\s*<\/maven\.compiler\.release>/gi,
-            /<release>\s*([0-9]+)\s*<\/release>/gi,
-            /<java\.version>\s*([0-9]+)\s*<\/java\.version>/gi,
-            /<maven\.compiler\.target>\s*([0-9]+)\s*<\/maven\.compiler\.target>/gi,
-            /<maven\.compiler\.source>\s*([0-9]+)\s*<\/maven\.compiler\.source>/gi,
+            /<maven\.compiler\.release>\s*([0-9]+(?:\.[0-9]+)?)\s*<\/maven\.compiler\.release>/gi,
+            /<release>\s*([0-9]+(?:\.[0-9]+)?)\s*<\/release>/gi,
+            /<java\.version>\s*([0-9]+(?:\.[0-9]+)?)\s*<\/java\.version>/gi,
+            /<maven\.compiler\.target>\s*([0-9]+(?:\.[0-9]+)?)\s*<\/maven\.compiler\.target>/gi,
+            /<maven\.compiler\.source>\s*([0-9]+(?:\.[0-9]+)?)\s*<\/maven\.compiler\.source>/gi,
         ];
 
         let highest: number | undefined;
@@ -175,8 +175,8 @@ class WorkspaceScanner implements vscode.Disposable {
         for (const regex of regexes) {
             let match: RegExpExecArray | null;
             while ((match = regex.exec(contents)) !== null) {
-                const numeric = parseInt(match[1], 10);
-                if (!Number.isNaN(numeric)) {
+                const numeric = this.parseJavaRelease(match[1]);
+                if (numeric !== undefined && !Number.isNaN(numeric)) {
                     if (highest === undefined || numeric > highest) {
                         highest = numeric;
                     }
@@ -185,6 +185,27 @@ class WorkspaceScanner implements vscode.Disposable {
         }
 
         return highest;
+    }
+
+    private parseJavaRelease(value: string): number | undefined {
+        const trimmed = value.trim();
+        const match = /^([0-9]+)(?:\.([0-9]+))?/.exec(trimmed);
+        if (!match) {
+            return undefined;
+        }
+
+        const major = parseInt(match[1], 10);
+        const minor = match[2] !== undefined ? parseInt(match[2], 10) : undefined;
+
+        if (Number.isNaN(major)) {
+            return undefined;
+        }
+
+        if (major === 1 && minor !== undefined) {
+            return Number.isNaN(minor) ? undefined : minor;
+        }
+
+        return major;
     }
 
     public dispose(): void {
