@@ -44,6 +44,7 @@ const PLATFORM_MAP: Record<NodeJS.Platform, string> = {
 const ARCH_MAP: Record<NodeJS.Architecture, string> = {
     arm: 'arm',
     arm64: 'aarch64',
+    ia32: '', // Explicitly retain ia32 so the record satisfies the NodeJS.Architecture type.
     loong64: 'loongarch64',
     mips: 'mips',
     mipsel: 'mipsel',
