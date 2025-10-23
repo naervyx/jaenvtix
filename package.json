@@ -1,7 +1,7 @@
 {
   "name": "jaenvtix",
-  "displayName": "jaenvtix",
-  "description": "",
+  "displayName": "Jaenvtix: Auto-Setup for Java & Maven",
+  "description": "Automatically detect Java requirements from Maven projects, provision the matching JDK, and wire VS Code for immediate use.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.105.0"
@@ -9,15 +9,132 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "workspaceContains:pom.xml",
+    "workspaceContains:**/pom.xml",
+    "workspaceContains:.mvn/wrapper/maven-wrapper.properties",
+    "onCommand:jaenvtix.detectJavaVersion",
+    "onCommand:jaenvtix.provisionOrUpdateJdk",
+    "onCommand:jaenvtix.reinstallMvnd",
+    "onCommand:jaenvtix.openToolchainsXml",
+    "onCommand:jaenvtix.cleanCache",
+    "onCommand:jaenvtix.showJdkStatus"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "jaenvtix.helloWorld",
-        "title": "Hello World"
+        "command": "jaenvtix.detectJavaVersion",
+        "title": "Detect Java version",
+        "category": "Jaenvtix"
+      },
+      {
+        "command": "jaenvtix.provisionOrUpdateJdk",
+        "title": "Provision/Update JDK",
+        "category": "Jaenvtix"
+      },
+      {
+        "command": "jaenvtix.reinstallMvnd",
+        "title": "Reinstall mvnd",
+        "category": "Jaenvtix"
+      },
+      {
+        "command": "jaenvtix.openToolchainsXml",
+        "title": "Open toolchains.xml",
+        "category": "Jaenvtix"
+      },
+      {
+        "command": "jaenvtix.cleanCache",
+        "title": "Clean cache/temporary files",
+        "category": "Jaenvtix"
+      },
+      {
+        "command": "jaenvtix.showJdkStatus",
+        "title": "Show active JDK status",
+        "category": "Jaenvtix"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Jaenvtix",
+      "properties": {
+        "jaenvtix.preferOracle": {
+          "type": "boolean",
+          "default": true,
+          "description": "Prefer Oracle JDK downloads when available and automatable."
+        },
+        "jaenvtix.allowPreviewJdk": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow provisioning preview (non-LTS) JDKs with a stability warning."
+        },
+        "jaenvtix.fallbackVendor": {
+          "type": "string",
+          "default": "corretto",
+          "enum": [
+            "corretto",
+            "temurin",
+            "zulu",
+            "dragonwell",
+            "sapmachine"
+          ],
+          "description": "Fallback OpenJDK vendor identifier used when Oracle JDK cannot be provisioned."
+        },
+        "jaenvtix.checksumPolicy": {
+          "type": "string",
+          "default": "best-effort",
+          "enum": [
+            "strict",
+            "best-effort"
+          ],
+          "description": "Checksum validation policy: strict requires checksums, best-effort uses them when available."
+        },
+        "jaenvtix.cleanupDownloads": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically delete temporary download artifacts after installations complete."
+        },
+        "jaenvtix.toolchainsPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional override path to the Maven toolchains.xml file; leave empty to use the default location."
+        }
+      }
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "jaenvtix.detectJavaVersion"
+        },
+        {
+          "command": "jaenvtix.provisionOrUpdateJdk"
+        },
+        {
+          "command": "jaenvtix.reinstallMvnd"
+        },
+        {
+          "command": "jaenvtix.openToolchainsXml"
+        },
+        {
+          "command": "jaenvtix.cleanCache"
+        },
+        {
+          "command": "jaenvtix.showJdkStatus"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "jaenvtix.detectJavaVersion",
+          "when": "resourceExtname == .xml",
+          "group": "navigation@5"
+        }
+      ],
+      "statusBar/left": [
+        {
+          "command": "jaenvtix.showJdkStatus",
+          "group": "navigation@1"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
