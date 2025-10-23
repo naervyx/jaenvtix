@@ -82,4 +82,48 @@ suite('WorkspaceConfigurator', () => {
         assert.strictEqual(settings['editor.formatOnSave'], true);
         assert.strictEqual(settings['jaenvtix.release'], '11');
     });
+
+    test('handles existing JSONC content without wiping user settings', async () => {
+        const settingsPath = path.join(tempDir, '.vscode', 'settings.json');
+        await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+        const jsonc = `{
+    // Preserve format on save
+    "editor.formatOnSave": true,
+}`;
+        await fs.writeFile(settingsPath, jsonc);
+
+        const fallback = path.join(tempDir, 'bin', 'mvn-jaenvtix');
+        await configurator.apply({
+            workspaceRoot: tempDir,
+            javaHome: '/opt/jdk-11',
+            release: '11',
+            vendor: 'Amazon Corretto',
+            mavenExecutable: fallback,
+            toolchainsPath: '/other/toolchains.xml',
+        });
+
+        const settings = await readSettings(tempDir);
+        assert.strictEqual(settings['editor.formatOnSave'], true);
+        assert.strictEqual(settings['jaenvtix.toolchainsPath'], '/other/toolchains.xml');
+    });
+
+    test('preserves invalid settings.json content by leaving the file untouched', async () => {
+        const settingsPath = path.join(tempDir, '.vscode', 'settings.json');
+        await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+        const invalidContent = '{"editor.formatOnSave": true,';
+        await fs.writeFile(settingsPath, invalidContent);
+
+        const fallback = path.join(tempDir, 'bin', 'mvn-jaenvtix');
+        await configurator.apply({
+            workspaceRoot: tempDir,
+            javaHome: '/opt/jdk-11',
+            release: '11',
+            vendor: 'Amazon Corretto',
+            mavenExecutable: fallback,
+            toolchainsPath: '/other/toolchains.xml',
+        });
+
+        const raw = await fs.readFile(settingsPath, 'utf-8');
+        assert.strictEqual(raw, invalidContent);
+    });
 });
