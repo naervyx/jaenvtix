@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import * as os from 'os';
 import * as path from 'path';
 import { promises as fs } from 'fs';
+import { setup, suite, teardown, test } from 'mocha';
 import { WorkspaceConfigurator } from '../services/workspaceConfigurator';
 
 suite('WorkspaceConfigurator', () => {
