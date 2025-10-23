@@ -24,6 +24,18 @@ These are **optional** — Jaenvtix works without them, but features like **Inte
     - **Test Explorer** for JUnit/TestNG
     - **Terminal** with `mvn-jaenvtix` (wrapper with fixed `JAVA_HOME`)
 
+### Develop or test the extension locally
+
+To build the extension and launch the VS Code Extension Development Host in one go, run:
+
+```bash
+npm run dev
+```
+
+This script performs the full compilation (type-check, lint, bundle) before starting the host with the current workspace loaded.
+
+> **Note:** The script looks for the `code` (or `code-insiders`/`cursor`) command on your `PATH`. If it is missing, run the VS Code command palette action **“Shell Command: Install 'code' command in PATH”** or set `VSCODE_DEV_HOST_CLI` to the executable you want to use.
+
 > Tip: if the project has `mvnw`, it is **respected**; `JAVA_HOME` is still pinned to the provisioned JDK.
 
 ---
