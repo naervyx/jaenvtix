@@ -197,6 +197,12 @@ export class JdkProvider {
         return result;
     }
 
+    public async cleanTemporaryArtifacts(): Promise<void> {
+        const tempDir = path.join(this.cacheRoot, 'temp');
+        await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+        await fs.mkdir(tempDir, { recursive: true });
+    }
+
     private async resolveMetadata(
         options: ProvisioningOptions,
     ): Promise<{ metadata: PackageMetadata | undefined; usedVendor: VendorPreference }> {
