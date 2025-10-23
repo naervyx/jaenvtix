@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import * as os from 'os';
 import * as path from 'path';
 import { promises as fs } from 'fs';
+import { setup, suite, teardown, test } from 'mocha';
 import { ToolchainManager } from '../services/toolchainManager';
 
 suite('ToolchainManager', () => {
@@ -9,13 +10,13 @@ suite('ToolchainManager', () => {
     let manager: ToolchainManager;
     let filePath: string;
 
-    beforeEach(async () => {
+    setup(async () => {
         tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'jaenvtix-toolchain-'));
         manager = new ToolchainManager(tempDir);
         filePath = path.join(tempDir, 'toolchains.xml');
     });
 
-    afterEach(async () => {
+    teardown(async () => {
         await fs.rm(tempDir, { recursive: true, force: true });
     });
 
