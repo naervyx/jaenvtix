@@ -8,12 +8,12 @@ suite('WorkspaceConfigurator', () => {
     let tempDir: string;
     let configurator: WorkspaceConfigurator;
 
-    beforeEach(async () => {
+    setup(async () => {
         tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'jaenvtix-workspace-'));
         configurator = new WorkspaceConfigurator();
     });
 
-    afterEach(async () => {
+    teardown(async () => {
         await fs.rm(tempDir, { recursive: true, force: true });
     });
 
