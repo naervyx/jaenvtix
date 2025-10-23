@@ -36,7 +36,8 @@ export class MavenManager {
                 '$ErrorActionPreference = "Stop"',
                 `$env:JAVA_HOME = "${escapedJavaHome}"`,
                 '$env:PATH = "$env:JAVA_HOME\\bin;" + $env:PATH',
-                'Start-Process mvn -ArgumentList $args -NoNewWindow -Wait',
+                '& mvn @args',
+                'exit $LASTEXITCODE',
             ].join(os.EOL);
             await fs.writeFile(ps1Path, psContent, 'utf-8');
             return cmdPath;
