@@ -7,6 +7,7 @@ export interface PomScanResult {
 }
 
 type CompilerPluginValueKey = "release" | "source" | "target";
+type CompilerPluginSource = "pluginManagement" | "plugins";
 
 interface PluginState {
     isCompilerPlugin: boolean;
@@ -65,6 +66,7 @@ export async function scanWorkspaceForPom(workspaceRoot: string = process.cwd())
 export async function resolveJavaVersion(pomPath: string): Promise<string | undefined> {
     const properties: PropertiesState = {};
     let compilerPluginValues: Partial<Record<"release" | "source" | "target", string>> | undefined;
+    let compilerPluginSource: CompilerPluginSource | undefined;
     const elementStack: Array<{ name: string; text: string } & ({ pluginState: PluginState } | { pluginState?: undefined })> = [];
     const pluginStack: PluginState[] = [];
 
@@ -299,8 +301,19 @@ export async function resolveJavaVersion(pomPath: string): Promise<string | unde
             if (tagName === "plugin") {
                 pluginStack.pop();
 
-                if (pluginState.isCompilerPlugin && !compilerPluginValues) {
-                    compilerPluginValues = { ...pluginState.values };
+                if (pluginState.isCompilerPlugin) {
+                    const source: CompilerPluginSource = path.includes("/pluginManagement/")
+                        ? "pluginManagement"
+                        : "plugins";
+
+                    if (
+                        !compilerPluginValues ||
+                        source === "plugins" ||
+                        compilerPluginSource !== "plugins"
+                    ) {
+                        compilerPluginValues = { ...pluginState.values };
+                        compilerPluginSource = source;
+                    }
                 }
 
                 return;
