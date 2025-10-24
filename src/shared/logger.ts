@@ -18,8 +18,8 @@ function log(level: LogLevel, context: LoggerContext, message: string, fields?: 
         level,
         message,
         logger: context.name,
-        ...context.defaultFields,
-        ...fields,
+        ...(context.defaultFields ?? {}),
+        ...(fields ?? {}),
         timestamp: new Date().toISOString(),
     };
 
@@ -49,7 +49,10 @@ function log(level: LogLevel, context: LoggerContext, message: string, fields?: 
 function mergeContext(base: LoggerContext, childContext: Partial<LoggerContext>): LoggerContext {
     return {
         name: childContext.name ?? base.name,
-        defaultFields: { ...base.defaultFields, ...childContext.defaultFields },
+        defaultFields: {
+            ...(base.defaultFields ?? {}),
+            ...(childContext.defaultFields ?? {}),
+        },
     };
 }
 
