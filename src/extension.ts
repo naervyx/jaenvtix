@@ -1,26 +1,48 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+import { createLogger, err, ok, retry } from "@shared/index";
+import type { Result } from "@shared/result";
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "jaenvtix" is now active!');
+const logger = createLogger({ name: "jaenvtix.extension" });
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('jaenvtix.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from jaenvtix!');
-	});
+function getGreetingMessage(): Result<string, Error> {
+    const message = "Hello World from jaenvtix!";
 
-	context.subscriptions.push(disposable);
+    if (!message) {
+        return err(new Error("Greeting message is not configured."));
+    }
+
+    return ok(message);
 }
 
-// This method is called when your extension is deactivated
-export function deactivate() {}
+export function activate(context: vscode.ExtensionContext): void {
+    logger.info("Extension activated");
+
+    const disposable = vscode.commands.registerCommand("jaenvtix.helloWorld", async () => {
+        const greetingResult = getGreetingMessage();
+
+        if (!greetingResult.ok) {
+            logger.error("Greeting message unavailable", {
+                error: greetingResult.error instanceof Error ? greetingResult.error.message : String(greetingResult.error),
+            });
+
+            return;
+        }
+
+        await retry(() => vscode.window.showInformationMessage(greetingResult.value), {
+            retries: 2,
+            onRetry: (error, attempt) => {
+                logger.warn("Retrying to show greeting", {
+                    attempt,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            },
+        });
+    });
+
+    context.subscriptions.push(disposable);
+}
+
+export function deactivate(): void {
+    logger.info("Extension deactivated");
+}
