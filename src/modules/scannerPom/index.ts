@@ -6,9 +6,12 @@ export interface PomScanResult {
     readonly javaVersion?: string;
 }
 
+type CompilerPluginValueKey = "release" | "source" | "target";
+
 interface PluginState {
     isCompilerPlugin: boolean;
-    readonly values: Partial<Record<"release" | "source" | "target", string>>;
+    readonly values: Partial<Record<CompilerPluginValueKey, string>>;
+    readonly pendingValues: Partial<Record<CompilerPluginValueKey, string>>;
 }
 
 interface PropertiesState {
@@ -228,7 +231,11 @@ export async function resolveJavaVersion(pomPath: string): Promise<string | unde
             const baseState = { name: tagName, text: "" } as { name: string; text: string } & ({ pluginState: PluginState } | { pluginState?: undefined });
 
             if (tagName === "plugin") {
-                const pluginState: PluginState = { isCompilerPlugin: false, values: {} };
+                const pluginState: PluginState = {
+                    isCompilerPlugin: false,
+                    values: {},
+                    pendingValues: {},
+                };
                 pluginStack.push(pluginState);
                 elementStack.push({ ...baseState, pluginState });
             } else {
@@ -301,15 +308,16 @@ export async function resolveJavaVersion(pomPath: string): Promise<string | unde
 
             if (tagName === "artifactId" && value === "maven-compiler-plugin") {
                 pluginState.isCompilerPlugin = true;
+                promotePendingValues(pluginState);
 
                 return;
             }
 
-            if (!pluginState.isCompilerPlugin || !value) {
+            if (!value) {
                 return;
             }
 
-            assignPluginValue(pluginState.values, path, value);
+            bufferPluginValue(pluginState, path, value);
         };
 
         const handleNestedPluginClose = (tagName: string, path: string, value: string): void => {
@@ -321,19 +329,20 @@ export async function resolveJavaVersion(pomPath: string): Promise<string | unde
 
             if (tagName === "artifactId" && value === "maven-compiler-plugin") {
                 currentPlugin.isCompilerPlugin = true;
+                promotePendingValues(currentPlugin);
 
                 return;
             }
 
-            if (!currentPlugin.isCompilerPlugin || !value) {
+            if (!value) {
                 return;
             }
 
-            assignPluginValue(currentPlugin.values, path, value);
+            bufferPluginValue(currentPlugin, path, value);
         };
 
         const assignPluginValue = (
-            container: Partial<Record<"release" | "source" | "target", string>>,
+            container: Partial<Record<CompilerPluginValueKey, string>>,
             path: string,
             value: string,
         ): void => {
@@ -348,6 +357,26 @@ export async function resolveJavaVersion(pomPath: string): Promise<string | unde
             if (path.endsWith("configuration/target") && container.target === undefined) {
                 container.target = value;
             }
+        };
+
+        const promotePendingValues = (pluginState: PluginState): void => {
+            for (const key of ["release", "source", "target"] as const) {
+                const pendingValue = pluginState.pendingValues[key];
+
+                if (pendingValue !== undefined && pluginState.values[key] === undefined) {
+                    pluginState.values[key] = pendingValue;
+                }
+            }
+        };
+
+        const bufferPluginValue = (pluginState: PluginState, path: string, value: string): void => {
+            if (pluginState.isCompilerPlugin) {
+                assignPluginValue(pluginState.values, path, value);
+
+                return;
+            }
+
+            assignPluginValue(pluginState.pendingValues, path, value);
         };
 
         stream.on("data", (chunk) => {
