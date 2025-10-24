@@ -363,10 +363,10 @@ export async function resolveJavaVersion(pomPath: string): Promise<string | unde
 
     const candidates: Array<string | undefined> = [
         compilerPluginValues?.release,
-        properties.mavenCompilerRelease,
         compilerPluginValues?.source,
-        properties.mavenCompilerSource,
         compilerPluginValues?.target,
+        properties.mavenCompilerRelease,
+        properties.mavenCompilerSource,
         properties.mavenCompilerTarget,
         properties.javaVersion,
     ];
