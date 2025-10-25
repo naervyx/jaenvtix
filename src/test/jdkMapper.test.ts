@@ -1,0 +1,73 @@
+import * as assert from "assert";
+
+import { resolveJdkDistribution } from "../modules/jdkMapper";
+import type { ResolveJdkDistributionParameters } from "../modules/jdkMapper";
+
+class TestConfiguration {
+    public constructor(private readonly values: Record<string, unknown> = {}) {}
+
+    public get<T>(section: string): T | undefined {
+        return this.values[section] as T | undefined;
+    }
+}
+
+suite("jdkMapper", () => {
+    function resolveWith(
+        overrides: Partial<ResolveJdkDistributionParameters> = {},
+        configurationValues: Record<string, unknown> = {},
+    ) {
+        const parameters: ResolveJdkDistributionParameters = {
+            version: "21",
+            os: "windows",
+            arch: "x64",
+            ...overrides,
+            configuration: new TestConfiguration(configurationValues),
+        };
+
+        return resolveJdkDistribution(parameters);
+    }
+
+    test("prefers Oracle when available and configured", () => {
+        const distribution = resolveWith();
+
+        assert.strictEqual(distribution.vendor, "oracle");
+        assert.strictEqual(distribution.license, "Oracle No-Fee Terms and Conditions");
+        assert.match(distribution.url, /jdk-21_windows-x64/);
+    });
+
+    test("falls back to configured vendor when Oracle is unavailable", () => {
+        const distribution = resolveWith(
+            { os: "linux", arch: "arm64", version: "17" },
+            { "jaenvtix.fallbackVendor": "temurin" },
+        );
+
+        assert.strictEqual(distribution.vendor, "temurin");
+        assert.match(distribution.url, /temurin17/);
+    });
+
+    test("honors preference flag to skip Oracle when disabled", () => {
+        const distribution = resolveWith(
+            {},
+            { "jaenvtix.preferOracle": false },
+        );
+
+        assert.strictEqual(distribution.vendor, "corretto");
+        assert.match(distribution.url, /corretto-21/);
+    });
+
+    test("rejects preview versions unless enabled", () => {
+        assert.throws(() => {
+            resolveWith({ version: "22" });
+        }, /Preview JDK version/);
+    });
+
+    test("allows preview versions when setting enabled", () => {
+        const distribution = resolveWith(
+            { version: "22", os: "linux", arch: "x64" },
+            { "jaenvtix.allowPreviewJdk": true },
+        );
+
+        assert.strictEqual(distribution.vendor, "oracle");
+        assert.match(distribution.url, /jdk-22_linux-x64/);
+    });
+});
