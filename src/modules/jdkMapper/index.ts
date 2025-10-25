@@ -316,13 +316,15 @@ function buildVendorOrder(
         ordered.add("oracle");
     }
 
-    if (preferOracle || fallbackVendor !== "oracle") {
-        ordered.add(fallbackVendor);
-    }
-
     for (const vendor of prioritizedVendors) {
         ordered.add(vendor);
     }
+
+    if (ordered.has(fallbackVendor)) {
+        ordered.delete(fallbackVendor);
+    }
+
+    ordered.add(fallbackVendor);
 
     return Array.from(ordered);
 }
