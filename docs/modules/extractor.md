@@ -2,49 +2,49 @@
 
 ## Overview
 
-O módulo `extractor` processa arquivos compactados (ZIP e variantes TAR) e materializa seus conteúdos no destino indicado. Ele prefere ferramentas nativas como `unzip` e `tar` quando disponíveis, mas possui uma implementação totalmente em TypeScript como fallback, incluindo uma opção manual que solicita ao usuário uma pasta previamente extraída.
+The `extractor` module processes compressed archives (ZIP and TAR variants) and materializes their contents in the requested destination. It prefers native tools such as `unzip` and `tar` when available, but it also ships a full TypeScript fallback and a manual prompt that lets the user pick an already extracted folder.
 
 ## API
 
 ### `extract(archivePath: string, destination: string, formatHint?: string): Promise<string>`
 
-- **Entrada**:
-  - `archivePath`: caminho absoluto para o arquivo compactado.
-  - `destination`: pasta que deve receber os arquivos extraídos. Criada automaticamente caso não exista.
-  - `formatHint`: dica opcional para forçar o formato (`"zip"`, `"tar"`, `"tar.gz"`).
-- **Saída**: resolve com o caminho do destino assim que algum fluxo de extração concluir com sucesso.
-- **Comportamento**:
-  - Detecta o formato automaticamente quando nenhuma dica é fornecida.
-  - Garante que o diretório de destino exista e delega a extração a três estratégias em cascata: nativa, fallback JavaScript e prompt manual.
-  - Armazena resultados intermediários em subdiretórios temporários e move os arquivos validados para o destino final, preservando conteúdos pré-existentes que não colidam com o que está sendo extraído.
-  - Valida nomes de entradas antes de acionar ferramentas nativas para bloquear caminhos absolutos ou sequências `..` que escapem do diretório de destino.
+- **Input:**
+  - `archivePath`: absolute path to the archive file.
+  - `destination`: directory that should receive the extracted files. Created automatically if it does not exist.
+  - `formatHint`: optional hint to force the format (`"zip"`, `"tar"`, `"tar.gz"`).
+- **Output:** resolves with the destination path as soon as any extraction flow completes successfully.
+- **Behavior:**
+  - Detects the format automatically when no hint is provided.
+  - Ensures the destination directory exists and delegates extraction to three cascading strategies: native, JavaScript fallback, and manual prompt.
+  - Stores intermediate results inside temporary subdirectories and moves vetted files to the final destination, preserving pre-existing contents that do not collide with the extracted files.
+  - Validates entry names before invoking native tools to block absolute paths or `..` sequences that could escape the destination directory.
 
-## Estratégias de Extração
+## Extraction Strategies
 
-### Extração nativa
+### Native extraction
 
-- Usa `tar` ou `unzip` no macOS/Linux e `tar`/`Expand-Archive` no Windows.
-- Cria um workspace temporário dentro do destino para executar a ferramenta do sistema e, após o sucesso, move o resultado validado para a pasta final.
-- Rejeita entradas com caminhos suspeitos antes de invocar o binário nativo.
+- Uses `tar` or `unzip` on macOS/Linux and `tar`/`Expand-Archive` on Windows.
+- Creates a temporary workspace inside the destination to run the system tool and, after success, moves the validated result into the final folder.
+- Rejects entries with suspicious paths before invoking the native binary.
 
-### Extração em JavaScript
+### JavaScript extraction
 
-- Implementa leitura direta do formato ZIP e um pipeline de TAR/TAR.GZ em TypeScript.
-- Utiliza os mesmos diretórios temporários e verificações de caminho, minimizando riscos de sobrescrever arquivos fora da pasta alvo.
+- Implements direct ZIP processing and a TAR/TAR.GZ pipeline in TypeScript.
+- Uses the same temporary directories and path checks, minimizing the risk of overwriting files outside the target folder.
 
-### Prompt manual
+### Manual prompt
 
-- Quando todas as estratégias automatizadas falham, solicita ao usuário (via VS Code) que selecione manualmente uma pasta já extraída.
-- Normaliza e valida o caminho retornado antes de concluir a operação.
+- When every automated strategy fails, asks the user (via VS Code) to manually select an already extracted folder.
+- Normalizes and validates the returned path before finishing the operation.
 
-## Diretrizes de Integração
+## Integration Guidelines
 
-- Prefira fornecer um `formatHint` quando o formato já é conhecido para evitar heurísticas baseadas em extensão.
-- Permita que os usuários escolham entre ferramentas nativas ou fallback somente JavaScript através de configurações, caso desejado.
-- Capture e registre as mensagens de erro retornadas em `AggregateError` para facilitar diagnósticos de falhas.
-- Garanta permissões de escrita na pasta de destino e em seus subdiretórios temporários durante a execução do módulo.
+- Prefer passing a `formatHint` when the archive format is known to avoid extension-based heuristics.
+- Consider exposing a configuration that lets users opt in or out of native tools when desired.
+- Capture and log error messages returned in the `AggregateError` to simplify failure diagnostics.
+- Ensure write permissions in the destination folder and its temporary subdirectories while the module runs.
 
-## Recursos Relacionados
+## Related Resources
 
-- `src/modules/extractor/index.ts`: implementação principal do módulo.
-- `setSpawnImplementation` / `setManualExtractionPrompt`: pontos de injeção úteis para testes automatizados.
+- `src/modules/extractor/index.ts`: main module implementation.
+- `setSpawnImplementation` / `setManualExtractionPrompt`: handy injection points for automated tests.
