@@ -568,9 +568,19 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
         const name = readTarString(header, 0, 100);
         const prefix = readTarString(header, 345, 155);
         const entryName = combineTarPath(prefix, name);
-        const size = readTarSize(header, 124, 12);
+        const headerSize = readTarSize(header, 124, 12);
         const typeFlag = header[156] ?? 0;
         const dataOffset = offset + blockSize;
+        let size = headerSize;
+
+        if (!isTarMetadataType(typeFlag)) {
+            const override = resolvePaxSizeOverride(pendingPaxAttributes, globalPaxAttributes);
+
+            if (override !== null) {
+                size = override;
+            }
+        }
+
         const paddedSize = alignToBlock(size, blockSize);
         const nextOffset = dataOffset + paddedSize;
 
@@ -585,8 +595,10 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
         }
 
         if (isTarMetadataType(typeFlag)) {
-            if (size > 0) {
-                const data = buffer.subarray(dataOffset, dataOffset + size);
+            const sizeForMetadata = headerSize;
+
+            if (sizeForMetadata > 0) {
+                const data = buffer.subarray(dataOffset, dataOffset + sizeForMetadata);
 
                 switch (typeFlag) {
                     case 76: { // 'L' - GNU long name
@@ -674,9 +686,19 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
         const name = readTarString(header, 0, 100);
         const prefix = readTarString(header, 345, 155);
         const entryName = combineTarPath(prefix, name);
-        const size = readTarSize(header, 124, 12);
+        const headerSize = readTarSize(header, 124, 12);
         const typeFlag = header[156] ?? 0;
         const dataOffset = offset + blockSize;
+        let size = headerSize;
+
+        if (!isTarMetadataType(typeFlag)) {
+            const override = resolvePaxSizeOverride(pendingPaxAttributes, globalPaxAttributes);
+
+            if (override !== null) {
+                size = override;
+            }
+        }
+
         const paddedSize = alignToBlock(size, blockSize);
         const nextOffset = dataOffset + paddedSize;
 
@@ -687,8 +709,10 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
         offset = nextOffset;
 
         if (isTarMetadataType(typeFlag)) {
-            if (size > 0) {
-                const data = buffer.subarray(dataOffset, dataOffset + size);
+            const sizeForMetadata = headerSize;
+
+            if (sizeForMetadata > 0) {
+                const data = buffer.subarray(dataOffset, dataOffset + sizeForMetadata);
 
                 switch (typeFlag) {
                     case 76: { // 'L' - GNU long name
@@ -831,6 +855,25 @@ function parsePaxHeaders(data: Buffer): Record<string, string> {
     }
 
     return result;
+}
+
+function resolvePaxSizeOverride(
+    pendingAttributes: Record<string, string> | null,
+    globalAttributes: Record<string, string>,
+): number | null {
+    const sizeString = pendingAttributes?.size ?? globalAttributes.size;
+
+    if (!sizeString) {
+        return null;
+    }
+
+    const parsed = Number.parseInt(sizeString, 10);
+
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return null;
+    }
+
+    return parsed;
 }
 
 function combineTarPath(prefix: string, name: string): string {
