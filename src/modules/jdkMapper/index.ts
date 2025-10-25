@@ -68,10 +68,10 @@ const VENDORS: Record<JdkVendorId, VendorManifest> = {
                     },
                     macos: {
                         x64: {
-                            url: "https://download.oracle.com/java/21/latest/jdk-21_macos-x64_bin.dmg",
+                            url: "https://download.oracle.com/java/21/latest/jdk-21_macos-x64_bin.tar.gz",
                         },
                         arm64: {
-                            url: "https://download.oracle.com/java/21/latest/jdk-21_macos-aarch64_bin.dmg",
+                            url: "https://download.oracle.com/java/21/latest/jdk-21_macos-aarch64_bin.tar.gz",
                         },
                     },
                     linux: {
@@ -91,10 +91,10 @@ const VENDORS: Record<JdkVendorId, VendorManifest> = {
                     },
                     macos: {
                         x64: {
-                            url: "https://download.oracle.com/java/25/latest/jdk-25_macos-x64_bin.dmg",
+                            url: "https://download.oracle.com/java/25/latest/jdk-25_macos-x64_bin.tar.gz",
                         },
                         arm64: {
-                            url: "https://download.oracle.com/java/25/latest/jdk-25_macos-aarch64_bin.dmg",
+                            url: "https://download.oracle.com/java/25/latest/jdk-25_macos-aarch64_bin.tar.gz",
                         },
                     },
                     linux: {
@@ -121,7 +121,7 @@ const VENDORS: Record<JdkVendorId, VendorManifest> = {
                     },
                     macos: {
                         x64: {
-                            url: "https://corretto.aws/downloads/latest/amazon-corretto-8-x64-macos-jdk.pkg",
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-8-x64-macos-jdk.tar.gz",
                         },
                     },
                     linux: {
@@ -140,10 +140,10 @@ const VENDORS: Record<JdkVendorId, VendorManifest> = {
                     },
                     macos: {
                         x64: {
-                            url: "https://corretto.aws/downloads/latest/amazon-corretto-11-x64-macos-jdk.pkg",
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-11-x64-macos-jdk.tar.gz",
                         },
                         arm64: {
-                            url: "https://corretto.aws/downloads/latest/amazon-corretto-11-aarch64-macos-jdk.pkg",
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-11-aarch64-macos-jdk.tar.gz",
                         },
                     },
                     linux: {
@@ -165,10 +165,10 @@ const VENDORS: Record<JdkVendorId, VendorManifest> = {
                     },
                     macos: {
                         x64: {
-                            url: "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-macos-jdk.pkg",
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-macos-jdk.tar.gz",
                         },
                         arm64: {
-                            url: "https://corretto.aws/downloads/latest/amazon-corretto-17-aarch64-macos-jdk.pkg",
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-17-aarch64-macos-jdk.tar.gz",
                         },
                     },
                     linux: {
@@ -190,10 +190,10 @@ const VENDORS: Record<JdkVendorId, VendorManifest> = {
                     },
                     macos: {
                         x64: {
-                            url: "https://corretto.aws/downloads/latest/amazon-corretto-21-x64-macos-jdk.pkg",
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-21-x64-macos-jdk.tar.gz",
                         },
                         arm64: {
-                            url: "https://corretto.aws/downloads/latest/amazon-corretto-21-aarch64-macos-jdk.pkg",
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-21-aarch64-macos-jdk.tar.gz",
                         },
                     },
                     linux: {
