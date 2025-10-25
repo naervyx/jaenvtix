@@ -18,7 +18,27 @@
         "command": "jaenvtix.helloWorld",
         "title": "Hello World"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "jaenvtix",
+      "properties": {
+        "jaenvtix.platform.override": {
+          "type": "object",
+          "markdownDescription": "Overrides the detected operating system and architecture used by jaenvtix.",
+          "default": {},
+          "properties": {
+            "os": {
+              "type": "string",
+              "markdownDescription": "Operating system identifier such as `windows`, `macos` or `linux`."
+            },
+            "arch": {
+              "type": "string",
+              "markdownDescription": "Processor architecture identifier such as `x64`, `x86` or `arm64`."
+            }
+          }
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
