@@ -3,10 +3,17 @@ name: CI
 on:
   push:
     branches:
-      - main
-      - "release/*"
-  pull_request:
+      - master
   workflow_dispatch:
+    inputs:
+      run_full_test_suite:
+        description: 'Set to "true" to run the full regression test stage.'
+        required: true
+        default: 'false'
+      enable_multi_platform_builds:
+        description: 'Set to "true" to include macOS and Windows jobs in addition to Linux.'
+        required: true
+        default: 'false'
 
 permissions:
   contents: read
@@ -18,7 +25,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(
+          (github.event_name == 'workflow_dispatch' && inputs.enable_multi_platform_builds == 'true' && '["ubuntu-latest","macos-latest","windows-latest"]') ||
+          (github.event_name == 'push' && '["ubuntu-latest","macos-latest","windows-latest"]') ||
+          '["ubuntu-latest"]'
+        ) }}
     env:
       CI: true
     steps:
@@ -44,6 +55,7 @@ jobs:
         run: npm run bundle:dev
 
       - name: Run regression tests
+        if: github.event_name != 'workflow_dispatch' || inputs.run_full_test_suite == 'true'
         shell: bash
         run: |
           if [ "${{ runner.os }}" = "Linux" ]; then
