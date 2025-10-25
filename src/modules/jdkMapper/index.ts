@@ -307,24 +307,34 @@ function buildVendorOrder(
     preferOracle: boolean,
     fallbackVendor: JdkVendorId,
 ): readonly JdkVendorId[] {
-    const ordered = new Set<JdkVendorId>();
+    const ordered: JdkVendorId[] = [];
     const prioritizedVendors = preferOracle
         ? DEFAULT_VENDOR_PRIORITY
         : DEFAULT_VENDOR_PRIORITY.filter((vendor) => vendor !== "oracle");
 
     if (preferOracle) {
-        ordered.add("oracle");
+        ordered.push("oracle");
     }
 
     for (const vendor of prioritizedVendors) {
-        ordered.add(vendor);
+        if (!ordered.includes(vendor)) {
+            ordered.push(vendor);
+        }
     }
 
-    if (ordered.has(fallbackVendor)) {
-        ordered.delete(fallbackVendor);
+    if (!ordered.includes(fallbackVendor)) {
+        ordered.push(fallbackVendor);
+        return ordered;
     }
 
-    ordered.add(fallbackVendor);
+    if (ordered[0] !== fallbackVendor) {
+        const currentIndex = ordered.indexOf(fallbackVendor);
 
-    return Array.from(ordered);
+        if (currentIndex !== -1) {
+            ordered.splice(currentIndex, 1);
+            ordered.push(fallbackVendor);
+        }
+    }
+
+    return ordered;
 }
