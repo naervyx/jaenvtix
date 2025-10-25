@@ -611,6 +611,9 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
     const blockSize = 512;
     const destinationRoot = path.resolve(destination);
     let offset = 0;
+    let pendingLongName: string | null = null;
+    let pendingPaxAttributes: Record<string, string> | null = null;
+    let globalPaxAttributes: Record<string, string> = {};
 
     while (offset + blockSize <= buffer.length) {
         const header = buffer.subarray(offset, offset + blockSize);
@@ -634,16 +637,57 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
 
         offset = nextOffset;
 
-        if (!entryName) {
-            continue;
-        }
-
         if (isTarMetadataType(typeFlag)) {
+            if (size > 0) {
+                const data = buffer.subarray(dataOffset, dataOffset + size);
+
+                switch (typeFlag) {
+                    case 76: { // 'L' - GNU long name
+                        pendingLongName = readTarNullTerminatedString(data);
+                        break;
+                    }
+                    case 120: { // 'x' - PAX extended header
+                        pendingPaxAttributes = parsePaxHeaders(data);
+                        break;
+                    }
+                    case 103: // 'g' - GNU global extended header
+                    case 71: { // 'G' - Pax global header (some implementations)
+                        const attributes = parsePaxHeaders(data);
+                        globalPaxAttributes = {
+                            ...globalPaxAttributes,
+                            ...attributes,
+                        };
+                        break;
+                    }
+                    default: {
+                        // Other metadata types do not affect path resolution for the next entry.
+                        break;
+                    }
+                }
+            }
+
             continue;
         }
 
-        validateNativeEntryName(entryName);
-        const resolved = resolveEntryPath(destinationRoot, entryName);
+        let effectiveEntryName = entryName;
+
+        if (pendingLongName) {
+            effectiveEntryName = pendingLongName;
+        } else if (pendingPaxAttributes?.path) {
+            effectiveEntryName = pendingPaxAttributes.path;
+        } else if (globalPaxAttributes.path) {
+            effectiveEntryName = globalPaxAttributes.path;
+        }
+
+        pendingLongName = null;
+        pendingPaxAttributes = null;
+
+        if (!effectiveEntryName) {
+            continue;
+        }
+
+        validateNativeEntryName(effectiveEntryName);
+        const resolved = resolveEntryPath(destinationRoot, effectiveEntryName);
 
         if (!resolved) {
             continue;
@@ -688,6 +732,56 @@ function readTarString(block: Buffer, start: number, length: number): string {
     }
 
     return raw.subarray(0, end).toString("utf8");
+}
+
+function readTarNullTerminatedString(data: Buffer): string {
+    const zeroIndex = data.indexOf(0);
+
+    if (zeroIndex === -1) {
+        return data.toString("utf8");
+    }
+
+    return data.subarray(0, zeroIndex).toString("utf8");
+}
+
+function parsePaxHeaders(data: Buffer): Record<string, string> {
+    const result: Record<string, string> = {};
+    let offset = 0;
+
+    while (offset < data.length) {
+        const spaceIndex = data.indexOf(0x20, offset);
+
+        if (spaceIndex === -1) {
+            break;
+        }
+
+        const lengthString = data.subarray(offset, spaceIndex).toString("utf8").trim();
+        const recordLength = Number.parseInt(lengthString, 10);
+
+        if (!Number.isFinite(recordLength) || recordLength <= 0) {
+            break;
+        }
+
+        const recordEnd = offset + recordLength;
+
+        if (recordEnd > data.length) {
+            break;
+        }
+
+        const record = data.subarray(spaceIndex + 1, recordEnd);
+        const recordString = record.toString("utf8");
+        const equalsIndex = recordString.indexOf("=");
+
+        if (equalsIndex !== -1) {
+            const key = recordString.substring(0, equalsIndex);
+            const value = recordString.substring(equalsIndex + 1).replace(/\n$/, "");
+            result[key] = value;
+        }
+
+        offset = recordEnd;
+    }
+
+    return result;
 }
 
 function combineTarPath(prefix: string, name: string): string {
