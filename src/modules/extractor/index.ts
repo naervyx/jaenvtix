@@ -557,6 +557,8 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
         }
 
         const name = readTarString(header, 0, 100);
+        const prefix = readTarString(header, 345, 155);
+        const entryName = combineTarPath(prefix, name);
         const size = readTarSize(header, 124, 12);
         const typeFlag = header[156] ?? 0;
         const dataOffset = offset + blockSize;
@@ -564,16 +566,16 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
         const nextOffset = dataOffset + paddedSize;
 
         if (nextOffset > buffer.length) {
-            throw new Error(`TAR entry exceeds archive bounds: ${name}`);
+            throw new Error(`TAR entry exceeds archive bounds: ${entryName || name}`);
         }
 
         offset = nextOffset;
 
-        if (!name) {
+        if (!entryName) {
             continue;
         }
 
-        const resolved = resolveEntryPath(destinationRoot, name);
+        const resolved = resolveEntryPath(destinationRoot, entryName);
 
         if (!resolved) {
             continue;
@@ -591,7 +593,7 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
             continue;
         }
 
-        throw new Error(`Unsupported TAR entry type ${String.fromCharCode(typeFlag)} for ${name}`);
+        throw new Error(`Unsupported TAR entry type ${String.fromCharCode(typeFlag)} for ${entryName}`);
     }
 }
 
@@ -608,6 +610,8 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
         }
 
         const name = readTarString(header, 0, 100);
+        const prefix = readTarString(header, 345, 155);
+        const entryName = combineTarPath(prefix, name);
         const size = readTarSize(header, 124, 12);
         const typeFlag = header[156] ?? 0;
         const dataOffset = offset + blockSize;
@@ -615,17 +619,17 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
         const nextOffset = dataOffset + paddedSize;
 
         if (nextOffset > buffer.length) {
-            throw new Error(`TAR entry exceeds archive bounds: ${name}`);
+            throw new Error(`TAR entry exceeds archive bounds: ${entryName || name}`);
         }
 
         offset = nextOffset;
 
-        if (!name) {
+        if (!entryName) {
             continue;
         }
 
-        validateNativeEntryName(name);
-        const resolved = resolveEntryPath(destinationRoot, name);
+        validateNativeEntryName(entryName);
+        const resolved = resolveEntryPath(destinationRoot, entryName);
 
         if (!resolved) {
             continue;
@@ -635,7 +639,7 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
             continue;
         }
 
-        throw new Error(`Unsupported TAR entry type ${String.fromCharCode(typeFlag)} for ${name}`);
+        throw new Error(`Unsupported TAR entry type ${String.fromCharCode(typeFlag)} for ${entryName}`);
     }
 }
 
@@ -652,6 +656,22 @@ function readTarString(block: Buffer, start: number, length: number): string {
     }
 
     return raw.subarray(0, end).toString("utf8");
+}
+
+function combineTarPath(prefix: string, name: string): string {
+    if (!prefix) {
+        return name;
+    }
+
+    if (!name) {
+        return prefix;
+    }
+
+    if (prefix.endsWith("/")) {
+        return `${prefix}${name}`;
+    }
+
+    return `${prefix}/${name}`;
 }
 
 function readTarSize(block: Buffer, start: number, length: number): number {
