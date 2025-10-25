@@ -15,6 +15,7 @@ on:
         description: 'Set to "true" to include macOS and Windows jobs in addition to Linux.'
         required: true
         default: 'false'
+        # When this input remains "false" the workflow only schedules ubuntu-latest runners.
 
 permissions:
   contents: read
@@ -27,9 +28,10 @@ jobs:
     strategy:
       matrix:
         os: ${{ fromJSON(
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.enable_multi_platform_builds != 'true' && '["ubuntu-latest"]') ||
-          '["ubuntu-latest","macos-latest","windows-latest"]'
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.enable_multi_platform_builds == 'true' && '["ubuntu-latest","macos-latest","windows-latest"]') ||
+          '["ubuntu-latest"]'
         ) }}
+    # macOS and Windows jobs are only added to the matrix when enable_multi_platform_builds is true.
     env:
       CI: true
     steps:
