@@ -308,14 +308,19 @@ function buildVendorOrder(
     fallbackVendor: JdkVendorId,
 ): readonly JdkVendorId[] {
     const ordered = new Set<JdkVendorId>();
+    const prioritizedVendors = preferOracle
+        ? DEFAULT_VENDOR_PRIORITY
+        : DEFAULT_VENDOR_PRIORITY.filter((vendor) => vendor !== "oracle");
 
     if (preferOracle) {
         ordered.add("oracle");
     }
 
-    ordered.add(fallbackVendor);
+    if (preferOracle || fallbackVendor !== "oracle") {
+        ordered.add(fallbackVendor);
+    }
 
-    for (const vendor of DEFAULT_VENDOR_PRIORITY) {
+    for (const vendor of prioritizedVendors) {
         ordered.add(vendor);
     }
 
