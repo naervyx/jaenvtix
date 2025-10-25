@@ -27,9 +27,8 @@ jobs:
     strategy:
       matrix:
         os: ${{ fromJSON(
-          (github.event_name == 'workflow_dispatch' && inputs.enable_multi_platform_builds == 'true' && '["ubuntu-latest","macos-latest","windows-latest"]') ||
-          (github.event_name == 'push' && '["ubuntu-latest","macos-latest","windows-latest"]') ||
-          '["ubuntu-latest"]'
+          (github.event_name == 'workflow_dispatch' && inputs.enable_multi_platform_builds != 'true' && '["ubuntu-latest"]') ||
+          '["ubuntu-latest","macos-latest","windows-latest"]'
         ) }}
     env:
       CI: true
