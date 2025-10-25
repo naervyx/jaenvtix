@@ -5,7 +5,7 @@ import type {
     NormalizedOperatingSystem,
 } from "../platformInfo";
 
-export type JdkVendorId = "oracle" | "corretto";
+export type JdkVendorId = "oracle" | "corretto" | "temurin";
 
 export interface JdkDownloadDescriptor {
     readonly url: string;
@@ -50,6 +50,7 @@ export interface JdkDistribution {
 const DEFAULT_VENDOR_PRIORITY: readonly JdkVendorId[] = [
     "oracle",
     "corretto",
+    "temurin",
 ];
 
 const LTS_VERSIONS = new Set([8, 11, 17, 21, 25]);
@@ -205,6 +206,111 @@ const VENDORS: Record<JdkVendorId, VendorManifest> = {
                         },
                         arm64: {
                             url: "https://corretto.aws/downloads/latest/amazon-corretto-21-aarch64-linux-jdk.tar.gz",
+                        },
+                    },
+                },
+            },
+        },
+    },
+    temurin: {
+        license: "GPLv2 with Classpath Exception",
+        versions: {
+            "11": {
+                downloads: {
+                    windows: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin11-binaries/releases/latest/download/OpenJDK11U-jdk_x64_windows_hotspot.zip",
+                        },
+                    },
+                    macos: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin11-binaries/releases/latest/download/OpenJDK11U-jdk_x64_mac_hotspot.tar.gz",
+                        },
+                        arm64: {
+                            url: "https://github.com/adoptium/temurin11-binaries/releases/latest/download/OpenJDK11U-jdk_aarch64_mac_hotspot.tar.gz",
+                        },
+                    },
+                    linux: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin11-binaries/releases/latest/download/OpenJDK11U-jdk_x64_linux_hotspot.tar.gz",
+                        },
+                        arm64: {
+                            url: "https://github.com/adoptium/temurin11-binaries/releases/latest/download/OpenJDK11U-jdk_aarch64_linux_hotspot.tar.gz",
+                        },
+                    },
+                },
+            },
+            "17": {
+                downloads: {
+                    windows: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin17-binaries/releases/latest/download/OpenJDK17U-jdk_x64_windows_hotspot.zip",
+                        },
+                    },
+                    macos: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin17-binaries/releases/latest/download/OpenJDK17U-jdk_x64_mac_hotspot.tar.gz",
+                        },
+                        arm64: {
+                            url: "https://github.com/adoptium/temurin17-binaries/releases/latest/download/OpenJDK17U-jdk_aarch64_mac_hotspot.tar.gz",
+                        },
+                    },
+                    linux: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin17-binaries/releases/latest/download/OpenJDK17U-jdk_x64_linux_hotspot.tar.gz",
+                        },
+                        arm64: {
+                            url: "https://github.com/adoptium/temurin17-binaries/releases/latest/download/OpenJDK17U-jdk_aarch64_linux_hotspot.tar.gz",
+                        },
+                    },
+                },
+            },
+            "21": {
+                downloads: {
+                    windows: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin21-binaries/releases/latest/download/OpenJDK21U-jdk_x64_windows_hotspot.zip",
+                        },
+                    },
+                    macos: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin21-binaries/releases/latest/download/OpenJDK21U-jdk_x64_mac_hotspot.tar.gz",
+                        },
+                        arm64: {
+                            url: "https://github.com/adoptium/temurin21-binaries/releases/latest/download/OpenJDK21U-jdk_aarch64_mac_hotspot.tar.gz",
+                        },
+                    },
+                    linux: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin21-binaries/releases/latest/download/OpenJDK21U-jdk_x64_linux_hotspot.tar.gz",
+                        },
+                        arm64: {
+                            url: "https://github.com/adoptium/temurin21-binaries/releases/latest/download/OpenJDK21U-jdk_aarch64_linux_hotspot.tar.gz",
+                        },
+                    },
+                },
+            },
+            "25": {
+                downloads: {
+                    windows: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin25-binaries/releases/latest/download/OpenJDK25U-jdk_x64_windows_hotspot.zip",
+                        },
+                    },
+                    macos: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin25-binaries/releases/latest/download/OpenJDK25U-jdk_x64_mac_hotspot.tar.gz",
+                        },
+                        arm64: {
+                            url: "https://github.com/adoptium/temurin25-binaries/releases/latest/download/OpenJDK25U-jdk_aarch64_mac_hotspot.tar.gz",
+                        },
+                    },
+                    linux: {
+                        x64: {
+                            url: "https://github.com/adoptium/temurin25-binaries/releases/latest/download/OpenJDK25U-jdk_x64_linux_hotspot.tar.gz",
+                        },
+                        arm64: {
+                            url: "https://github.com/adoptium/temurin25-binaries/releases/latest/download/OpenJDK25U-jdk_aarch64_linux_hotspot.tar.gz",
                         },
                     },
                 },

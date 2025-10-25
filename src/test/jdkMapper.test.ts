@@ -52,6 +52,19 @@ suite("jdkMapper", () => {
         assert.match(distribution.url, /corretto-21/);
     });
 
+    test("supports Temurin fallback vendor", () => {
+        const distribution = resolveWith(
+            { version: "25", os: "linux", arch: "x64" },
+            {
+                "jaenvtix.preferOracle": false,
+                "jaenvtix.fallbackVendor": "temurin",
+            },
+        );
+
+        assert.strictEqual(distribution.vendor, "temurin");
+        assert.match(distribution.url, /temurin25/i);
+    });
+
     test("rejects preview versions unless enabled", () => {
         assert.throws(() => {
             resolveWith({ version: "23" });
