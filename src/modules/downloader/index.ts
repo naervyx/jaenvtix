@@ -119,7 +119,7 @@ export async function downloadArtifact(url: string, options: DownloadArtifactOpt
     const fsAdapter = resolveFileSystem(fileSystem);
     const writerFactory = createWriteStreamImpl ?? createWriteStream;
     const tempProvider = temporaryPathProvider ?? defaultTemporaryPath;
-    const combinedRetryOptions = buildRetryOptions(retryOptions, logger);
+    const combinedRetryOptions = buildRetryOptions(retryOptions, logger, signal);
 
     return retry(async () => {
         const temporaryPath = await Promise.resolve(tempProvider(destination));
@@ -127,6 +127,7 @@ export async function downloadArtifact(url: string, options: DownloadArtifactOpt
         await ensureDirectory(fsAdapter, path.dirname(temporaryPath));
 
         try {
+            throwIfAborted(signal);
             const response = await fetchFn(url, buildFetchInit(fetchOptions, signal));
 
             if (!response.ok) {
@@ -172,7 +173,7 @@ export async function downloadArtifact(url: string, options: DownloadArtifactOpt
                 }
             }
 
-            await fsAdapter.rename(temporaryPath, destination);
+            await moveFileWithOverwrite(fsAdapter, temporaryPath, destination);
 
             return destination;
         } catch (error) {
@@ -387,7 +388,11 @@ const ReadableFromWeb: ((source: unknown) => AsyncIterable<unknown>) | undefined
         ? (source: unknown) => Readable.fromWeb(source as never)
         : undefined;
 
-function buildRetryOptions(options: RetryOptions | undefined, logger: Logger | undefined): RetryOptions {
+function buildRetryOptions(
+    options: RetryOptions | undefined,
+    logger: Logger | undefined,
+    signal: AbortSignal | undefined,
+): RetryOptions {
     const combined: RetryOptions = {
         ...DEFAULT_RETRY_OPTIONS,
         ...options,
@@ -396,6 +401,10 @@ function buildRetryOptions(options: RetryOptions | undefined, logger: Logger | u
     const userOnRetry = combined.onRetry;
 
     combined.onRetry = (error, attempt) => {
+        if (isAbortError(error, signal)) {
+            throw error;
+        }
+
         userOnRetry?.(error, attempt);
 
         if (logger) {
@@ -407,4 +416,120 @@ function buildRetryOptions(options: RetryOptions | undefined, logger: Logger | u
     };
 
     return combined;
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+    if (!signal) {
+        return;
+    }
+
+    if (typeof signal.throwIfAborted === "function") {
+        signal.throwIfAborted();
+
+        return;
+    }
+
+    if (signal.aborted) {
+        throw createAbortError(signal);
+    }
+}
+
+function createAbortError(signal: AbortSignal | undefined): Error {
+    const reason = signal?.reason;
+
+    if (reason instanceof Error) {
+        return reason;
+    }
+
+    if (reason !== undefined) {
+        if (typeof DOMException === "function" && reason instanceof DOMException) {
+            return reason;
+        }
+
+        const error = new Error(
+            typeof reason === "string" ? reason : "The operation was aborted.",
+        );
+        (error as Error & { name?: string }).name = "AbortError";
+
+        return error;
+    }
+
+    if (typeof DOMException === "function") {
+        return new DOMException("The operation was aborted.", "AbortError");
+    }
+
+    const error = new Error("The operation was aborted.");
+    (error as Error & { name?: string }).name = "AbortError";
+
+    return error;
+}
+
+function isAbortError(error: unknown, signal: AbortSignal | undefined): boolean {
+    if (!error) {
+        return signal?.aborted === true;
+    }
+
+    if (signal?.aborted && signal.reason && error === signal.reason) {
+        return true;
+    }
+
+    if (typeof DOMException === "function" && error instanceof DOMException) {
+        return error.name === "AbortError";
+    }
+
+    if (typeof error === "object") {
+        const name = (error as { name?: unknown }).name;
+
+        if (name === "AbortError") {
+            return true;
+        }
+    }
+
+    if (signal?.aborted) {
+        return true;
+    }
+
+    return false;
+}
+
+async function moveFileWithOverwrite(
+    fileSystem: FileSystemAdapter,
+    from: string,
+    to: string,
+): Promise<void> {
+    try {
+        await fileSystem.rename(from, to);
+    } catch (error) {
+        if (!isOverwriteError(error)) {
+            throw error;
+        }
+
+        await removeExistingDestination(fileSystem, to);
+        await fileSystem.rename(from, to);
+    }
+}
+
+function isOverwriteError(error: unknown): boolean {
+    if (!error || typeof error !== "object") {
+        return false;
+    }
+
+    const nodeError = error as NodeJS.ErrnoException;
+
+    return nodeError.code === "EEXIST";
+}
+
+async function removeExistingDestination(
+    fileSystem: FileSystemAdapter,
+    destination: string,
+): Promise<void> {
+    try {
+        await fileSystem.unlink(destination);
+    } catch (error) {
+        if (isIgnorableFsError(error)) {
+            return;
+        }
+
+        throw error;
+    }
 }
