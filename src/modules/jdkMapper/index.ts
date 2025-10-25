@@ -79,6 +79,9 @@ const VENDORS: Record<JdkVendorId, VendorManifest> = {
                             url: "https://download.oracle.com/java/21/latest/jdk-21_linux-x64_bin.tar.gz",
                             checksum: "8f1c873bd9cd68f61d4dddc5c89cc5ae",
                         },
+                        arm64: {
+                            url: "https://download.oracle.com/java/21/latest/jdk-21_linux-aarch64_bin.tar.gz",
+                        },
                     },
                 },
             },
