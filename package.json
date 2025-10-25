@@ -21,17 +21,20 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "compile": "npm run check-types && npm run lint && npm run bundle:dev",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "package": "npm run check-types && npm run lint && npm run bundle:prod",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "pretest": "npm run compile-tests && npm run compile",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "bundle:dev": "node esbuild.js",
+    "bundle:prod": "node esbuild.js --production",
+    "test": "vscode-test",
+    "test:ci": "npm run compile-tests && npm run bundle:dev && npx --no-install vscode-test"
   },
   "devDependencies": {
     "@types/vscode": "^1.105.0",
