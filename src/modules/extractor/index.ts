@@ -416,6 +416,12 @@ function ensureEntrySupported(entry: ZipCentralDirectoryEntry): void {
     if (entry.compressionMethod !== 0 && entry.compressionMethod !== 8) {
         throw new Error(`Unsupported ZIP compression method ${entry.compressionMethod} for ${entry.fileName}`);
     }
+
+    const fileType = (entry.externalAttributes >>> 16) & 0o170000;
+
+    if (fileType === 0o120000) {
+        throw new Error(`Symbolic link entries are not supported: ${entry.fileName}`);
+    }
 }
 
 interface ResolvedEntryPath {

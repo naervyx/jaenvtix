@@ -12,6 +12,7 @@ interface ZipEntrySpec {
     readonly name: string;
     readonly data?: Buffer;
     readonly isDirectory?: boolean;
+    readonly externalAttributes?: number;
 }
 
 interface TarEntrySpec {
@@ -47,6 +48,34 @@ suite("extractor", () => {
 
             assert.strictEqual(result, path.resolve(destination));
             assert.strictEqual(nestedContent, "nested");
+        } finally {
+            await fs.rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    test("rejects ZIP archives containing symbolic links", async () => {
+        const tempDir = await createTempDirectory();
+        const archivePath = path.join(tempDir, "symlink.zip");
+        const destination = path.join(tempDir, "output");
+        const archive = createZipArchive([
+            {
+                name: "link",
+                data: Buffer.from("../escape"),
+                externalAttributes: 0o120000 << 16,
+            },
+        ]);
+
+        await fs.writeFile(archivePath, archive);
+        setSpawnImplementation((() => {
+            throw new Error("Native extraction should not be invoked for unsafe entries");
+        }) as unknown as typeof spawn);
+        setManualExtractionPrompt(async () => undefined);
+
+        try {
+            await assert.rejects(
+                async () => extract(archivePath, destination, "zip"),
+                /Symbolic link entries are not supported/,
+            );
         } finally {
             await fs.rm(tempDir, { recursive: true, force: true });
         }
@@ -180,7 +209,7 @@ function createZipArchive(entries: ZipEntrySpec[]): Buffer {
         localParts.push(localHeader, fileName, data);
 
         const centralHeader = Buffer.alloc(46);
-        const externalAttributes = entry.isDirectory ? 0x10 : 0;
+        const externalAttributes = entry.externalAttributes ?? (entry.isDirectory ? 0x10 : 0);
 
         centralHeader.writeUInt32LE(0x02014b50, 0);
         centralHeader.writeUInt16LE(20, 4);
