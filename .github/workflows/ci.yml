@@ -27,7 +27,7 @@ jobs:
     strategy:
       matrix:
         os: ${{ fromJSON(
-          (github.event_name == 'workflow_dispatch' && inputs.enable_multi_platform_builds != 'true' && '["ubuntu-latest"]') ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.enable_multi_platform_builds != 'true' && '["ubuntu-latest"]') ||
           '["ubuntu-latest","macos-latest","windows-latest"]'
         ) }}
     env:
@@ -55,7 +55,7 @@ jobs:
         run: npm run bundle:dev
 
       - name: Run regression tests
-        if: github.event_name != 'workflow_dispatch' || inputs.run_full_test_suite == 'true'
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.run_full_test_suite == 'true'
         shell: bash
         run: |
           if [ "${{ runner.os }}" = "Linux" ]; then
