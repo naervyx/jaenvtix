@@ -33,8 +33,11 @@
     "lint": "eslint src",
     "bundle:dev": "node esbuild.js",
     "bundle:prod": "node esbuild.js --production",
+    "package:vsix": "mkdir -p artifacts && npx --yes @vscode/vsce package --out artifacts/jaenvtix.vsix",
     "test": "vscode-test",
-    "test:ci": "npm run compile-tests && npm run bundle:dev && npx --no-install vscode-test"
+    "test:ci": "npm run compile-tests && npm run bundle:dev && npx --no-install vscode-test",
+    "test:e2e": "npm run compile-tests && npx --no-install @vscode/test-cli --extensionDevelopmentPath=. --extensionTestsPath=./out/test/suite/index --install-extension ./artifacts/jaenvtix.vsix",
+    "validate:extension": "npm run bundle:prod && npm run package:vsix && npm run test:e2e"
   },
   "devDependencies": {
     "@types/vscode": "^1.105.0",
