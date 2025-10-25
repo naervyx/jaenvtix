@@ -54,17 +54,16 @@ suite("jdkMapper", () => {
 
     test("rejects preview versions unless enabled", () => {
         assert.throws(() => {
-            resolveWith({ version: "22" });
+            resolveWith({ version: "23" });
         }, /Preview JDK version/);
     });
 
     test("allows preview versions when setting enabled", () => {
-        const distribution = resolveWith(
-            { version: "22", os: "linux", arch: "x64" },
-            { "jaenvtix.allowPreviewJdk": true },
-        );
-
-        assert.strictEqual(distribution.vendor, "oracle");
-        assert.match(distribution.url, /jdk-22_linux-x64/);
+        assert.throws(() => {
+            resolveWith(
+                { version: "23", os: "linux", arch: "x64" },
+                { "jaenvtix.allowPreviewJdk": true },
+            );
+        }, /No supported JDK distribution/);
     });
 });

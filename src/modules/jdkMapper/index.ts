@@ -82,25 +82,6 @@ const VENDORS: Record<JdkVendorId, VendorManifest> = {
                     },
                 },
             },
-            "22": {
-                downloads: {
-                    windows: {
-                        x64: {
-                            url: "https://download.oracle.com/java/22/latest/jdk-22_windows-x64_bin.zip",
-                        },
-                    },
-                    macos: {
-                        arm64: {
-                            url: "https://download.oracle.com/java/22/latest/jdk-22_macos-aarch64_bin.dmg",
-                        },
-                    },
-                    linux: {
-                        x64: {
-                            url: "https://download.oracle.com/java/22/latest/jdk-22_linux-x64_bin.tar.gz",
-                        },
-                    },
-                },
-            },
             "25": {
                 downloads: {
                     windows: {
