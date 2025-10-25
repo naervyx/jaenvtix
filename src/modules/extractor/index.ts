@@ -3,7 +3,7 @@ import { promises as fsPromises } from "node:fs";
 import * as path from "node:path";
 import { gunzip as gunzipCallback, inflateRaw as inflateRawCallback } from "node:zlib";
 
-const { mkdir, rm, stat, readFile, writeFile } = fsPromises;
+const { mkdir, rm, stat, readFile, writeFile, mkdtemp, readdir, rename } = fsPromises;
 
 export type ArchiveFormat = "zip" | "tar" | "tar.gz";
 
@@ -47,9 +47,6 @@ export async function extract(
         errors.push(wrapError("Native extraction failed", error));
     }
 
-    await cleanupDirectory(normalizedDestination);
-    await ensureDirectory(normalizedDestination);
-
     try {
         await tryJavaScriptExtraction(archivePath, normalizedDestination, format);
 
@@ -57,8 +54,6 @@ export async function extract(
     } catch (error) {
         errors.push(wrapError("JavaScript extraction failed", error));
     }
-
-    await cleanupDirectory(normalizedDestination);
 
     try {
         const manualPath = await attemptManualFallback({
@@ -133,26 +128,32 @@ async function tryNativeExtraction(
     destination: string,
     format: ArchiveFormat,
 ): Promise<void> {
-    const command = buildNativeCommand(archivePath, destination, format);
-    const child = (command.options
-        ? spawnImplementation(command.command, command.args, command.options)
-        : spawnImplementation(command.command, command.args)) as ChildProcess;
+    await withTemporaryDirectory(destination, async (workingDirectory) => {
+        await validateArchiveEntries(archivePath, format, workingDirectory);
 
-    await new Promise<void>((resolve, reject) => {
-        child.once("error", (error: Error) => {
-            reject(error);
+        const command = buildNativeCommand(archivePath, workingDirectory, format);
+        const child = (command.options
+            ? spawnImplementation(command.command, command.args, command.options)
+            : spawnImplementation(command.command, command.args)) as ChildProcess;
+
+        await new Promise<void>((resolve, reject) => {
+            child.once("error", (error: Error) => {
+                reject(error);
+            });
+            child.once("exit", (code: number | null, signal: NodeJS.Signals | null) => {
+                if (code === 0) {
+                    resolve();
+                    return;
+                }
+
+                const codeDescription = code !== null ? code : "unknown";
+                const signalDescription = signal ? ` (signal ${signal})` : "";
+
+                reject(new Error(`Native extractor exited with code ${codeDescription}${signalDescription}`));
+            });
         });
-        child.once("exit", (code: number | null, signal: NodeJS.Signals | null) => {
-            if (code === 0) {
-                resolve();
-                return;
-            }
 
-            const codeDescription = code !== null ? code : "unknown";
-            const signalDescription = signal ? ` (signal ${signal})` : "";
-
-            reject(new Error(`Native extractor exited with code ${codeDescription}${signalDescription}`));
-        });
+        await moveDirectoryContents(workingDirectory, destination);
     });
 }
 
@@ -230,6 +231,17 @@ async function tryJavaScriptExtraction(
     destination: string,
     format: ArchiveFormat,
 ): Promise<void> {
+    await withTemporaryDirectory(destination, async (workingDirectory) => {
+        await performJavaScriptExtraction(archivePath, workingDirectory, format);
+        await moveDirectoryContents(workingDirectory, destination);
+    });
+}
+
+async function performJavaScriptExtraction(
+    archivePath: string,
+    destination: string,
+    format: ArchiveFormat,
+): Promise<void> {
     if (format === "zip") {
         await extractZipArchive(archivePath, destination);
 
@@ -247,6 +259,42 @@ async function tryJavaScriptExtraction(
         const compressed = await readFile(archivePath);
         const decompressed = await gunzipAsync(compressed);
         await extractTarArchive(decompressed, destination);
+
+        return;
+    }
+
+    throw new Error(`Unsupported archive format: ${format}`);
+}
+
+async function validateArchiveEntries(
+    archivePath: string,
+    format: ArchiveFormat,
+    destination: string,
+): Promise<void> {
+    if (format === "zip") {
+        const buffer = await readFile(archivePath);
+        const entries = parseCentralDirectory(buffer);
+
+        for (const entry of entries) {
+            validateNativeEntryName(entry.fileName);
+            ensureEntrySupported(entry);
+            resolveEntryPath(destination, entry.fileName);
+        }
+
+        return;
+    }
+
+    if (format === "tar") {
+        const buffer = await readFile(archivePath);
+        validateTarArchive(buffer, destination);
+
+        return;
+    }
+
+    if (format === "tar.gz") {
+        const compressed = await readFile(archivePath);
+        const decompressed = await gunzipAsync(compressed);
+        validateTarArchive(decompressed, destination);
 
         return;
     }
@@ -421,6 +469,30 @@ function normalizeEntryName(entryName: string): string | undefined {
     return filteredSegments.join(path.sep);
 }
 
+function validateNativeEntryName(entryName: string): void {
+    const replaced = entryName.replace(/\\/g, "/");
+
+    if (!replaced) {
+        return;
+    }
+
+    if (replaced.startsWith("/") || /^[A-Za-z]:/.test(replaced)) {
+        throw new Error(`Archive entry uses absolute path: ${entryName}`);
+    }
+
+    const segments = replaced.split("/");
+
+    for (const segment of segments) {
+        if (!segment || segment === ".") {
+            continue;
+        }
+
+        if (segment === "..") {
+            throw new Error(`Archive entry attempts to navigate outside destination: ${entryName}`);
+        }
+    }
+}
+
 function ensureTrailingSeparator(directory: string): string {
     const normalized = path.resolve(directory);
 
@@ -516,6 +588,50 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
             const data = buffer.subarray(dataOffset, dataOffset + size);
             await mkdir(path.dirname(resolved.absolutePath), { recursive: true });
             await writeFile(resolved.absolutePath, data);
+            continue;
+        }
+
+        throw new Error(`Unsupported TAR entry type ${String.fromCharCode(typeFlag)} for ${name}`);
+    }
+}
+
+function validateTarArchive(buffer: Buffer, destination: string): void {
+    const blockSize = 512;
+    const destinationRoot = path.resolve(destination);
+    let offset = 0;
+
+    while (offset + blockSize <= buffer.length) {
+        const header = buffer.subarray(offset, offset + blockSize);
+
+        if (isTarEndBlock(header)) {
+            break;
+        }
+
+        const name = readTarString(header, 0, 100);
+        const size = readTarSize(header, 124, 12);
+        const typeFlag = header[156] ?? 0;
+        const dataOffset = offset + blockSize;
+        const paddedSize = alignToBlock(size, blockSize);
+        const nextOffset = dataOffset + paddedSize;
+
+        if (nextOffset > buffer.length) {
+            throw new Error(`TAR entry exceeds archive bounds: ${name}`);
+        }
+
+        offset = nextOffset;
+
+        if (!name) {
+            continue;
+        }
+
+        validateNativeEntryName(name);
+        const resolved = resolveEntryPath(destinationRoot, name);
+
+        if (!resolved) {
+            continue;
+        }
+
+        if (typeFlag === 53 || typeFlag === 48 || typeFlag === 0) {
             continue;
         }
 
@@ -632,6 +748,36 @@ async function ensureDirectory(directory: string): Promise<void> {
 
 async function cleanupDirectory(directory: string): Promise<void> {
     await rm(directory, { recursive: true, force: true });
+}
+
+async function withTemporaryDirectory<T>(
+    destination: string,
+    action: (workingDirectory: string) => Promise<T>,
+): Promise<T> {
+    const prefix = path.join(destination, ".jaenvtix-extract-");
+    const workingDirectory = await mkdtemp(prefix);
+
+    try {
+        return await action(workingDirectory);
+    } finally {
+        try {
+            await cleanupDirectory(workingDirectory);
+        } catch {
+            // ignore cleanup failures
+        }
+    }
+}
+
+async function moveDirectoryContents(source: string, destination: string): Promise<void> {
+    const entries = await readdir(source);
+
+    for (const entry of entries) {
+        const sourcePath = path.join(source, entry);
+        const targetPath = path.join(destination, entry);
+
+        await rm(targetPath, { recursive: true, force: true });
+        await rename(sourcePath, targetPath);
+    }
 }
 
 function createAggregateExtractionError(archivePath: string, errors: Error[]): Error {
