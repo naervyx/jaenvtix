@@ -197,7 +197,7 @@ function buildNativeCommand(
         if (format === "zip") {
             return {
                 command: "unzip",
-                args: ["-qq", archivePath, "-d", destination],
+                args: ["-qq", "-d", destination, "--", archivePath],
                 options: { stdio: "ignore" },
             };
         }
