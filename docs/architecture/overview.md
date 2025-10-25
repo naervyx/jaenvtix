@@ -18,6 +18,7 @@
 - Imports from shared utilities must use the `@shared/*` path alias configured in `tsconfig.json`. This keeps import statements concise and resilient to directory restructuring.
 - Feature modules should compose shared helpers rather than reimplementing core behaviours (logging, retry, error modelling).
 - Keep VS Code extension entry points focused on lifecycle coordination (`activate`, `deactivate`). Delegate domain logic to dedicated modules or shared utilities.
+- See [JDK Distribution Mapper](./jdk-mapper.md) for details on how vendor manifests and fallback selection are implemented.
 
 ## Testing & Tooling
 
