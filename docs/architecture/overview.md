@@ -20,6 +20,20 @@
 - Keep VS Code extension entry points focused on lifecycle coordination (`activate`, `deactivate`). Delegate domain logic to dedicated modules or shared utilities.
 - See [JDK Distribution Mapper](./jdk-mapper.md) for details on how vendor manifests and fallback selection are implemented.
 
+## Module Documentation
+
+- [Workspace Scanner](../modules/scanner-pom.md) — outlines how the extension walks Maven workspaces and extracts Java versions.
+- [Platform Info](../modules/platform-info.md) — explains how the operating system and architecture are detected and normalized, including user overrides.
+- [JDK Distribution Mapper](./jdk-mapper.md) — details how curated manifests and fallback rules resolve compatible distributions.
+
+Every new module must ship with a guide listed here. Update this section whenever you add or move files in `docs/modules` so navigation remains predictable.
+
+## Module Limitations
+
+- [Workspace Scanner Limitations](../modules/scanner-pom-limitations.md) — current gaps in the Maven scanner module, including unsupported profiles and property indirection.
+- [Platform Info Limitations](../modules/platform-info-limitations.md) — constraints around alias coverage, override validation, and architecture detection.
+- [JDK Distribution Mapper Limitations](../modules/jdk-mapper-limitations.md) — known constraints of the manifest-driven resolver, such as vendor coverage and preview version handling.
+
 ## Testing & Tooling
 
 - Run `npm run lint` and `npm run check-types` before submitting changes. Both commands must succeed in continuous integration.
