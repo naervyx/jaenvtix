@@ -554,6 +554,9 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
     const blockSize = 512;
     const destinationRoot = path.resolve(destination);
     let offset = 0;
+    let pendingLongName: string | null = null;
+    let pendingPaxAttributes: Record<string, string> | null = null;
+    let globalPaxAttributes: Record<string, string> = {};
 
     while (offset + blockSize <= buffer.length) {
         const header = buffer.subarray(offset, offset + blockSize);
@@ -582,10 +585,56 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
         }
 
         if (isTarMetadataType(typeFlag)) {
+            if (size > 0) {
+                const data = buffer.subarray(dataOffset, dataOffset + size);
+
+                switch (typeFlag) {
+                    case 76: { // 'L' - GNU long name
+                        pendingLongName = readTarNullTerminatedString(data);
+                        break;
+                    }
+                    case 120: { // 'x' - PAX extended header
+                        pendingPaxAttributes = parsePaxHeaders(data);
+                        break;
+                    }
+                    case 103: // 'g' - GNU global extended header
+                    case 71: { // 'G' - Pax global header (some implementations)
+                        const attributes = parsePaxHeaders(data);
+                        globalPaxAttributes = {
+                            ...globalPaxAttributes,
+                            ...attributes,
+                        };
+                        break;
+                    }
+                    default: {
+                        // Other metadata types do not affect path resolution for the next entry.
+                        break;
+                    }
+                }
+            }
+
             continue;
         }
 
-        const resolved = resolveEntryPath(destinationRoot, entryName);
+        let effectiveEntryName = entryName;
+
+        if (pendingLongName) {
+            effectiveEntryName = pendingLongName;
+        } else if (pendingPaxAttributes?.path) {
+            effectiveEntryName = pendingPaxAttributes.path;
+        } else if (globalPaxAttributes.path) {
+            effectiveEntryName = globalPaxAttributes.path;
+        }
+
+        pendingLongName = null;
+        pendingPaxAttributes = null;
+
+        if (!effectiveEntryName) {
+            continue;
+        }
+
+        validateNativeEntryName(effectiveEntryName);
+        const resolved = resolveEntryPath(destinationRoot, effectiveEntryName);
 
         if (!resolved) {
             continue;
