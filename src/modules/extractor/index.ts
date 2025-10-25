@@ -581,6 +581,10 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
             continue;
         }
 
+        if (isTarMetadataType(typeFlag)) {
+            continue;
+        }
+
         const resolved = resolveEntryPath(destinationRoot, entryName);
 
         if (!resolved) {
@@ -634,6 +638,10 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
             continue;
         }
 
+        if (isTarMetadataType(typeFlag)) {
+            continue;
+        }
+
         validateNativeEntryName(entryName);
         const resolved = resolveEntryPath(destinationRoot, entryName);
 
@@ -646,6 +654,24 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
         }
 
         throw new Error(`Unsupported TAR entry type ${String.fromCharCode(typeFlag)} for ${entryName}`);
+    }
+}
+
+function isTarMetadataType(typeFlag: number): boolean {
+    switch (typeFlag) {
+        case 103: // 'g' - GNU global extended header
+        case 120: // 'x' - PAX extended header
+        case 71: // 'G' - Pax global header (some implementations)
+        case 76: // 'L' - GNU long name
+        case 75: // 'K' - GNU long link
+        case 80: // 'P' - POSIX portability entry
+        case 78: // 'N' - Old GNU sparse file metadata
+        case 83: // 'S' - GNU sparse metadata
+        case 86: // 'V' - Volume header
+        case 88: // 'X' - POSIX extended attribute
+            return true;
+        default:
+            return false;
     }
 }
 
