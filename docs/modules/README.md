@@ -4,12 +4,14 @@ This directory groups guides for each extension module so automated discovery an
 
 1. [Workspace Scanner](./scanner-pom.md)
 2. [Platform Info](./platform-info.md)
-3. [JDK Distribution Mapper](../architecture/jdk-mapper.md)
+3. [Artifact Downloader](./downloader.md)
+4. [JDK Distribution Mapper](../architecture/jdk-mapper.md)
 
 ### Limitation References
 
 1. [Workspace Scanner Limitations](./scanner-pom-limitations.md)
 2. [Platform Info Limitations](./platform-info-limitations.md)
-3. [JDK Distribution Mapper Limitations](./jdk-mapper-limitations.md)
+3. [Artifact Downloader Limitations](./downloader-limitations.md)
+4. [JDK Distribution Mapper Limitations](./jdk-mapper-limitations.md)
 
 Add new files whenever a module is implemented, keeping the naming aligned with `src/modules`.
