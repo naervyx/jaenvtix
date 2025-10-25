@@ -5,7 +5,7 @@ import type {
     NormalizedOperatingSystem,
 } from "../platformInfo";
 
-export type JdkVendorId = "oracle" | "corretto" | "temurin";
+export type JdkVendorId = "oracle" | "corretto";
 
 export interface JdkDownloadDescriptor {
     readonly url: string;
@@ -50,39 +50,14 @@ export interface JdkDistribution {
 const DEFAULT_VENDOR_PRIORITY: readonly JdkVendorId[] = [
     "oracle",
     "corretto",
-    "temurin",
 ];
 
-const LTS_VERSIONS = new Set([8, 11, 17, 21]);
+const LTS_VERSIONS = new Set([8, 11, 17, 21, 25]);
 
 const VENDORS: Record<JdkVendorId, VendorManifest> = {
     oracle: {
         license: "Oracle No-Fee Terms and Conditions",
         versions: {
-            "17": {
-                downloads: {
-                    windows: {
-                        x64: {
-                            url: "https://download.oracle.com/java/17/latest/jdk-17_windows-x64_bin.zip",
-                            checksum: "1e59a1e742820bccf6f89a4098d40eb1",
-                        },
-                    },
-                    macos: {
-                        x64: {
-                            url: "https://download.oracle.com/java/17/latest/jdk-17_macos-x64_bin.dmg",
-                        },
-                        arm64: {
-                            url: "https://download.oracle.com/java/17/latest/jdk-17_macos-aarch64_bin.dmg",
-                        },
-                    },
-                    linux: {
-                        x64: {
-                            url: "https://download.oracle.com/java/17/latest/jdk-17_linux-x64_bin.tar.gz",
-                            checksum: "0b4a3a9f44f6a9344e0463d0ed43f53b",
-                        },
-                    },
-                },
-            },
             "21": {
                 downloads: {
                     windows: {
@@ -126,11 +101,80 @@ const VENDORS: Record<JdkVendorId, VendorManifest> = {
                     },
                 },
             },
+            "25": {
+                downloads: {
+                    windows: {
+                        x64: {
+                            url: "https://download.oracle.com/java/25/latest/jdk-25_windows-x64_bin.zip",
+                        },
+                    },
+                    macos: {
+                        x64: {
+                            url: "https://download.oracle.com/java/25/latest/jdk-25_macos-x64_bin.dmg",
+                        },
+                        arm64: {
+                            url: "https://download.oracle.com/java/25/latest/jdk-25_macos-aarch64_bin.dmg",
+                        },
+                    },
+                    linux: {
+                        x64: {
+                            url: "https://download.oracle.com/java/25/latest/jdk-25_linux-x64_bin.tar.gz",
+                        },
+                        arm64: {
+                            url: "https://download.oracle.com/java/25/latest/jdk-25_linux-aarch64_bin.tar.gz",
+                        },
+                    },
+                },
+            },
         },
     },
     corretto: {
         license: "Amazon Software License",
         versions: {
+            "8": {
+                downloads: {
+                    windows: {
+                        x64: {
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-8-x64-windows-jdk.zip",
+                        },
+                    },
+                    macos: {
+                        x64: {
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-8-x64-macos-jdk.pkg",
+                        },
+                    },
+                    linux: {
+                        x64: {
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-8-x64-linux-jdk.tar.gz",
+                        },
+                    },
+                },
+            },
+            "11": {
+                downloads: {
+                    windows: {
+                        x64: {
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-11-x64-windows-jdk.zip",
+                        },
+                    },
+                    macos: {
+                        x64: {
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-11-x64-macos-jdk.pkg",
+                        },
+                        arm64: {
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-11-aarch64-macos-jdk.pkg",
+                        },
+                    },
+                    linux: {
+                        x64: {
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-11-x64-linux-jdk.tar.gz",
+                        },
+                        arm64: {
+                            url: "https://corretto.aws/downloads/latest/amazon-corretto-11-aarch64-linux-jdk.tar.gz",
+                        },
+                    },
+                },
+            },
             "17": {
                 downloads: {
                     windows: {
@@ -177,43 +221,6 @@ const VENDORS: Record<JdkVendorId, VendorManifest> = {
                         },
                         arm64: {
                             url: "https://corretto.aws/downloads/latest/amazon-corretto-21-aarch64-linux-jdk.tar.gz",
-                        },
-                    },
-                },
-            },
-            "22": {
-                downloads: {
-                    linux: {
-                        arm64: {
-                            url: "https://corretto.aws/downloads/latest/amazon-corretto-22-aarch64-linux-jdk.tar.gz",
-                        },
-                    },
-                },
-            },
-        },
-    },
-    temurin: {
-        license: "Eclipse Public License 2.0",
-        versions: {
-            "17": {
-                downloads: {
-                    windows: {
-                        x64: {
-                            url: "https://github.com/adoptium/temurin17-binaries/releases/latest/download/OpenJDK17U-jdk_x64_windows_hotspot.zip",
-                        },
-                    },
-                    linux: {
-                        arm64: {
-                            url: "https://github.com/adoptium/temurin17-binaries/releases/latest/download/OpenJDK17U-jdk_aarch64_linux_hotspot.tar.gz",
-                        },
-                    },
-                },
-            },
-            "21": {
-                downloads: {
-                    linux: {
-                        x64: {
-                            url: "https://github.com/adoptium/temurin21-binaries/releases/latest/download/OpenJDK21U-jdk_x64_linux_hotspot.tar.gz",
                         },
                     },
                 },

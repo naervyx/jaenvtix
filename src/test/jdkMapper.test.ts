@@ -35,14 +35,11 @@ suite("jdkMapper", () => {
         assert.match(distribution.url, /jdk-21_windows-x64/);
     });
 
-    test("falls back to configured vendor when Oracle is unavailable", () => {
-        const distribution = resolveWith(
-            { os: "linux", arch: "arm64", version: "17" },
-            { "jaenvtix.fallbackVendor": "temurin" },
-        );
+    test("falls back to Corretto when Oracle is unavailable", () => {
+        const distribution = resolveWith({ version: "8" });
 
-        assert.strictEqual(distribution.vendor, "temurin");
-        assert.match(distribution.url, /temurin17/);
+        assert.strictEqual(distribution.vendor, "corretto");
+        assert.match(distribution.url, /corretto-8/);
     });
 
     test("honors preference flag to skip Oracle when disabled", () => {
