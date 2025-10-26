@@ -710,7 +710,7 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
         }
 
         if (typeFlag === 50) {
-            if (!linkTarget || !isSafeTarLinkTarget(linkTarget)) {
+            if (!linkTarget || !isSafeTarLinkTarget(linkTarget, destinationRoot, resolved.absolutePath)) {
                 continue;
             }
 
@@ -849,7 +849,7 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
         }
 
         if (typeFlag === 50) {
-            if (!linkTarget || !isSafeTarLinkTarget(linkTarget)) {
+            if (!linkTarget || !isSafeTarLinkTarget(linkTarget, destinationRoot, resolved.absolutePath)) {
                 continue;
             }
 
@@ -881,7 +881,7 @@ function resolveTarLinkTarget(
     return linkName || null;
 }
 
-function isSafeTarLinkTarget(linkTarget: string): boolean {
+function isSafeTarLinkTarget(linkTarget: string, destinationRoot: string, linkAbsolutePath: string): boolean {
     const normalized = linkTarget.replace(/\\/g, "/");
 
     if (!normalized) {
@@ -889,6 +889,14 @@ function isSafeTarLinkTarget(linkTarget: string): boolean {
     }
 
     if (normalized.startsWith("/") || /^[A-Za-z]:/.test(normalized)) {
+        return false;
+    }
+
+    const linkDirectory = path.dirname(linkAbsolutePath);
+    const resolvedTarget = path.resolve(linkDirectory, normalized.split("/").join(path.sep));
+    const normalizedDestination = ensureTrailingSeparator(destinationRoot);
+
+    if (!resolvedTarget.startsWith(normalizedDestination) && resolvedTarget !== destinationRoot) {
         return false;
     }
 
