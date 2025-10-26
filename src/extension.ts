@@ -4,7 +4,7 @@ import * as vscode from "vscode";
 
 import { createLogger, err, ok, retry } from "@shared/index";
 import type { Result } from "@shared/result";
-import { createReporter, type Reporter } from "./modules/reporting";
+import { createReporter, type Reporter, type StepHandle } from "./modules/reporting";
 
 let reporter: Reporter | undefined;
 
@@ -28,12 +28,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const disposable = vscode.commands.registerCommand("jaenvtix.helloWorld", async () => {
         const activeReporter = reporter;
         const workspacePath = resolveWorkspacePath();
-        const stepHandle = activeReporter
-            ? await activeReporter.startStep("Show greeting", { path: workspacePath ?? undefined })
-            : undefined;
+        let stepHandle: StepHandle | undefined;
         let attempt = 1;
 
         try {
+            if (activeReporter) {
+                try {
+                    stepHandle = await activeReporter.startStep("Show greeting", {
+                        path: workspacePath ?? undefined,
+                    });
+                } catch (error) {
+                    logger.warn("Failed to start reporting step", {
+                        error: error instanceof Error ? error.message : String(error),
+                        path: workspacePath ?? undefined,
+                    });
+                }
+            }
+
             const greetingResult = getGreetingMessage();
 
             if (!greetingResult.ok) {
