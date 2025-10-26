@@ -10,13 +10,21 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:jaenvtix.detectJavaVersion",
+    "onCommand:jaenvtix.provisionJdk",
+    "workspaceContains:pom.xml"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "jaenvtix.helloWorld",
-        "title": "Hello World"
+        "command": "jaenvtix.detectJavaVersion",
+        "title": "Jaenvtix: Detect Java Versions"
+      },
+      {
+        "command": "jaenvtix.provisionJdk",
+        "title": "Jaenvtix: Provision JDK"
       }
     ],
     "configuration": {
