@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import type { MakeDirectoryOptions } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -17,6 +18,12 @@ interface TestWindow {
                 showInformationMessage(message: string): Promise<void>;
                 showErrorMessage(message: string): Promise<void>;
         };
+}
+
+interface Deferred<T> {
+        readonly promise: Promise<T>;
+        resolve(value: T | PromiseLike<T>): void;
+        reject(error: unknown): void;
 }
 
 function createTestWindow(): TestWindow {
@@ -62,6 +69,37 @@ async function readReport(filePath: string): Promise<ExecutionReport> {
         const content = await fs.readFile(filePath, 'utf8');
 
         return JSON.parse(content) as ExecutionReport;
+}
+
+function createDeferred<T>(): Deferred<T> {
+        let resolve: ((value: T | PromiseLike<T>) => void) | undefined;
+        let reject: ((error: unknown) => void) | undefined;
+
+        const promise = new Promise<T>((promiseResolve, promiseReject) => {
+                resolve = promiseResolve;
+                reject = promiseReject;
+        });
+
+        if (!resolve || !reject) {
+                throw new Error('Deferred promise was not initialized.');
+        }
+
+        return {
+                promise,
+                resolve,
+                reject,
+        };
+}
+
+async function waitForPendingWrites(
+        pendingWrites: readonly Deferred<void>[],
+        expectedCount: number,
+): Promise<void> {
+        while (pendingWrites.length < expectedCount) {
+                await new Promise((resolve) => {
+                        setTimeout(resolve, 0);
+                });
+        }
 }
 
 suite('Reporting module', () => {
@@ -154,5 +192,73 @@ suite('Reporting module', () => {
 
                 const secondReport = await readReport(secondReporter.reportFilePath);
                 assert.strictEqual(secondReport.steps.length, 0, 'should reset persisted data between runs');
+        });
+
+        test('serializes report writes to avoid lost step data', async () => {
+                const tempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'reporting-serialize-test-'));
+                const pendingWrites: Deferred<void>[] = [];
+                let activeWrites = 0;
+                let maxActiveWrites = 0;
+                let writeCalls = 0;
+                let latestWrite = '';
+
+                const fileSystem = {
+                        async mkdir(
+                                target: string,
+                                options?: MakeDirectoryOptions & { recursive?: boolean },
+                        ) {
+                                await fs.mkdir(target, options);
+                        },
+                        async writeFile(target: string, contents: string) {
+                                writeCalls += 1;
+                                activeWrites += 1;
+                                maxActiveWrites = Math.max(maxActiveWrites, activeWrites);
+                                let deferred: Deferred<void> | undefined;
+
+                                try {
+                                        if (writeCalls > 3) {
+                                                deferred = createDeferred<void>();
+                                                pendingWrites.push(deferred);
+                                                await deferred.promise;
+                                        }
+
+                                        latestWrite = contents;
+                                        await fs.writeFile(target, contents);
+                                } finally {
+                                        activeWrites -= 1;
+                                }
+                        },
+                };
+
+                const reporter = await createReporter({
+                        reportDirectory: tempDirectory,
+                        fileSystem,
+                        clock: createIncrementalClock(),
+                        idGenerator: createDeterministicIdGenerator(),
+                });
+
+                const first = await reporter.startStep('First');
+                const second = await reporter.startStep('Second');
+
+                const finishFirst = reporter.endStep(first);
+                const finishSecond = reporter.endStep(second);
+
+                await waitForPendingWrites(pendingWrites, 1);
+                assert.strictEqual(maxActiveWrites, 1, 'should not perform parallel writes');
+
+                pendingWrites[0]?.resolve();
+                await waitForPendingWrites(pendingWrites, 2);
+                assert.strictEqual(maxActiveWrites, 1, 'writes should remain serialized');
+
+                pendingWrites[1]?.resolve();
+
+                await Promise.all([finishFirst, finishSecond]);
+
+                const persisted = JSON.parse(latestWrite) as ExecutionReport;
+                assert.strictEqual(persisted.steps.length, 2);
+                assert.deepStrictEqual(
+                        persisted.steps.map((step) => step.status),
+                        ['success', 'success'],
+                );
         });
 });
