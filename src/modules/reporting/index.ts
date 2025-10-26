@@ -284,7 +284,10 @@ class ReporterImpl implements Reporter {
         };
 
         const next = this.persistQueue.then(writeReport, writeReport);
-        this.persistQueue = next.catch(() => undefined);
+        this.persistQueue = next.then(
+            () => undefined,
+            () => undefined,
+        );
         await next;
     }
 
