@@ -48,7 +48,16 @@ jobs:
         run: |
           BASE_REF="${{ github.event.inputs.base_ref }}"
           git fetch origin "$BASE_REF"
-          git checkout -B "${{ steps.naming.outputs.branch }}" "origin/$BASE_REF"
+          if git show-ref --verify --quiet "refs/remotes/origin/$BASE_REF"; then
+            BASE_TARGET="origin/$BASE_REF"
+          elif git show-ref --verify --quiet "refs/tags/$BASE_REF"; then
+            BASE_TARGET="$BASE_REF"
+          else
+            echo "Base ref '$BASE_REF' not found as a branch or tag." >&2
+            exit 1
+          fi
+
+          git checkout -B "${{ steps.naming.outputs.branch }}" "$BASE_TARGET"
 
       - name: Push release branch
         run: git push --set-upstream origin "${{ steps.naming.outputs.branch }}"
