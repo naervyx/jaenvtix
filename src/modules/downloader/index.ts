@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
-import { createWriteStream } from "node:fs";
-import { promises as fsPromises } from "node:fs";
+import { createWriteStream, promises as fsPromises } from "node:fs";
 import * as path from "node:path";
 import { once } from "node:events";
 import { finished } from "node:stream/promises";
@@ -8,7 +7,7 @@ import { Readable } from "node:stream";
 import type * as vscode from "vscode";
 
 import type { Logger } from "@shared/logger";
-import { retry, type RetryOptions } from "@shared/retry";
+import { RetryPolicy, retry, type RetryOptions } from "@shared/retry";
 
 interface HeaderLike {
     get(name: string): string | null;
@@ -67,14 +66,6 @@ export interface DownloadArtifactOptions {
 
 type ChecksumPolicy = "strict" | "best-effort";
 
-const DEFAULT_RETRY_OPTIONS: RetryOptions = {
-    retries: 3,
-    initialDelayMs: 500,
-    maxDelayMs: 10_000,
-    factor: 2,
-    jitter: 0.1,
-};
-
 async function loadWorkspaceConfiguration(): Promise<Pick<vscode.WorkspaceConfiguration, "get"> | undefined> {
     try {
         const vscodeModule: typeof import("vscode") = await import("vscode");
@@ -119,7 +110,8 @@ export async function downloadArtifact(url: string, options: DownloadArtifactOpt
     const fsAdapter = resolveFileSystem(fileSystem);
     const writerFactory = createWriteStreamImpl ?? createWriteStream;
     const tempProvider = temporaryPathProvider ?? defaultTemporaryPath;
-    const combinedRetryOptions = buildRetryOptions(retryOptions, logger, signal);
+    const retryPolicy = RetryPolicy.fromConfiguration(configuration);
+    const combinedRetryOptions = buildRetryOptions(retryPolicy, retryOptions, logger, signal);
 
     return retry(async () => {
         const temporaryPath = await Promise.resolve(tempProvider(destination));
@@ -389,14 +381,12 @@ const ReadableFromWeb: ((source: unknown) => AsyncIterable<unknown>) | undefined
         : undefined;
 
 function buildRetryOptions(
+    policy: RetryPolicy,
     options: RetryOptions | undefined,
     logger: Logger | undefined,
     signal: AbortSignal | undefined,
 ): RetryOptions {
-    const combined: RetryOptions = {
-        ...DEFAULT_RETRY_OPTIONS,
-        ...options,
-    };
+    const combined = policy.createOptions(options);
 
     const userOnRetry = combined.onRetry;
 

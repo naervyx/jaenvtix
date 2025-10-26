@@ -1,5 +1,4 @@
-import { promises as nodeFs } from "fs";
-import type { MakeDirectoryOptions } from "fs";
+import { promises as nodeFs, type MakeDirectoryOptions } from "fs";
 import * as os from "os";
 import * as path from "path";
 
@@ -27,6 +26,11 @@ export interface VersionLayoutPaths extends BaseLayoutPaths {
     readonly mavenWrapper: string;
     readonly mavenDaemon: string;
     readonly toolchainsFile: string;
+}
+
+export interface CleanupTempDirectoryOptions {
+    readonly tempDir: string;
+    readonly fs?: Pick<typeof nodeFs, "readdir" | "rm">;
 }
 
 export async function ensureBaseLayout(
@@ -77,6 +81,41 @@ export function getPathsForVersion(
         toolchainsFile,
     };
 }
+export async function cleanupTempDirectory(options: CleanupTempDirectoryOptions): Promise<void> {
+    const tempDir = options.tempDir;
+    const fsAdapter = options.fs ?? nodeFs;
+
+    let entries: string[];
+
+    try {
+        entries = await fsAdapter.readdir(tempDir);
+    } catch (error) {
+        if (isNodeError(error) && error.code === "ENOENT") {
+            return;
+        }
+
+        throw new Error(
+            `Unable to inspect temporary directory '${tempDir}': ${formatFsErrorMessage(error)}`
+        );
+    }
+
+    for (const entry of entries) {
+        const target = path.join(tempDir, entry);
+
+        try {
+            await fsAdapter.rm(target, { recursive: true, force: true });
+        } catch (error) {
+            if (isNodeError(error) && (error.code === "ENOENT" || error.code === "EACCES")) {
+                continue;
+            }
+
+            throw new Error(
+                `Unable to remove temporary artifact '${target}': ${formatFsErrorMessage(error)}`
+            );
+        }
+    }
+}
+
 
 type MkdirFunction = (
     path: string,
@@ -103,6 +142,22 @@ async function ensureDirectory(mkdir: MkdirFunction, target: string): Promise<vo
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
     return Boolean(error) && typeof error === "object" && "code" in (error as NodeJS.ErrnoException);
+}
+
+function formatFsErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+
+    if (typeof error === "string") {
+        return error;
+    }
+
+    try {
+        return JSON.stringify(error);
+    } catch {
+        return String(error);
+    }
 }
 
 function deriveMajorSegment(version: string): string {
