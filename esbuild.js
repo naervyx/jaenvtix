@@ -51,6 +51,10 @@ const aliasPlugin = {
                                 path: resolveSharedPath(subPath),
                         };
                 });
+
+                build.onResolve({ filter: /^jsonc-parser$/ }, () => ({
+                        path: path.join(__dirname, "vendor", "jsonc-parser", "index.js"),
+                }));
         },
 };
 
