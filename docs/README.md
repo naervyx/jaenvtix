@@ -33,4 +33,8 @@ The `docs/` tree groups architecture notes and per-module guides. Each module li
 - [Overview](./architecture/overview.md)
 - [Provisioning Flow](./architecture/flow.md)
 
+## Operations
+
+- [Release process](./release-process.md)
+
 Add new files whenever a module is implemented, keeping names aligned with `src/modules`.
