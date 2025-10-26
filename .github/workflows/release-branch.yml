@@ -47,10 +47,11 @@ jobs:
       - name: Create release branch from base
         run: |
           BASE_REF="${{ github.event.inputs.base_ref }}"
-          git fetch origin "$BASE_REF"
-          if git show-ref --verify --quiet "refs/remotes/origin/$BASE_REF"; then
+          if git ls-remote --exit-code --heads origin "$BASE_REF" >/dev/null; then
+            git fetch origin "$BASE_REF"
             BASE_TARGET="origin/$BASE_REF"
-          elif git show-ref --verify --quiet "refs/tags/$BASE_REF"; then
+          elif git ls-remote --exit-code --tags origin "$BASE_REF" >/dev/null; then
+            git fetch origin "refs/tags/$BASE_REF:refs/tags/$BASE_REF"
             BASE_TARGET="$BASE_REF"
           else
             echo "Base ref '$BASE_REF' not found as a branch or tag." >&2
