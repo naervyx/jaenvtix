@@ -28,6 +28,14 @@ These are **optional** — Jaenvtix works without them, but features like **Inte
 
 ---
 
+## Documentation
+
+- [Documentation index](docs/README.md) — entry point for all module guides and limitation notes.
+- [Provisioning flow](docs/architecture/flow.md) — ten-step view of the provisioning pipeline.
+- [Architecture overview](docs/architecture/overview.md) — coding standards, shared utilities, and module catalogue.
+
+---
+
 ## Configure your environment
 
 - **Status Bar**: shows the **active JDK** for the workspace.
