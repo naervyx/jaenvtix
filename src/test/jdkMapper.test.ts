@@ -1,7 +1,6 @@
 import * as assert from "assert";
 
-import { resolveJdkDistribution } from "../modules/jdkMapper";
-import type { ResolveJdkDistributionParameters } from "../modules/jdkMapper";
+import { type ResolveJdkDistributionParameters, resolveJdkDistribution } from "../modules/jdkMapper";
 
 class TestConfiguration {
     public constructor(private readonly values: Record<string, unknown> = {}) {}
