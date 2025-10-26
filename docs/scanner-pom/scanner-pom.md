@@ -4,6 +4,25 @@
 
 The `scannerPom` module finds `pom.xml` files under a workspace root and extracts the target Java version declared by each Maven project. It is designed for the VS Code extension but avoids direct editor dependencies, which keeps unit testing straightforward.
 
+## Responsibilities
+
+- Traverse workspaces efficiently while respecting ignore lists for common build artefacts.
+- Derive Java version requirements from Maven configuration, prioritising explicit compiler plugin settings.
+- Produce deterministic, sorted results that the orchestrator can use to queue provisioning tasks.
+- Provide helper utilities for inspecting individual POM files on demand.
+
+## Dependencies
+
+- **`@shared/fs` traversal helpers** — perform globbing and folder exclusion with cancellation support.
+- **`@shared/xml` streaming parser** — reads large POM files without loading them entirely in memory.
+- **Configuration bridge** — supplies ignore patterns and depth limits controlled by the extension settings.
+
+## Standard Error Flows
+
+- **Unreadable POM file**: logs the `FileSystemError`, skips the file, and continues scanning other modules.
+- **Malformed XML**: emits a `PomParseError` tagged with the file path; results omit the version and mark the entry as unresolved.
+- **Traversal cancellation**: abort signals stop the walk immediately and surface an `AbortError` so callers can retry later.
+
 ## API
 
 ### `scanWorkspaceForPom(workspaceRoot?: string): Promise<PomScanResult[]>`
