@@ -3,10 +3,12 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 
 import { createLogger, type Logger } from "@shared/logger";
+import { RetryPolicy } from "@shared/retry";
 
 import { downloadArtifact, type DownloadArtifactOptions } from "../downloader";
 import { extract } from "../extractor";
 import {
+    cleanupTempDirectory,
     ensureBaseLayout,
     getPathsForVersion,
     type BaseLayoutPaths,
@@ -25,6 +27,7 @@ export interface ProvisioningDependencies {
     readonly resolveJdkDistribution: typeof resolveJdkDistribution;
     readonly ensureBaseLayout: typeof ensureBaseLayout;
     readonly getPathsForVersion: typeof getPathsForVersion;
+    readonly cleanupTempDirectory: typeof cleanupTempDirectory;
     readonly downloadArtifact: typeof downloadArtifact;
     readonly extract: typeof extract;
     readonly syncToolchains: typeof syncToolchains;
@@ -75,6 +78,7 @@ export interface OrchestratorOptions {
         DownloadArtifactOptions,
         "retryOptions" | "onProgress" | "signal" | "fetchOptions"
     >;
+    readonly window?: Pick<typeof vscode.window, "showWarningMessage">;
 }
 
 export interface ProvisioningOrchestrator {
@@ -90,6 +94,7 @@ const defaultDependencies: ProvisioningDependencies = {
     resolveJdkDistribution,
     ensureBaseLayout,
     getPathsForVersion,
+    cleanupTempDirectory,
     downloadArtifact,
     extract,
     syncToolchains,
@@ -107,6 +112,7 @@ export function createProvisioningOrchestrator(options: OrchestratorOptions = {}
     const reporter = options.reporter;
     const configuration = options.configuration ?? vscode.workspace.getConfiguration();
     const dependencies = { ...defaultDependencies, ...(options.dependencies ?? {}) } satisfies ProvisioningDependencies;
+    const windowApi = options.window ?? vscode.window;
 
     return {
         async runProvisioning(workspaceFolders) {
@@ -118,6 +124,8 @@ export function createProvisioningOrchestrator(options: OrchestratorOptions = {}
             const baseLayout = await dependencies.ensureBaseLayout();
             const workspaces: ProvisioningWorkspaceResult[] = [];
             const versionArtifacts = new Map<string, Promise<VersionArtifacts>>();
+            const retryPolicy = RetryPolicy.fromConfiguration(configuration);
+            const requireRetryConfirmation = shouldRequireRetryConfirmation(configuration);
 
             for (const folder of workspaceFolders) {
                 const projects: ProvisioningProjectResult[] = [];
@@ -144,7 +152,7 @@ export function createProvisioningOrchestrator(options: OrchestratorOptions = {}
 
                     let step: StepHandle | undefined;
                     const reporterInstance = reporter;
-                    let attempt = 1;
+                    let attemptsUsed = 0;
                     let projectStatus: ProvisioningProjectStatus = "provisioned";
                     let projectDistribution: JdkDistribution | undefined;
                     let projectError: Error | undefined;
@@ -164,46 +172,88 @@ export function createProvisioningOrchestrator(options: OrchestratorOptions = {}
 
                         const normalizedVersion = pom.javaVersion.trim();
                         const provisionVersion = async (): Promise<VersionArtifacts> => {
-                            const distribution = dependencies.resolveJdkDistribution({
-                                version: normalizedVersion,
-                                os: platform.os,
-                                arch: platform.arch,
-                                configuration,
-                            });
-                            const paths = dependencies.getPathsForVersion(distribution.version, {
-                                baseDir: baseLayout.baseDir,
-                            });
-                            const archiveName = deriveArchiveName(distribution);
-                            const destination = path.join(baseLayout.tempDir, archiveName);
+                            return retryPolicy.execute(async (currentAttempt) => {
+                                attemptsUsed = currentAttempt;
 
-                            projectLogger.info("Downloading JDK distribution", {
-                                url: distribution.url,
-                                destination,
+                                if (currentAttempt > 1) {
+                                    projectLogger.info("Retrying provisioning attempt", {
+                                        attempt: currentAttempt,
+                                    });
+                                }
+
+                                try {
+                                    await dependencies.cleanupTempDirectory({ tempDir: baseLayout.tempDir });
+                                } catch (cleanupError) {
+                                    projectLogger.warn("Failed to clean temporary directory", {
+                                        error: serializeErrorMessage(cleanupError),
+                                        tempDir: baseLayout.tempDir,
+                                    });
+                                }
+
+                                const distribution = dependencies.resolveJdkDistribution({
+                                    version: normalizedVersion,
+                                    os: platform.os,
+                                    arch: platform.arch,
+                                    configuration,
+                                });
+                                const paths = dependencies.getPathsForVersion(distribution.version, {
+                                    baseDir: baseLayout.baseDir,
+                                });
+                                const archiveName = deriveArchiveName(distribution);
+                                const destination = path.join(baseLayout.tempDir, archiveName);
+
+                                projectLogger.info("Downloading JDK distribution", {
+                                    url: distribution.url,
+                                    destination,
+                                });
+                                const downloadPath = await dependencies.downloadArtifact(distribution.url, {
+                                    destination,
+                                    expectedChecksum: distribution.checksum,
+                                    configuration,
+                                    logger: projectLogger,
+                                    ...(options.downloadOptions ?? {}),
+                                });
+
+                                projectLogger.info("Extracting JDK archive", {
+                                    archivePath: downloadPath,
+                                    destination: paths.jdkHome,
+                                });
+                                await dependencies.extract(downloadPath, paths.jdkHome);
+
+                                const toolchain: ToolchainEntry = {
+                                    vendor: distribution.vendor,
+                                    versions: [distribution.version],
+                                    javaHome: paths.jdkHome,
+                                };
+
+                                await dependencies.syncToolchains(toolchain);
+                                await dependencies.ensureSettings();
+
+                                return { distribution, paths };
+                            }, {
+                                beforeRetry: async (error, nextAttempt) => {
+                                    if (!requireRetryConfirmation || !windowApi?.showWarningMessage) {
+                                        return true;
+                                    }
+
+                                    const retryLabel = `Retry attempt ${nextAttempt}`;
+                                    const cancelLabel = "Stop provisioning";
+                                    const selection = await windowApi.showWarningMessage(
+                                        buildRetryPromptMessage(error),
+                                        { modal: true },
+                                        retryLabel,
+                                        cancelLabel,
+                                    );
+
+                                    return selection === retryLabel;
+                                },
+                                onRetry: (error, attemptNumber) => {
+                                    projectLogger.warn("Provisioning attempt failed", {
+                                        attempt: attemptNumber,
+                                        error: serializeErrorMessage(error),
+                                    });
+                                },
                             });
-                            const downloadPath = await dependencies.downloadArtifact(distribution.url, {
-                                destination,
-                                expectedChecksum: distribution.checksum,
-                                configuration,
-                                logger: projectLogger,
-                                ...(options.downloadOptions ?? {}),
-                            });
-
-                            projectLogger.info("Extracting JDK archive", {
-                                archivePath: downloadPath,
-                                destination: paths.jdkHome,
-                            });
-                            await dependencies.extract(downloadPath, paths.jdkHome);
-
-                            const toolchain: ToolchainEntry = {
-                                vendor: distribution.vendor,
-                                versions: [distribution.version],
-                                javaHome: paths.jdkHome,
-                            };
-
-                            await dependencies.syncToolchains(toolchain);
-                            await dependencies.ensureSettings();
-
-                            return { distribution, paths };
                         };
 
                         let artifactPromise = versionArtifacts.get(normalizedVersion);
@@ -234,12 +284,11 @@ export function createProvisioningOrchestrator(options: OrchestratorOptions = {}
 
                         if (step && reporterInstance) {
                             await reporterInstance.endStep(step, {
-                                attempt,
+                                attempt: Math.max(attemptsUsed, 1),
                                 path: projectPath,
                             });
                         }
                     } catch (error) {
-                        attempt += 1;
                         const normalizedError = normalizeError(error);
                         projectStatus = "failed";
                         projectError = normalizedError;
@@ -249,7 +298,7 @@ export function createProvisioningOrchestrator(options: OrchestratorOptions = {}
 
                         if (step && reporterInstance) {
                             await reporterInstance.failStep(step, normalizedError, {
-                                attempt,
+                                attempt: Math.max(attemptsUsed, 1),
                                 path: projectPath,
                             });
                         }
@@ -313,6 +362,28 @@ function deriveArchiveName(distribution: JdkDistribution): string {
     }
 
     return `jdk-${distribution.vendor}-${distribution.version}.tar.gz`;
+}
+
+function shouldRequireRetryConfirmation(
+    configuration: Pick<vscode.WorkspaceConfiguration, "get"> | undefined,
+): boolean {
+    const value = configuration?.get<boolean>("jaenvtix.retry.requireUserConfirmation");
+
+    if (typeof value === "boolean") {
+        return value;
+    }
+
+    return true;
+}
+
+function buildRetryPromptMessage(error: unknown): string {
+    const details = serializeErrorMessage(error);
+
+    if (!details) {
+        return "Provisioning attempt failed. Would you like to retry?";
+    }
+
+    return `Provisioning attempt failed: ${details}. Would you like to retry?`;
 }
 
 function normalizeError(error: unknown): Error {

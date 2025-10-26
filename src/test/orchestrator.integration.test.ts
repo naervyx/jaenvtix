@@ -77,6 +77,7 @@ suite("Provisioning orchestrator integration", () => {
                     toolchainsFile: `/home/test/.m2/toolchains.xml`,
                 };
             },
+            cleanupTempDirectory: async () => {},
             downloadArtifact: async (_url, { destination }) => {
                 downloadCount += 1;
 
@@ -155,6 +156,105 @@ suite("Provisioning orchestrator integration", () => {
         );
     });
 
+    test("confirms retries before continuing provisioning attempts", async () => {
+        const workspaceFolders = createWorkspaceFolders([
+            { name: "alpha", path: "/workspace/alpha" },
+        ]);
+
+        const pomResults = new Map<string, Array<{ path: string; javaVersion?: string }>>([
+            [
+                "/workspace/alpha",
+                [
+                    {
+                        path: "/workspace/alpha/service-a/pom.xml",
+                        javaVersion: "21",
+                    },
+                ],
+            ],
+        ]);
+
+        let downloadAttempts = 0;
+        let cleanupAttempts = 0;
+
+        const dependencies: ProvisioningDependencies = {
+            detectPlatform: () => ({ os: "linux", arch: "x64" }),
+            scanWorkspaceForPom: async (workspaceRoot?: string) =>
+                pomResults.get(workspaceRoot ?? "") ?? [],
+            resolveJdkDistribution: ({ version }) => ({
+                vendor: "temurin",
+                version,
+                os: "linux",
+                arch: "x64",
+                url: `https://example.com/jdk-${version}.tar.gz`,
+                license: "Example License",
+            }),
+            ensureBaseLayout: async () => ({
+                baseDir: "/home/test/.jaenvtix",
+                tempDir: "/home/test/.jaenvtix/temp",
+            }),
+            getPathsForVersion: (version, options) => {
+                const baseDir = options?.baseDir ?? "/home/test/.jaenvtix";
+
+                return {
+                    baseDir,
+                    tempDir: `${baseDir}/temp`,
+                    majorVersionDir: `${baseDir}/jdk-${version}`,
+                    jdkHome: `${baseDir}/jdk-${version}/${version}`,
+                    mavenDir: `${baseDir}/jdk-${version}/maven`,
+                    mavenBin: `${baseDir}/jdk-${version}/maven/bin`,
+                    mavenWrapper: `${baseDir}/jdk-${version}/maven/bin/mvn-jaenvtix`,
+                    mavenDaemon: `${baseDir}/jdk-${version}/maven/bin/mvnd`,
+                    toolchainsFile: `/home/test/.m2/toolchains.xml`,
+                };
+            },
+            cleanupTempDirectory: async () => {
+                cleanupAttempts += 1;
+            },
+            downloadArtifact: async (_url, { destination }) => {
+                downloadAttempts += 1;
+
+                if (downloadAttempts < 2) {
+                    throw new Error("temporary network failure");
+                }
+
+                return destination;
+            },
+            extract: async () => "extracted",
+            syncToolchains: async () => {},
+            ensureSettings: async () => "/home/test/.m2/settings.xml",
+            updateWorkspaceSettings: async () => {},
+        };
+
+        const prompts: string[] = [];
+        const windowStub = {
+            showWarningMessage: async (
+                message: string,
+                _options: vscode.MessageOptions,
+                retryLabel: string,
+            ) => {
+                prompts.push(message);
+
+                return retryLabel;
+            },
+        } satisfies Pick<typeof vscode.window, "showWarningMessage">;
+
+        const orchestrator = createProvisioningOrchestrator({
+            dependencies,
+            window: windowStub,
+            logger: createSilentLogger(),
+        });
+
+        const summary = await orchestrator.runProvisioning(workspaceFolders);
+
+        assert.strictEqual(downloadAttempts, 2, "should retry once after confirmation");
+        assert.ok(cleanupAttempts >= 1, "should attempt to clean temporary directory");
+        assert.strictEqual(prompts.length, 1, "should prompt before retrying");
+
+        const project = summary.workspaces[0]?.projects[0];
+        assert.ok(project);
+        assert.strictEqual(project?.status, "provisioned");
+    });
+
     test("detects pom files without provisioning", async () => {
         const workspaceFolders = createWorkspaceFolders([
             { name: "alpha", path: "/workspace/alpha" },
@@ -173,6 +273,9 @@ suite("Provisioning orchestrator integration", () => {
             },
             getPathsForVersion: () => {
                 throw new Error("should not resolve paths during detection");
+            },
+            cleanupTempDirectory: async () => {
+                throw new Error("should not clean temp during detection");
             },
             downloadArtifact: async () => {
                 throw new Error("should not download during detection");

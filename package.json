@@ -44,6 +44,44 @@
               "markdownDescription": "Processor architecture identifier such as `x64`, `x86` or `arm64`."
             }
           }
+        },
+        "jaenvtix.retry.maxAttempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 4,
+          "markdownDescription": "Maximum number of provisioning attempts (including the first try) that jaenvtix will perform before aborting."
+        },
+        "jaenvtix.retry.initialDelayMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 200,
+          "markdownDescription": "Initial delay, in milliseconds, before jaenvtix retries a failed operation."
+        },
+        "jaenvtix.retry.maxDelayMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 5000,
+          "markdownDescription": "Upper bound, in milliseconds, for retry backoff delays."
+        },
+        "jaenvtix.retry.factor": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 2,
+          "markdownDescription": "Multiplier applied to the delay after each retry attempt."
+        },
+        "jaenvtix.retry.jitter": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.25,
+          "markdownDescription": "Randomization factor applied to retry delays to avoid synchronized retries."
+        },
+        "jaenvtix.retry.requireUserConfirmation": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Controls whether jaenvtix asks for confirmation before retrying provisioning steps after a failure. Disable to allow automatic retries without additional consent."
         }
       }
     }

@@ -1,8 +1,10 @@
 import * as assert from "assert";
-import * as path from "path";
 import type * as fs from "fs";
+import { promises as nodeFs } from "fs";
+import * as os from "os";
+import * as path from "path";
 
-import { ensureBaseLayout, getPathsForVersion } from "../modules/fsLayout";
+import { cleanupTempDirectory, ensureBaseLayout, getPathsForVersion } from "../modules/fsLayout";
 
 type MkdirOptions = fs.MakeDirectoryOptions & { recursive?: boolean };
 type FsPromises = typeof import("fs/promises");
@@ -132,6 +134,47 @@ suite("fsLayout", () => {
             (error: unknown) => {
                 assert.ok(error instanceof Error);
                 assert.match(error.message, /Unable to create directory/);
+                return true;
+            }
+        );
+    });
+
+    test("cleanupTempDirectory removes stale artifacts", async () => {
+        const root = await nodeFs.mkdtemp(path.join(os.tmpdir(), "jaenvtix-fs-layout-"));
+        const tempDir = path.join(root, "temp");
+        await nodeFs.mkdir(tempDir);
+        await nodeFs.writeFile(path.join(tempDir, "file.txt"), "content", "utf8");
+        await nodeFs.mkdir(path.join(tempDir, "nested"));
+        await nodeFs.writeFile(path.join(tempDir, "nested", "inner.txt"), "nested", "utf8");
+
+        try {
+            await cleanupTempDirectory({ tempDir, fs: nodeFs });
+
+            const entries = await nodeFs.readdir(tempDir);
+            assert.deepStrictEqual(entries, [], "temporary directory should be empty");
+        } finally {
+            await nodeFs.rm(root, { recursive: true, force: true });
+        }
+    });
+
+    test("cleanupTempDirectory reports when inspection fails", async () => {
+        const error = new Error("permission denied");
+        await assert.rejects(
+            () =>
+                cleanupTempDirectory({
+                    tempDir: "/tmp/missing",
+                    fs: {
+                        readdir: async () => {
+                            throw error;
+                        },
+                        rm: async () => {
+                            throw new Error("rm should not be invoked");
+                        },
+                    },
+                }),
+            (thrown: unknown) => {
+                assert.ok(thrown instanceof Error);
+                assert.match(thrown.message, /Unable to inspect temporary directory/);
                 return true;
             }
         );
