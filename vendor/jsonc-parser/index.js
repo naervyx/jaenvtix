@@ -1,9 +1,70 @@
 "use strict";
 
 function stripComments(text) {
-    return text
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/(^|\s+)\/\/.*$/gm, (match, prefix) => (prefix !== undefined ? prefix : ""));
+    let result = "";
+    let inString = false;
+    let escaping = false;
+    let inSingleLineComment = false;
+    let inMultiLineComment = false;
+
+    for (let index = 0; index < text.length; index += 1) {
+        const char = text[index];
+        const nextChar = index + 1 < text.length ? text[index + 1] : "";
+
+        if (inSingleLineComment) {
+            if (char === "\n" || char === "\r") {
+                inSingleLineComment = false;
+                result += char;
+            }
+
+            continue;
+        }
+
+        if (inMultiLineComment) {
+            if (char === "*" && nextChar === "/") {
+                inMultiLineComment = false;
+                index += 1;
+            }
+
+            continue;
+        }
+
+        if (inString) {
+            result += char;
+
+            if (escaping) {
+                escaping = false;
+            } else if (char === "\\") {
+                escaping = true;
+            } else if (char === "\"") {
+                inString = false;
+            }
+
+            continue;
+        }
+
+        if (char === "\"") {
+            inString = true;
+            result += char;
+            continue;
+        }
+
+        if (char === "/" && nextChar === "/") {
+            inSingleLineComment = true;
+            index += 1;
+            continue;
+        }
+
+        if (char === "/" && nextChar === "*") {
+            inMultiLineComment = true;
+            index += 1;
+            continue;
+        }
+
+        result += char;
+    }
+
+    return result;
 }
 
 function stripTrailingCommas(text) {
