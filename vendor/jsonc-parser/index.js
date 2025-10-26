@@ -6,6 +6,70 @@ function stripComments(text) {
         .replace(/(^|\s+)\/\/.*$/gm, (match, prefix) => (prefix !== undefined ? prefix : ""));
 }
 
+function stripTrailingCommas(text) {
+    let result = "";
+    let inString = false;
+    let escaping = false;
+
+    for (let index = 0; index < text.length; index += 1) {
+        const char = text[index];
+
+        if (inString) {
+            result += char;
+
+            if (escaping) {
+                escaping = false;
+            } else if (char === "\\") {
+                escaping = true;
+            } else if (char === "\"") {
+                inString = false;
+            }
+
+            continue;
+        }
+
+        if (char === "\"") {
+            inString = true;
+            result += char;
+            continue;
+        }
+
+        if (char === ",") {
+            let lookahead = index + 1;
+
+            while (lookahead < text.length) {
+                const lookaheadChar = text[lookahead];
+
+                if (lookaheadChar === " " || lookaheadChar === "\t" || lookaheadChar === "\r" || lookaheadChar === "\n") {
+                    lookahead += 1;
+                    continue;
+                }
+
+                if (lookaheadChar === "}" || lookaheadChar === "]") {
+                    // Skip the trailing comma and continue scanning.
+                    break;
+                }
+
+                result += char;
+                break;
+            }
+
+            if (lookahead >= text.length) {
+                // Trailing commas at EOF should be removed as well.
+                continue;
+            }
+
+            if (lookahead < text.length && (text[lookahead] === "}" || text[lookahead] === "]")) {
+                continue;
+            }
+        }
+
+        result += char;
+    }
+
+    return result;
+}
+
 function normalizeOptions(options) {
     const formatting = options && options.formattingOptions ? options.formattingOptions : undefined;
     const insertSpaces = formatting?.insertSpaces !== false;
@@ -21,7 +85,7 @@ function parseDocument(text) {
         return {};
     }
 
-    const content = stripComments(text);
+    const content = stripTrailingCommas(stripComments(text));
     if (content.trim().length === 0) {
         return {};
     }
