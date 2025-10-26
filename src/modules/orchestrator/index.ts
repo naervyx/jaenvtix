@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { access } from "node:fs/promises";
 
 import * as vscode from "vscode";
 
@@ -21,6 +22,15 @@ import type { Reporter, StepHandle } from "../reporting";
 import { scanWorkspaceForPom } from "../scannerPom";
 import { updateWorkspaceSettings, type ToolchainInfo } from "../vscodeConfig";
 
+async function checkPathExists(target: string): Promise<boolean> {
+    try {
+        await access(target);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 export interface ProvisioningDependencies {
     readonly detectPlatform: typeof detectPlatform;
     readonly scanWorkspaceForPom: typeof scanWorkspaceForPom;
@@ -33,6 +43,7 @@ export interface ProvisioningDependencies {
     readonly syncToolchains: typeof syncToolchains;
     readonly ensureSettings: typeof ensureSettings;
     readonly updateWorkspaceSettings: typeof updateWorkspaceSettings;
+    readonly pathExists: typeof checkPathExists;
 }
 
 export type ProvisioningProjectStatus = "skipped" | "provisioned" | "failed";
@@ -100,6 +111,7 @@ const defaultDependencies: ProvisioningDependencies = {
     syncToolchains,
     ensureSettings,
     updateWorkspaceSettings,
+    pathExists: checkPathExists,
 };
 
 interface VersionArtifacts {
@@ -271,10 +283,27 @@ export function createProvisioningOrchestrator(options: OrchestratorOptions = {}
                             throw error;
                         }
 
-                        const toolchainInfo: ToolchainInfo = {
-                            javaHome: artifacts.paths.jdkHome,
-                            mavenWrapper: artifacts.paths.mavenWrapper,
-                        };
+                        const hasMavenWrapper = await dependencies.pathExists(
+                            artifacts.paths.mavenWrapper,
+                        );
+
+                        if (!hasMavenWrapper) {
+                            projectLogger.warn(
+                                "Maven wrapper not found; skipping Maven executable configuration",
+                                {
+                                    wrapperPath: artifacts.paths.mavenWrapper,
+                                },
+                            );
+                        }
+
+                        const toolchainInfo: ToolchainInfo = hasMavenWrapper
+                            ? {
+                                  javaHome: artifacts.paths.jdkHome,
+                                  mavenWrapper: artifacts.paths.mavenWrapper,
+                              }
+                            : {
+                                  javaHome: artifacts.paths.jdkHome,
+                              };
 
                         await dependencies.updateWorkspaceSettings(projectPath, toolchainInfo);
 

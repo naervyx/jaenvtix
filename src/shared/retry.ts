@@ -236,10 +236,11 @@ export class RetryPolicy {
     ): Promise<T> {
         const resolved = this.createOptions(options);
         const beforeRetry = options.beforeRetry;
+        const maxAttempts = Math.max(1, Math.floor(resolved.retries) + 1);
         let attempt = 0;
         let lastError: unknown;
 
-        while (attempt < this.maxAttempts) {
+        while (attempt < maxAttempts) {
             attempt += 1;
 
             try {
@@ -247,7 +248,7 @@ export class RetryPolicy {
             } catch (error) {
                 lastError = error;
 
-                if (attempt >= this.maxAttempts) {
+                if (attempt >= maxAttempts) {
                     break;
                 }
 

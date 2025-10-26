@@ -41,7 +41,7 @@ suite("Provisioning orchestrator integration", () => {
             ],
         ]);
 
-        const updatedSettings: Array<{ projectPath: string; javaHome: string; mavenWrapper: string }> = [];
+        const updatedSettings: Array<{ projectPath: string; javaHome: string; mavenWrapper?: string }> = [];
         let downloadCount = 0;
         let extractCount = 0;
         const syncedToolchains: string[] = [];
@@ -100,6 +100,7 @@ suite("Provisioning orchestrator integration", () => {
                     mavenWrapper: toolchainInfo.mavenWrapper,
                 });
             },
+            pathExists: async () => true,
         };
 
         const orchestrator = createProvisioningOrchestrator({
@@ -155,6 +156,87 @@ suite("Provisioning orchestrator integration", () => {
             ],
             "should update workspace settings for provisioned projects",
         );
+    });
+
+    test("omits Maven executable path when wrapper is missing", async () => {
+        const workspaceFolders = createWorkspaceFolders([
+            { name: "alpha", path: "/workspace/alpha" },
+        ]);
+
+        const pomResults = new Map<string, Array<{ path: string; javaVersion?: string }>>([
+            [
+                "/workspace/alpha",
+                [
+                    {
+                        path: "/workspace/alpha/service-a/pom.xml",
+                        javaVersion: "17",
+                    },
+                ],
+            ],
+        ]);
+
+        const updatedSettings: Array<{ projectPath: string; javaHome: string; mavenWrapper?: string }> = [];
+
+        const dependencies: ProvisioningDependencies = {
+            detectPlatform: () => ({ os: "linux", arch: "x64" }),
+            scanWorkspaceForPom: async (workspaceRoot?: string) =>
+                pomResults.get(workspaceRoot ?? "") ?? [],
+            resolveJdkDistribution: ({ version }) => ({
+                vendor: "temurin",
+                version,
+                os: "linux",
+                arch: "x64",
+                url: `https://example.com/jdk-${version}.tar.gz`,
+                license: "Example License",
+            }),
+            ensureBaseLayout: async () => ({
+                baseDir: "/home/test/.jaenvtix",
+                tempDir: "/home/test/.jaenvtix/temp",
+            }),
+            getPathsForVersion: (version, options) => {
+                const baseDir = options?.baseDir ?? "/home/test/.jaenvtix";
+
+                return {
+                    baseDir,
+                    tempDir: `${baseDir}/temp`,
+                    majorVersionDir: `${baseDir}/jdk-${version}`,
+                    jdkHome: `${baseDir}/jdk-${version}/${version}`,
+                    mavenDir: `${baseDir}/jdk-${version}/maven`,
+                    mavenBin: `${baseDir}/jdk-${version}/maven/bin`,
+                    mavenWrapper: `${baseDir}/jdk-${version}/maven/bin/mvn-jaenvtix`,
+                    mavenDaemon: `${baseDir}/jdk-${version}/maven/bin/mvnd`,
+                    toolchainsFile: `/home/test/.m2/toolchains.xml`,
+                };
+            },
+            cleanupTempDirectory: async () => {},
+            downloadArtifact: async (_url, { destination }) => destination,
+            extract: async () => "extracted",
+            syncToolchains: async () => {},
+            ensureSettings: async () => "/home/test/.m2/settings.xml",
+            updateWorkspaceSettings: async (projectPath, toolchainInfo) => {
+                updatedSettings.push({
+                    projectPath,
+                    javaHome: toolchainInfo.javaHome,
+                    mavenWrapper: toolchainInfo.mavenWrapper,
+                });
+            },
+            pathExists: async (target) => !target.endsWith("mvn-jaenvtix"),
+        };
+
+        const orchestrator = createProvisioningOrchestrator({
+            dependencies,
+            logger: createSilentLogger(),
+        });
+
+        await orchestrator.runProvisioning(workspaceFolders);
+
+        assert.deepStrictEqual(updatedSettings, [
+            {
+                projectPath: "/workspace/alpha/service-a",
+                javaHome: "/home/test/.jaenvtix/jdk-17/17",
+                mavenWrapper: undefined,
+            },
+        ]);
     });
 
     test("confirms retries before continuing provisioning attempts", async () => {
@@ -225,6 +307,7 @@ suite("Provisioning orchestrator integration", () => {
             syncToolchains: async () => {},
             ensureSettings: async () => "/home/test/.m2/settings.xml",
             updateWorkspaceSettings: async () => {},
+            pathExists: async () => true,
         };
 
         const prompts: string[] = [];
@@ -293,6 +376,9 @@ suite("Provisioning orchestrator integration", () => {
             },
             updateWorkspaceSettings: async () => {
                 throw new Error("should not update settings during detection");
+            },
+            pathExists: async () => {
+                throw new Error("should not check path existence during detection");
             },
         };
 

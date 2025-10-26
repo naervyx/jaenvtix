@@ -13,7 +13,7 @@ const formattingOptions = {
 
 export interface ToolchainInfo {
     readonly javaHome: string;
-    readonly mavenWrapper: string;
+    readonly mavenWrapper?: string;
 }
 
 export interface UpdateWorkspaceSettingsOptions {
@@ -69,11 +69,16 @@ async function readSettingsFile(fileSystem: FileSystem, target: string): Promise
 }
 
 function resolveManagedSettings(toolchainInfo: ToolchainInfo): Record<string, unknown> {
-    return {
+    const settings: Record<string, unknown> = {
         "java.jdt.ls.java.home": toolchainInfo.javaHome,
-        "maven.executable.path": toolchainInfo.mavenWrapper,
         "maven.terminal.useJavaHome": true,
     };
+
+    if (toolchainInfo.mavenWrapper) {
+        settings["maven.executable.path"] = toolchainInfo.mavenWrapper;
+    }
+
+    return settings;
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

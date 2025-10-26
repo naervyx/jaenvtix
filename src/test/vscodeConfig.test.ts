@@ -27,6 +27,24 @@ suite("vscodeConfig", () => {
         }
     });
 
+    test("updateWorkspaceSettings omits Maven executable when wrapper is undefined", async () => {
+        const workspace = await createWorkspace();
+        const javaHome = path.join(workspace, "jdk");
+
+        try {
+            await updateWorkspaceSettings(workspace, { javaHome });
+
+            const settingsContent = await readSettings(workspace);
+            const parsed = parse(settingsContent) as Record<string, unknown>;
+
+            assert.strictEqual(parsed["java.jdt.ls.java.home"], javaHome);
+            assert.strictEqual(parsed["maven.executable.path"], undefined);
+            assert.strictEqual(parsed["maven.terminal.useJavaHome"], true);
+        } finally {
+            await fs.rm(workspace, { recursive: true, force: true });
+        }
+    });
+
     test("updateWorkspaceSettings preserves unmanaged keys and remains idempotent", async () => {
         const workspace = await createWorkspace(`{
     // existing comment
