@@ -849,8 +849,12 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
         }
 
         if (typeFlag === 50) {
-            if (!linkTarget || !isSafeTarLinkTarget(linkTarget, destinationRoot, resolved.absolutePath)) {
-                continue;
+            if (!linkTarget) {
+                throw new Error(`Missing TAR link target for ${effectiveEntryName}`);
+            }
+
+            if (!isSafeTarLinkTarget(linkTarget, destinationRoot, resolved.absolutePath)) {
+                throw new Error(`Unsafe TAR link target for ${effectiveEntryName}`);
             }
 
             continue;
