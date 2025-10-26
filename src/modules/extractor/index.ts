@@ -3,7 +3,7 @@ import { promises as fsPromises } from "node:fs";
 import * as path from "node:path";
 import { gunzip as gunzipCallback, inflateRaw as inflateRawCallback } from "node:zlib";
 
-const { mkdir, rm, stat, readFile, writeFile, mkdtemp, readdir, rename } = fsPromises;
+const { mkdir, rm, stat, readFile, writeFile, mkdtemp, readdir, rename, chmod } = fsPromises;
 
 export type ArchiveFormat = "zip" | "tar" | "tar.gz";
 
@@ -311,6 +311,7 @@ async function extractZipArchive(archivePath: string, destination: string): Prom
         ensureEntrySupported(entry);
 
         const targetPath = resolveEntryPath(destinationRoot, entry.fileName);
+        const mode = deriveZipEntryMode(entry);
 
         if (!targetPath) {
             continue;
@@ -318,12 +319,18 @@ async function extractZipArchive(archivePath: string, destination: string): Prom
 
         if (entry.isDirectory) {
             await mkdir(targetPath.absolutePath, { recursive: true });
+            if (mode !== undefined) {
+                await chmod(targetPath.absolutePath, mode);
+            }
             continue;
         }
 
         const fileData = await extractZipEntryData(buffer, entry);
         await mkdir(path.dirname(targetPath.absolutePath), { recursive: true });
         await writeFile(targetPath.absolutePath, fileData);
+        if (mode !== undefined) {
+            await chmod(targetPath.absolutePath, mode);
+        }
     }
 }
 
@@ -408,6 +415,20 @@ function detectZipDirectory(fileName: string, externalAttributes: number): boole
     return fileType === 0o040000 || (externalAttributes & 0x10) !== 0;
 }
 
+function normalizeFileMode(mode: number | null | undefined): number | undefined {
+    if (mode === null || mode === undefined) {
+        return undefined;
+    }
+
+    const normalized = mode & 0o7777;
+
+    if (normalized === 0) {
+        return undefined;
+    }
+
+    return normalized;
+}
+
 function ensureEntrySupported(entry: ZipCentralDirectoryEntry): void {
     if (entry.generalPurposeFlag & 0x01) {
         throw new Error(`Encrypted ZIP entries are not supported: ${entry.fileName}`);
@@ -422,6 +443,12 @@ function ensureEntrySupported(entry: ZipCentralDirectoryEntry): void {
     if (fileType === 0o120000) {
         throw new Error(`Symbolic link entries are not supported: ${entry.fileName}`);
     }
+}
+
+function deriveZipEntryMode(entry: ZipCentralDirectoryEntry): number | undefined {
+    const attributes = entry.externalAttributes >>> 16;
+
+    return normalizeFileMode(attributes);
 }
 
 interface ResolvedEntryPath {
@@ -638,6 +665,8 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
             effectiveEntryName = globalPaxAttributes.path;
         }
 
+        const entryPaxAttributes = pendingPaxAttributes;
+
         pendingLongName = null;
         pendingPaxAttributes = null;
 
@@ -647,6 +676,8 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
 
         validateNativeEntryName(effectiveEntryName);
         const resolved = resolveEntryPath(destinationRoot, effectiveEntryName);
+        const headerMode = readTarMode(header);
+        const mode = resolveTarEntryMode(headerMode, entryPaxAttributes, globalPaxAttributes);
 
         if (!resolved) {
             continue;
@@ -654,6 +685,9 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
 
         if (typeFlag === 53) {
             await mkdir(resolved.absolutePath, { recursive: true });
+            if (mode !== undefined) {
+                await chmod(resolved.absolutePath, mode);
+            }
             continue;
         }
 
@@ -661,6 +695,9 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
             const data = buffer.subarray(dataOffset, dataOffset + size);
             await mkdir(path.dirname(resolved.absolutePath), { recursive: true });
             await writeFile(resolved.absolutePath, data);
+            if (mode !== undefined) {
+                await chmod(resolved.absolutePath, mode);
+            }
             continue;
         }
 
@@ -890,6 +927,58 @@ function combineTarPath(prefix: string, name: string): string {
     }
 
     return `${prefix}/${name}`;
+}
+
+function readTarMode(block: Buffer): number | undefined {
+    const raw = block.subarray(100, 108).toString("ascii");
+    const trimmed = raw.replace(/\0.*$/, "").trim();
+
+    if (!trimmed) {
+        return undefined;
+    }
+
+    const parsed = Number.parseInt(trimmed, 8);
+
+    if (!Number.isFinite(parsed)) {
+        return undefined;
+    }
+
+    return normalizeFileMode(parsed);
+}
+
+function resolveTarEntryMode(
+    headerMode: number | undefined,
+    entryAttributes: Record<string, string> | null,
+    globalAttributes: Record<string, string>,
+): number | undefined {
+    const paxMode = parsePaxModeValue(entryAttributes?.mode ?? globalAttributes.mode);
+
+    if (paxMode !== undefined) {
+        return paxMode;
+    }
+
+    return normalizeFileMode(headerMode);
+}
+
+function parsePaxModeValue(value: string | undefined): number | undefined {
+    if (!value) {
+        return undefined;
+    }
+
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+        return undefined;
+    }
+
+    const base = /^[0-7]+$/.test(trimmed) ? 8 : 10;
+    const parsed = Number.parseInt(trimmed, base);
+
+    if (!Number.isFinite(parsed)) {
+        return undefined;
+    }
+
+    return normalizeFileMode(parsed);
 }
 
 function readTarSize(block: Buffer, start: number, length: number): number {
