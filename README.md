@@ -84,6 +84,23 @@ Open the **Command Palette** (⌘⇧P on macOS, Ctrl+Shift+P on Windows/Linux) a
 
 ---
 
+## Documentation
+
+- [Provisioning flow (steps 1–10)](docs/architecture/flow.md)
+- Module overviews:
+  - [Orchestrator](docs/orchestrator.md)
+  - [Downloader](docs/downloader.md)
+  - [Extractor](docs/extractor.md)
+  - [File-system layout](docs/fs-layout.md)
+  - [JDK mapper](docs/jdk-mapper.md)
+  - [Maven configuration](docs/maven-config.md)
+  - [Platform info](docs/platform-info.md)
+  - [Reporting](docs/reporting.md)
+  - [Scanner (pom.xml)](docs/scanner-pom.md)
+  - [VS Code configuration](docs/vscode-config.md)
+
+---
+
 ## System requirements
 
 - **Desktop**: VS Code or Cursor.
