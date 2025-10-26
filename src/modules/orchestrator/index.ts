@@ -231,18 +231,25 @@ export function createProvisioningOrchestrator(options: OrchestratorOptions = {}
                                     archivePath: downloadPath,
                                     destination: paths.jdkHome,
                                 });
-                                await dependencies.extract(downloadPath, paths.jdkHome);
+                                const extractedJavaHome = await dependencies.extract(
+                                    downloadPath,
+                                    paths.jdkHome,
+                                );
+                                const resolvedPaths =
+                                    extractedJavaHome === paths.jdkHome
+                                        ? paths
+                                        : { ...paths, jdkHome: extractedJavaHome };
 
                                 const toolchain: ToolchainEntry = {
                                     vendor: distribution.vendor,
                                     versions: [distribution.version],
-                                    javaHome: paths.jdkHome,
+                                    javaHome: resolvedPaths.jdkHome,
                                 };
 
                                 await dependencies.syncToolchains(toolchain);
                                 await dependencies.ensureSettings();
 
-                                return { distribution, paths };
+                                return { distribution, paths: resolvedPaths };
                             }, {
                                 beforeRetry: async (error, nextAttempt) => {
                                     if (!requireRetryConfirmation || !windowApi?.showWarningMessage) {
