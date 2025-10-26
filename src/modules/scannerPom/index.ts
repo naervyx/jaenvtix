@@ -439,7 +439,21 @@ export async function resolveJavaVersion(pomPath: string): Promise<string | unde
             return normalized;
         }
 
-        const [, propertyKey, defaultValue] = placeholderMatch;
+        const [, rawPropertyKey, defaultValue] = placeholderMatch;
+
+        if (!rawPropertyKey) {
+            if (defaultValue?.trim()) {
+                return defaultValue.trim();
+            }
+
+            if (unresolvedPlaceholder === undefined) {
+                unresolvedPlaceholder = normalized;
+            }
+
+            continue;
+        }
+
+        const propertyKey = rawPropertyKey;
         const resolvedProperty = propertyLookup[propertyKey]?.trim();
 
         if (resolvedProperty) {
