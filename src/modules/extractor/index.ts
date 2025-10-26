@@ -3,7 +3,7 @@ import { promises as fsPromises } from "node:fs";
 import * as path from "node:path";
 import { gunzip as gunzipCallback, inflateRaw as inflateRawCallback } from "node:zlib";
 
-const { mkdir, rm, stat, readFile, writeFile, mkdtemp, readdir, rename, chmod } = fsPromises;
+const { mkdir, rm, stat, readFile, writeFile, mkdtemp, readdir, rename, chmod, symlink } = fsPromises;
 
 export type ArchiveFormat = "zip" | "tar" | "tar.gz";
 
@@ -582,6 +582,7 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
     const destinationRoot = path.resolve(destination);
     let offset = 0;
     let pendingLongName: string | null = null;
+    let pendingLongLink: string | null = null;
     let pendingPaxAttributes: Record<string, string> | null = null;
     let globalPaxAttributes: Record<string, string> = {};
 
@@ -632,6 +633,10 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
                         pendingLongName = readTarNullTerminatedString(data);
                         break;
                     }
+                    case 75: { // 'K' - GNU long link
+                        pendingLongLink = readTarNullTerminatedString(data);
+                        break;
+                    }
                     case 120: { // 'x' - PAX extended header
                         pendingPaxAttributes = parsePaxHeaders(data);
                         break;
@@ -666,9 +671,11 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
         }
 
         const entryPaxAttributes = pendingPaxAttributes;
+        const entryLongLink = pendingLongLink;
 
         pendingLongName = null;
         pendingPaxAttributes = null;
+        pendingLongLink = null;
 
         if (!effectiveEntryName) {
             continue;
@@ -678,6 +685,7 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
         const resolved = resolveEntryPath(destinationRoot, effectiveEntryName);
         const headerMode = readTarMode(header);
         const mode = resolveTarEntryMode(headerMode, entryPaxAttributes, globalPaxAttributes);
+        const linkTarget = resolveTarLinkTarget(header, entryLongLink, entryPaxAttributes, globalPaxAttributes);
 
         if (!resolved) {
             continue;
@@ -701,6 +709,29 @@ async function extractTarArchive(buffer: Buffer, destination: string): Promise<v
             continue;
         }
 
+        if (typeFlag === 50) {
+            if (!linkTarget || !isSafeTarLinkTarget(linkTarget)) {
+                continue;
+            }
+
+            await mkdir(path.dirname(resolved.absolutePath), { recursive: true });
+
+            try {
+                await rm(resolved.absolutePath, { force: true });
+            } catch {
+                // Best effort cleanup; ignore failures so extraction can continue.
+            }
+
+            try {
+                await symlink(linkTarget, resolved.absolutePath);
+            } catch {
+                // Symlink creation can legitimately fail on some platforms (e.g. Windows without
+                // developer mode). Ignore the failure so the extractor still succeeds.
+            }
+
+            continue;
+        }
+
         throw new Error(`Unsupported TAR entry type ${String.fromCharCode(typeFlag)} for ${entryName}`);
     }
 }
@@ -710,6 +741,7 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
     const destinationRoot = path.resolve(destination);
     let offset = 0;
     let pendingLongName: string | null = null;
+    let pendingLongLink: string | null = null;
     let pendingPaxAttributes: Record<string, string> | null = null;
     let globalPaxAttributes: Record<string, string> = {};
 
@@ -756,6 +788,10 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
                         pendingLongName = readTarNullTerminatedString(data);
                         break;
                     }
+                    case 75: { // 'K' - GNU long link
+                        pendingLongLink = readTarNullTerminatedString(data);
+                        break;
+                    }
                     case 120: { // 'x' - PAX extended header
                         pendingPaxAttributes = parsePaxHeaders(data);
                         break;
@@ -789,8 +825,12 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
             effectiveEntryName = globalPaxAttributes.path;
         }
 
+        const entryPaxAttributes = pendingPaxAttributes;
+        const entryLongLink = pendingLongLink;
+
         pendingLongName = null;
         pendingPaxAttributes = null;
+        pendingLongLink = null;
 
         if (!effectiveEntryName) {
             continue;
@@ -798,6 +838,7 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
 
         validateNativeEntryName(effectiveEntryName);
         const resolved = resolveEntryPath(destinationRoot, effectiveEntryName);
+        const linkTarget = resolveTarLinkTarget(header, entryLongLink, entryPaxAttributes, globalPaxAttributes);
 
         if (!resolved) {
             continue;
@@ -807,8 +848,51 @@ function validateTarArchive(buffer: Buffer, destination: string): void {
             continue;
         }
 
+        if (typeFlag === 50) {
+            if (!linkTarget || !isSafeTarLinkTarget(linkTarget)) {
+                continue;
+            }
+
+            continue;
+        }
+
         throw new Error(`Unsupported TAR entry type ${String.fromCharCode(typeFlag)} for ${entryName}`);
     }
+}
+
+function resolveTarLinkTarget(
+    header: Buffer,
+    longLink: string | null,
+    entryPaxAttributes: Record<string, string> | null,
+    globalPaxAttributes: Record<string, string>,
+): string | null {
+    if (longLink) {
+        return longLink;
+    }
+
+    const paxLink = entryPaxAttributes?.linkpath ?? globalPaxAttributes.linkpath;
+
+    if (paxLink) {
+        return paxLink;
+    }
+
+    const linkName = readTarString(header, 157, 100);
+
+    return linkName || null;
+}
+
+function isSafeTarLinkTarget(linkTarget: string): boolean {
+    const normalized = linkTarget.replace(/\\/g, "/");
+
+    if (!normalized) {
+        return false;
+    }
+
+    if (normalized.startsWith("/") || /^[A-Za-z]:/.test(normalized)) {
+        return false;
+    }
+
+    return true;
 }
 
 function isTarMetadataType(typeFlag: number): boolean {
