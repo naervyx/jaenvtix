@@ -382,7 +382,14 @@ function enforcePreviewPolicy(
 }
 
 function parseMajorVersion(version: string): number {
-    const match = /^(\d+)/u.exec(version.trim());
+    const trimmed = version.trim();
+    const legacyMatch = /^1[._-](\d+)/u.exec(trimmed);
+
+    if (legacyMatch) {
+        return Number.parseInt(legacyMatch[1]!, 10);
+    }
+
+    const match = /^(\d+)/u.exec(trimmed);
 
     if (!match) {
         throw new Error(`Unable to determine major version from "${version}".`);

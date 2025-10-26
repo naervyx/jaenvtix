@@ -78,4 +78,12 @@ suite("jdkMapper", () => {
             );
         }, /No supported JDK distribution/);
     });
+
+    test("normalizes legacy 1.x version scheme", () => {
+        const distribution = resolveWith({ version: "1.8.0_202" });
+
+        assert.strictEqual(distribution.version, "8");
+        assert.strictEqual(distribution.vendor, "corretto");
+        assert.match(distribution.url, /corretto-8/);
+    });
 });
