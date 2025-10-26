@@ -198,6 +198,7 @@ export function createProvisioningOrchestrator(options: OrchestratorOptions = {}
                                 });
                                 const paths = dependencies.getPathsForVersion(distribution.version, {
                                     baseDir: baseLayout.baseDir,
+                                    platform: platform.os,
                                 });
                                 const archiveName = deriveArchiveName(distribution);
                                 const destination = path.join(baseLayout.tempDir, archiveName);

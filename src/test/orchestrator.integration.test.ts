@@ -64,6 +64,7 @@ suite("Provisioning orchestrator integration", () => {
             }),
             getPathsForVersion: (version, options) => {
                 const baseDir = options?.baseDir ?? "/home/test/.jaenvtix";
+                assert.strictEqual(options?.platform, "linux");
 
                 return {
                     baseDir,
@@ -194,6 +195,7 @@ suite("Provisioning orchestrator integration", () => {
             }),
             getPathsForVersion: (version, options) => {
                 const baseDir = options?.baseDir ?? "/home/test/.jaenvtix";
+                assert.strictEqual(options?.platform, "linux");
 
                 return {
                     baseDir,

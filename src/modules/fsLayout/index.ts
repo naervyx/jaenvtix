@@ -2,11 +2,14 @@ import { promises as nodeFs, type MakeDirectoryOptions } from "fs";
 import * as os from "os";
 import * as path from "path";
 
+import type { NormalizedOperatingSystem } from "../platformInfo";
+
 const BASE_FOLDER_NAME = ".jaenvtix";
 
 export interface LayoutBaseOptions {
     readonly baseDir?: string;
     readonly homeDir?: string;
+    readonly platform?: NodeJS.Platform | NormalizedOperatingSystem;
 }
 
 export interface EnsureBaseLayoutOptions extends LayoutBaseOptions {
@@ -59,13 +62,14 @@ export function getPathsForVersion(
     const jdkHome = path.join(majorVersionDir, version);
     const mavenDir = path.join(majorVersionDir, "mvn-custom");
     const mavenBin = path.join(mavenDir, "bin");
+    const windowsExecutables = isWindowsPlatform(options.platform);
     const mavenWrapper = path.join(
         mavenBin,
-        process.platform === "win32" ? "mvn-jaenvtix.cmd" : "mvn-jaenvtix"
+        windowsExecutables ? "mvn-jaenvtix.cmd" : "mvn-jaenvtix"
     );
     const mavenDaemon = path.join(
         mavenBin,
-        process.platform === "win32" ? "mvnd.exe" : "mvnd"
+        windowsExecutables ? "mvnd.exe" : "mvnd"
     );
     const toolchainsFile = path.join(homeDir, ".m2", "toolchains.xml");
 
@@ -158,6 +162,18 @@ function formatFsErrorMessage(error: unknown): string {
     } catch {
         return String(error);
     }
+}
+
+function isWindowsPlatform(
+    platform: NodeJS.Platform | NormalizedOperatingSystem | undefined,
+): boolean {
+    if (!platform) {
+        return process.platform === "win32";
+    }
+
+    const normalized = platform.toLowerCase();
+
+    return normalized === "win32" || normalized === "windows";
 }
 
 function deriveMajorSegment(version: string): string {

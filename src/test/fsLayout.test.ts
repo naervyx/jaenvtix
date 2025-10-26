@@ -94,6 +94,22 @@ suite("fsLayout", () => {
         assert.strictEqual(paths.mavenDaemon, expectedDaemon);
     });
 
+    test("getPathsForVersion honours provided platform overrides", () => {
+        const homeDir = "/users/dev";
+        const version = "21.0.2+13";
+
+        const paths = getPathsForVersion(version, { homeDir, platform: "windows" });
+
+        assert.strictEqual(
+            paths.mavenWrapper,
+            path.join(homeDir, ".jaenvtix", "jdk-21", "mvn-custom", "bin", "mvn-jaenvtix.cmd"),
+        );
+        assert.strictEqual(
+            paths.mavenDaemon,
+            path.join(homeDir, ".jaenvtix", "jdk-21", "mvn-custom", "bin", "mvnd.exe"),
+        );
+    });
+
     test("getPathsForVersion keeps legacy 1.x major identifiers", () => {
         const homeDir = "/users/dev";
         const version = "1.8.0_202";
