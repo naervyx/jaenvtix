@@ -60,6 +60,9 @@
     "test:e2e": "npm run compile-tests && npx --no-install @vscode/test-cli --extensionDevelopmentPath=. --extensionTestsPath=./out/test/suite/index --install-extension ./artifacts/jaenvtix.vsix",
     "validate:extension": "npm run bundle:prod && npm run package:vsix && npm run test:e2e"
   },
+  "dependencies": {
+    "jsonc-parser": "file:vendor/jsonc-parser"
+  },
   "devDependencies": {
     "@types/vscode": "^1.105.0",
     "@types/mocha": "^10.0.10",

@@ -7,6 +7,7 @@ This directory groups guides for each extension module so automated discovery an
 3. [JDK Distribution Mapper](../architecture/jdk-mapper.md)
 4. [Artifact Downloader](./downloader.md)
 5. [Archive Extractor](./extractor.md)
+6. [VS Code Workspace Config](../vscode-config.md)
 
 ### Limitation References
 
