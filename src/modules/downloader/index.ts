@@ -386,14 +386,7 @@ function buildRetryOptions(
     logger: Logger | undefined,
     signal: AbortSignal | undefined,
 ): RetryOptions {
-    const combined = policy.createOptions({
-        retries: 3,
-        initialDelayMs: 500,
-        maxDelayMs: 10_000,
-        factor: 2,
-        jitter: 0.1,
-        ...options,
-    });
+    const combined = policy.createOptions(options);
 
     const userOnRetry = combined.onRetry;
 
