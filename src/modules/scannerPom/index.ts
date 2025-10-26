@@ -413,6 +413,15 @@ export async function resolveJavaVersion(pomPath: string): Promise<string | unde
         properties.javaVersion,
     ];
 
+    const propertyLookup: Record<string, string | undefined> = {
+        "maven.compiler.release": properties.mavenCompilerRelease,
+        "maven.compiler.source": properties.mavenCompilerSource,
+        "maven.compiler.target": properties.mavenCompilerTarget,
+        "java.version": properties.javaVersion,
+    };
+
+    let unresolvedPlaceholder: string | undefined;
+
     for (const candidate of candidates) {
         if (!candidate) {
             continue;
@@ -420,10 +429,31 @@ export async function resolveJavaVersion(pomPath: string): Promise<string | unde
 
         const normalized = candidate.trim();
 
-        if (normalized) {
+        if (!normalized) {
+            continue;
+        }
+
+        const placeholderMatch = normalized.match(/^\$\{([^}:]+)(?::([^}]*))?\}$/);
+
+        if (!placeholderMatch) {
             return normalized;
+        }
+
+        const [, propertyKey, defaultValue] = placeholderMatch;
+        const resolvedProperty = propertyLookup[propertyKey]?.trim();
+
+        if (resolvedProperty) {
+            return resolvedProperty;
+        }
+
+        if (defaultValue?.trim()) {
+            return defaultValue.trim();
+        }
+
+        if (unresolvedPlaceholder === undefined) {
+            unresolvedPlaceholder = normalized;
         }
     }
 
-    return undefined;
+    return unresolvedPlaceholder;
 }
