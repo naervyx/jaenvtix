@@ -109,6 +109,8 @@ class ReporterImpl implements Reporter {
 
     private directoryReady?: Promise<void>;
 
+    private persistQueue: Promise<void> = Promise.resolve();
+
     constructor(options: ReporterOptions = {}) {
         this.window = options.window;
         this.clock = options.clock ?? (() => new Date());
@@ -274,10 +276,16 @@ class ReporterImpl implements Reporter {
     }
 
     private async persist(): Promise<void> {
-        const report = this.getMutableReport();
-        report.updatedAt = this.clock().toISOString();
-        await this.ensureDirectory();
-        await this.fs.writeFile(this.reportFilePath, `${JSON.stringify(report, null, 2)}\n`);
+        const writeReport = async () => {
+            const report = this.getMutableReport();
+            report.updatedAt = this.clock().toISOString();
+            await this.ensureDirectory();
+            await this.fs.writeFile(this.reportFilePath, `${JSON.stringify(report, null, 2)}\n`);
+        };
+
+        const next = this.persistQueue.then(writeReport, writeReport);
+        this.persistQueue = next.catch(() => undefined);
+        await next;
     }
 
     private async ensureDirectory(): Promise<void> {
