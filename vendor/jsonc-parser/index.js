@@ -111,7 +111,7 @@ function stripTrailingCommas(text) {
                     break;
                 }
 
-                result += char;
+                // Non-trailing comma; allow the normal append outside the block.
                 break;
             }
 
@@ -120,7 +120,7 @@ function stripTrailingCommas(text) {
                 continue;
             }
 
-            if (lookahead < text.length && (text[lookahead] === "}" || text[lookahead] === "]")) {
+            if (text[lookahead] === "}" || text[lookahead] === "]") {
                 continue;
             }
         }
