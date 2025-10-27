@@ -96,7 +96,7 @@
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile",
-    "test:unit": "JAENVTIX_SKIP_INTEGRATION_TESTS=1 mocha --color --reporter spec --ui tdd --require out/test/setup.js \"out/test/**/*.test.js\"",
+    "test:unit": "node scripts/run-unit-tests.js",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "bundle:dev": "node esbuild.js",
