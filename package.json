@@ -1,6 +1,7 @@
 {
   "name": "jaenvtix",
   "displayName": "jaenvtix",
+  "publisher": "naervyx",
   "description": "",
   "version": "0.0.1",
   "engines": {
@@ -9,29 +10,104 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:jaenvtix.detectJavaVersion",
+    "onCommand:jaenvtix.provisionJdk",
+    "workspaceContains:pom.xml"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "jaenvtix.helloWorld",
-        "title": "Hello World"
+        "command": "jaenvtix.detectJavaVersion",
+        "title": "Jaenvtix: Detect Java Versions"
+      },
+      {
+        "command": "jaenvtix.provisionJdk",
+        "title": "Jaenvtix: Provision JDK"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "jaenvtix",
+      "properties": {
+        "jaenvtix.platform.override": {
+          "type": "object",
+          "markdownDescription": "Overrides the detected operating system and architecture used by jaenvtix.",
+          "default": {},
+          "properties": {
+            "os": {
+              "type": "string",
+              "markdownDescription": "Operating system identifier such as `windows`, `macos` or `linux`."
+            },
+            "arch": {
+              "type": "string",
+              "markdownDescription": "Processor architecture identifier such as `x64`, `x86` or `arm64`."
+            }
+          }
+        },
+        "jaenvtix.retry.maxAttempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 4,
+          "markdownDescription": "Maximum number of provisioning attempts (including the first try) that jaenvtix will perform before aborting."
+        },
+        "jaenvtix.retry.initialDelayMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 200,
+          "markdownDescription": "Initial delay, in milliseconds, before jaenvtix retries a failed operation."
+        },
+        "jaenvtix.retry.maxDelayMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 5000,
+          "markdownDescription": "Upper bound, in milliseconds, for retry backoff delays."
+        },
+        "jaenvtix.retry.factor": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 2,
+          "markdownDescription": "Multiplier applied to the delay after each retry attempt."
+        },
+        "jaenvtix.retry.jitter": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.25,
+          "markdownDescription": "Randomization factor applied to retry delays to avoid synchronized retries."
+        },
+        "jaenvtix.retry.requireUserConfirmation": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Controls whether jaenvtix asks for confirmation before retrying provisioning steps after a failure. Disable to allow automatic retries without additional consent."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "compile": "npm run check-types && npm run lint && npm run bundle:dev",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "package": "npm run check-types && npm run lint && npm run bundle:prod",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "pretest": "npm run compile-tests && npm run compile",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "bundle:dev": "node esbuild.js",
+    "bundle:prod": "node esbuild.js --production",
+    "package:vsix": "mkdir -p artifacts && npx --yes @vscode/vsce package --out artifacts/jaenvtix.vsix",
+    "test": "vscode-test",
+    "test:ci": "npm run compile-tests && npm run bundle:dev && npx --no-install vscode-test",
+    "test:e2e": "npm run compile-tests && npx --no-install @vscode/test-cli --extensionDevelopmentPath=. --extensionTestsPath=./out/test/suite/index --install-extension ./artifacts/jaenvtix.vsix",
+    "validate:extension": "npm run bundle:prod && npm run package:vsix && npm run test:e2e"
+  },
+  "dependencies": {
+    "jsonc-parser": "file:vendor/jsonc-parser"
   },
   "devDependencies": {
     "@types/vscode": "^1.105.0",
@@ -43,6 +119,7 @@
     "esbuild": "^0.25.10",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.3",
+    "mocha": "^11.1.0",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2"
   }

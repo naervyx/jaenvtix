@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - release
+      - 'release/**'
+  pull_request:
+    branches:
+      - main
+      - release
+      - 'release/**'
+  workflow_dispatch:
+    inputs:
+      run_full_test_suite:
+        description: 'Set to "true" to run the full regression test stage.'
+        required: true
+        default: 'false'
+      enable_multi_platform_builds:
+        description: 'Set to "true" to include macOS and Windows jobs in addition to Linux.'
+        required: true
+        default: 'false'
+        # When this input remains "false" the workflow only schedules ubuntu-latest runners.
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  quality:
+    name: Quality checks
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ${{ fromJSON(
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.enable_multi_platform_builds == 'true' && '["ubuntu-latest","macos-latest","windows-latest"]') ||
+          '["ubuntu-latest"]'
+        ) }}
+    # macOS and Windows jobs are only added to the matrix when enable_multi_platform_builds is true.
+    env:
+      CI: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check TypeScript types
+        run: npm run check-types
+
+      - name: Run lint checks
+        run: npm run lint
+
+      - name: Build extension bundle
+        run: npm run bundle:dev
+
+      - name: Run regression tests
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.run_full_test_suite == 'true'
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            xvfb-run --auto-servernum npm run test:ci
+          else
+            npm run test:ci
+          fi
+
+      - name: Create production bundle
+        if: runner.os == 'Linux'
+        run: npm run bundle:prod
+
+      - name: Package VS Code extension
+        if: runner.os == 'Linux'
+        run: npm run package:vsix
+
+      - name: Upload packaged artifact
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jaenvtix-dist
+          path: dist
+          if-no-files-found: error
+
+      - name: Upload VSIX artifact
+        if: matrix.os == 'ubuntu-latest' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jaenvtix-vsix
+          path: artifacts/jaenvtix.vsix
+          if-no-files-found: error
+
+  end-to-end:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    needs: quality
+    env:
+      CI: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run bundle:prod
+
+      - name: Package VS Code extension
+        run: npm run package:vsix
+
+      - name: Run end-to-end tests
+        run: xvfb-run --auto-servernum npm run test:e2e

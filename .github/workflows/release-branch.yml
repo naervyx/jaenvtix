@@ -1,0 +1,69 @@
+name: Create release branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (for example 0.1.0) used to compose the release branch name.'
+        required: true
+      base_ref:
+        description: 'Base branch or tag to branch from (defaults to main).'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release-branch:
+    name: Create release branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine branch name
+        id: naming
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          SANITIZED_VERSION=$(echo "$VERSION" | sed 's/^v\?//' )
+          BRANCH="release/v${SANITIZED_VERSION}"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Verify target branch does not already exist
+        run: |
+          if git ls-remote --exit-code --heads origin "${{ steps.naming.outputs.branch }}"; then
+            echo "Branch ${{ steps.naming.outputs.branch }} already exists on origin." >&2
+            exit 1
+          fi
+
+      - name: Create release branch from base
+        run: |
+          BASE_REF="${{ github.event.inputs.base_ref }}"
+          if git ls-remote --exit-code --heads origin "$BASE_REF" >/dev/null; then
+            git fetch origin "$BASE_REF"
+            BASE_TARGET="origin/$BASE_REF"
+          elif git ls-remote --exit-code --tags origin "$BASE_REF" >/dev/null; then
+            git fetch origin "refs/tags/$BASE_REF:refs/tags/$BASE_REF"
+            BASE_TARGET="$BASE_REF"
+          else
+            echo "Base ref '$BASE_REF' not found as a branch or tag." >&2
+            exit 1
+          fi
+
+          git checkout -B "${{ steps.naming.outputs.branch }}" "$BASE_TARGET"
+
+      - name: Push release branch
+        run: git push --set-upstream origin "${{ steps.naming.outputs.branch }}"
+
+      - name: Provide summary
+        run: |
+          echo "Release branch **${{ steps.naming.outputs.branch }}** created from **${{ github.event.inputs.base_ref }}**." >> "$GITHUB_STEP_SUMMARY"
+          echo "You can now create a tag from this branch once validation passes." >> "$GITHUB_STEP_SUMMARY"
