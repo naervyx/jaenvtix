@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - main
+      - release
+      - 'release/**'
   pull_request:
     branches:
       - main
+      - release
+      - 'release/**'
   workflow_dispatch:
     inputs:
       run_full_test_suite:
@@ -23,17 +27,18 @@ permissions:
   contents: read
   actions: write
 
+# (Opcional) shell consistente, evita diferenças no Windows
+defaults:
+  run:
+    shell: bash
+
 jobs:
   quality:
     name: Quality checks
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: ${{ fromJSON(
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.enable_multi_platform_builds == 'true' && '["ubuntu-latest","macos-latest","windows-latest"]') ||
-          '["ubuntu-latest"]'
-        ) }}
-    # macOS and Windows jobs are only added to the matrix when enable_multi_platform_builds is true.
+        os: ${{ fromJSON((github.event_name == 'workflow_dispatch' && github.event.inputs.enable_multi_platform_builds == 'true' && '["ubuntu-latest","macos-latest","windows-latest"]') || '["ubuntu-latest"]') }}
     env:
       CI: true
     steps:
@@ -59,8 +64,7 @@ jobs:
         run: npm run bundle:dev
 
       - name: Run regression tests
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.run_full_test_suite == 'true'
-        shell: bash
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_full_test_suite == 'true' }}
         run: |
           if [ "${{ runner.os }}" = "Linux" ]; then
             xvfb-run --auto-servernum npm run test:ci
@@ -69,15 +73,15 @@ jobs:
           fi
 
       - name: Create production bundle
-        if: runner.os == 'Linux'
+        if: ${{ runner.os == 'Linux' }}
         run: npm run bundle:prod
 
       - name: Package VS Code extension
-        if: runner.os == 'Linux'
+        if: ${{ runner.os == 'Linux' }}
         run: npm run package:vsix
 
       - name: Upload packaged artifact
-        if: matrix.os == 'ubuntu-latest'
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: actions/upload-artifact@v4
         with:
           name: jaenvtix-dist
@@ -85,7 +89,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload VSIX artifact
-        if: matrix.os == 'ubuntu-latest' && github.ref == 'refs/heads/main'
+        if: ${{ matrix.os == 'ubuntu-latest' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v4
         with:
           name: jaenvtix-vsix
