@@ -15,12 +15,13 @@ const mochaArgs = [
   'out/test/**/*.test.js'
 ];
 
+if (typeof process.env.JAENVTIX_SKIP_INTEGRATION_TESTS === 'undefined') {
+  process.env.JAENVTIX_SKIP_INTEGRATION_TESTS = '1';
+}
+
 const result = spawnSync(process.execPath, [mochaBin, ...mochaArgs], {
   stdio: 'inherit',
-  env: {
-    ...process.env,
-    JAENVTIX_SKIP_INTEGRATION_TESTS: '1'
-  }
+  env: process.env
 });
 
 if (result.error) {
