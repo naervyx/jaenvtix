@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 
-import { createLogger } from "@shared/index";
+import { createLogger } from "./shared/index";
 
 import {
     createProvisioningOrchestrator,

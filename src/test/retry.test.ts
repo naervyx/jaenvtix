@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 
-import { RetryPolicy } from "@shared/retry";
+import { RetryPolicy } from "../shared/retry";
 
 suite("RetryPolicy", () => {
     test("reads limits from configuration", () => {

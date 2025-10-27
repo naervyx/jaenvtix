@@ -8,9 +8,12 @@ import {
     type ProvisioningDependencies,
     type ProvisioningSummary,
 } from "../modules/orchestrator";
-import type { Logger } from "@shared/logger";
+import type { Logger } from "../shared/logger";
 
-suite("Provisioning orchestrator integration", () => {
+const shouldSkipIntegration = process.env.JAENVTIX_SKIP_INTEGRATION_TESTS === "1";
+const integrationSuite = shouldSkipIntegration ? suite.skip : suite;
+
+integrationSuite("Provisioning orchestrator integration", () => {
     test("provisions shared versions across multiple workspaces", async () => {
         const workspaceFolders = createWorkspaceFolders([
             { name: "alpha", path: "/workspace/alpha" },
