@@ -6,8 +6,8 @@ import { finished } from "node:stream/promises";
 import { Readable } from "node:stream";
 import type * as vscode from "vscode";
 
-import type { Logger } from "@shared/logger";
-import { RetryPolicy, retry, type RetryOptions } from "@shared/retry";
+import type { Logger } from "../../shared/logger";
+import { RetryPolicy, retry, type RetryOptions } from "../../shared/retry";
 
 interface HeaderLike {
     get(name: string): string | null;

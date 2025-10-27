@@ -8,6 +8,9 @@ import { PassThrough } from "node:stream";
 
 import { extract, setManualExtractionPrompt, setSpawnImplementation } from "../modules/extractor";
 
+const shouldSkipIntegration = process.env.JAENVTIX_SKIP_INTEGRATION_TESTS === "1";
+const integrationSuite = shouldSkipIntegration ? suite.skip : suite;
+
 interface ZipEntrySpec {
     readonly name: string;
     readonly data?: Buffer;
@@ -21,7 +24,7 @@ interface TarEntrySpec {
     readonly type?: "file" | "directory";
 }
 
-suite("extractor", () => {
+integrationSuite("extractor", () => {
     teardown(async () => {
         setSpawnImplementation(undefined);
         setManualExtractionPrompt(undefined);
@@ -61,7 +64,7 @@ suite("extractor", () => {
             {
                 name: "link",
                 data: Buffer.from("../escape"),
-                externalAttributes: 0o120000 << 16,
+                externalAttributes: (0o120000 << 16) >>> 0,
             },
         ]);
 

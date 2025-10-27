@@ -5,7 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { Readable } from "node:stream";
 
-import type { Logger } from "@shared/logger";
+import type { Logger } from "../shared/logger";
 
 import { downloadArtifact, type DownloadProgress } from "../modules/downloader";
 

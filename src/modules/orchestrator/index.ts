@@ -3,8 +3,8 @@ import { access } from "node:fs/promises";
 
 import * as vscode from "vscode";
 
-import { createLogger, type Logger } from "@shared/logger";
-import { RetryPolicy } from "@shared/retry";
+import { createLogger, type Logger } from "../../shared/logger";
+import { RetryPolicy } from "../../shared/retry";
 
 import { downloadArtifact, type DownloadArtifactOptions } from "../downloader";
 import { extract } from "../extractor";
