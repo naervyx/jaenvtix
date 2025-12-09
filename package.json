@@ -11,8 +11,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:jaenvtix.setup",
-    "onConfigurationChanged:jaenvtix"
+    "onCommand:jaenvtix.setup"
   ],
   "main": "./dist/extension.js",
   "contributes": {
