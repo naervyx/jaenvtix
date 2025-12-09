@@ -10,13 +10,15 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:jaenvtix.setup"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "jaenvtix.helloWorld",
-        "title": "Hello World"
+        "command": "jaenvtix.setup",
+        "title": "Jaenvtix: Setup JDK and Maven"
       }
     ]
   },
