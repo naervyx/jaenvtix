@@ -1,75 +1,27 @@
-# jaenvtix README
+# Jaenvtix
 
-This is the README for your extension "jaenvtix". After writing up a brief description, we recommend including the following sections.
+Jaenvtix provisions JDK and Maven automatically inside the current workspace by executing a Python helper script bundled with the extension. Use it to prepare Java toolchains quickly in fresh projects.
 
 ## Commands
 
-* **Jaenvtix: Setup JDK and Maven** (`jaenvtix.setup`): opens the extension's setup flow to provision Java and Maven in the current workspace.
+* **Jaenvtix: Setup JDK and Maven** (`jaenvtix.setup`): runs the Python setup script in the root of the open workspace and reports progress in the **Jaenvtix** output channel.
 
-## Features
+## Configuration
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+The extension contributes settings under `Jaenvtix`:
 
-For example if there is an image subfolder under your extension project workspace:
+* `jaenvtix.pythonPath` — executable used to run the helper script (default `python`).
+* `jaenvtix.setupTimeout` — maximum wait time in seconds for the setup script to finish.
+* `jaenvtix.logLevel` — verbosity for emitted logs (`error`, `warn`, `info`, `debug`).
 
-\!\[feature X\]\(images/feature-x.png\)
+## Building and debugging
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+1. Install dependencies: `npm install`
+2. Start a development build that recompiles on save: `npm run watch`
+3. Press **F5** in VS Code to open an Extension Development Host and execute `Jaenvtix: Setup JDK and Maven` from the command palette.
 
-## Requirements
+To produce an optimized bundle for publishing, use `npm run package`.
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+## Tests
 
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Run the integration tests with `npm test`. The suite uses the VS Code test runner and stubs the Python process to avoid external dependencies.
