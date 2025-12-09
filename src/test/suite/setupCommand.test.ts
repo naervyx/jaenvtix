@@ -94,14 +94,13 @@ describe('jaenvtix.setup command', () => {
     it('runs successfully and reports output', async () => {
         const outputChannel = createOutputChannelMock();
         sandbox.stub(vscode.window, 'createOutputChannel').returns(outputChannel);
+        sandbox.stub(childProcess, 'spawn').callsFake(() =>
+            createFakeProcess(0, 'stdout line', 'stderr line')
+        );
         await activateExtension();
         const workspaceFolder = stubWorkspaceContext();
         const { withProgressStub, optionsSeen } = stubProgress();
         const { info, error } = stubMessages();
-
-        sandbox.stub(childProcess, 'spawn').callsFake(() =>
-            createFakeProcess(0, 'stdout line', 'stderr line')
-        );
 
         await vscode.commands.executeCommand('jaenvtix.setup');
 
@@ -127,12 +126,11 @@ describe('jaenvtix.setup command', () => {
     it('surfaces failures from the Python process', async () => {
         const outputChannel = createOutputChannelMock();
         sandbox.stub(vscode.window, 'createOutputChannel').returns(outputChannel);
+        sandbox.stub(childProcess, 'spawn').callsFake(() => createFakeProcess(2, '', 'boom'));
         await activateExtension();
         stubWorkspaceContext();
         const { error } = stubMessages();
         stubProgress();
-
-        sandbox.stub(childProcess, 'spawn').callsFake(() => createFakeProcess(2, '', 'boom'));
 
         await assert.rejects(vscode.commands.executeCommand('jaenvtix.setup'), /Exit code 2/);
 
