@@ -15,6 +15,32 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Jaenvtix",
+      "properties": {
+        "jaenvtix.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "markdownDescription": "Caminho completo para o executável **Python** usado pelo Jaenvtix."
+        },
+        "jaenvtix.setupTimeout": {
+          "type": "number",
+          "default": 300,
+          "markdownDescription": "Tempo limite em segundos para aguardar a conclusão da configuração automática de JDK e Maven."
+        },
+        "jaenvtix.logLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ],
+          "default": "info",
+          "markdownDescription": "Nível de detalhamento do log emitido pelo Jaenvtix (`error`, `warn`, `info`, `debug`)."
+        }
+      }
+    },
     "commands": [
       {
         "command": "jaenvtix.setup",
