@@ -2,6 +2,10 @@
 
 This is the README for your extension "jaenvtix". After writing up a brief description, we recommend including the following sections.
 
+## Commands
+
+* **Jaenvtix: Setup JDK and Maven** (`jaenvtix.setup`): opens the extension's setup flow to provision Java and Maven in the current workspace.
+
 ## Features
 
 Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
