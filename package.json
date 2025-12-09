@@ -57,7 +57,7 @@
     "watch-tests": "jaenvtix/node_modules/.bin/tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "jaenvtix/node_modules/.bin/eslint src",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/src/test/runTest.js"
   },
   "devDependencies": {
     "@types/vscode": "^1.106.1",
