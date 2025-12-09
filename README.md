@@ -22,6 +22,11 @@ The extension contributes settings under `Jaenvtix`:
 
 To produce an optimized bundle for publishing, use `npm run package`.
 
+## Packaging for installation
+
+1. Generate a VSIX package: `npm run vsix`
+2. Install the generated archive in VS Code: `code --install-extension jaenvtix.vsix`
+
 ## Tests
 
 Run the integration tests with `npm test`. The suite uses the VS Code test runner and stubs the Python process to avoid external dependencies.
