@@ -92,10 +92,10 @@ describe('jaenvtix.setup command', () => {
     };
 
     it('runs successfully and reports output', async () => {
-        await activateExtension();
-        const workspaceFolder = stubWorkspaceContext();
         const outputChannel = createOutputChannelMock();
         sandbox.stub(vscode.window, 'createOutputChannel').returns(outputChannel);
+        await activateExtension();
+        const workspaceFolder = stubWorkspaceContext();
         const { withProgressStub, optionsSeen } = stubProgress();
         const { info, error } = stubMessages();
 
@@ -125,10 +125,10 @@ describe('jaenvtix.setup command', () => {
     });
 
     it('surfaces failures from the Python process', async () => {
-        await activateExtension();
-        stubWorkspaceContext();
         const outputChannel = createOutputChannelMock();
         sandbox.stub(vscode.window, 'createOutputChannel').returns(outputChannel);
+        await activateExtension();
+        stubWorkspaceContext();
         const { error } = stubMessages();
         stubProgress();
 
