@@ -1,0 +1,47 @@
+{
+  "name": "jaenvtix",
+  "displayName": "jaenvtix",
+  "description": "Jaenvtix — Auto‑Setup (JDK & Maven) for Visual Studio Code",
+  "publisher": "naervyx",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.106.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "jaenvtix.helloWorld",
+        "title": "Hello World"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "jaenvtix/node_modules/.bin/webpack",
+    "watch": "jaenvtix/node_modules/.bin/webpack --watch",
+    "package": "jaenvtix/node_modules/.bin/webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "jaenvtix/node_modules/.bin/tsc -p . --outDir out",
+    "watch-tests": "jaenvtix/node_modules/.bin/tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "jaenvtix/node_modules/.bin/eslint src",
+    "test": "jaenvtix/node_modules/.bin/vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.106.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.48.1",
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3",
+    "ts-loader": "^9.5.4",
+    "webpack": "^5.103.0",
+    "webpack-cli": "^6.0.1",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
