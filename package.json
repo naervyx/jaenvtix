@@ -50,13 +50,13 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "compile": "jaenvtix/node_modules/.bin/webpack",
-    "watch": "jaenvtix/node_modules/.bin/webpack --watch",
-    "package": "jaenvtix/node_modules/.bin/webpack --mode production --devtool hidden-source-map",
-    "compile-tests": "jaenvtix/node_modules/.bin/tsc -p . --outDir out",
-    "watch-tests": "jaenvtix/node_modules/.bin/tsc -p . -w --outDir out",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
-    "lint": "jaenvtix/node_modules/.bin/eslint src",
+    "lint": "eslint src",
     "test": "node ./out/src/test/runTest.js"
   },
   "devDependencies": {
