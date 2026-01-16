@@ -56,7 +56,7 @@ export function updateVsCodeSettings(
         "java.jdt.ls.java.home": paths.javaHomePath,
         "java.jdt.ls.lombokSupport.enabled": true,
         "maven.executable.preferMavenWrapper": true,
-        "maven.executable.path": paths.mavenBinPath,
+        "maven.executable.path": paths.mavenBinPath + "\\mvn.cmd",
         "java.compile.nullAnalysis.mode": "automatic",
         "java.configuration.updateBuildConfiguration": "automatic",
         "java.configuration.maven.userSettings": paths.userSettingsPath

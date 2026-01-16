@@ -7,7 +7,7 @@ import {getArchitecture, getPlatform, isArchitectureSupported, isPlatformSupport
 import {
     buildDefaultM2SettingsPath,
     buildJdkVersionPath,
-    buildMavenBinPath, buildMavenInstallationPath, buildMavenWrapperPath, buildVsCodeSettingPath, directoryHasContent,
+    buildMavenBinPath, buildMavenInstallationPath, buildVsCodeSettingPath, directoryHasContent,
     initializeBaseDirectories, initializeJdkEnvironment
 } from "./features/build/directory";
 import {ProjectContext, ProjectContextBuilder} from "./core/contextCore";
@@ -201,7 +201,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 // Monta os paths necessários para a configuração
                 const javaMavenPaths = {
                     javaHomePath: projectContext.jdkHome,
-                    mavenBinPath: buildMavenWrapperPath(projectContext.toolBin, projectContext.platform),
+                    mavenBinPath: projectContext.toolBin,
                     userSettingsPath: buildDefaultM2SettingsPath()
                 };
 
