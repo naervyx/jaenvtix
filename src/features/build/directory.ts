@@ -2,6 +2,7 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
 import {existsSync, readdirSync} from "node:fs";
+import {PlatformType} from "../../core/type/platformType";
 
 const USER_HOME_PATH = homedir();
 const MAVEN_LOCAL_REPOSITORY_PATH = join(USER_HOME_PATH, '.m2');
@@ -23,6 +24,14 @@ export function buildMavenInstallationPath(javaVersion: string): string {
 
 export function buildMavenBinPath(javaVersion: string): string {
     return join(buildMavenInstallationPath(javaVersion), 'bin');
+}
+
+export function buildMavenWrapperPath(projectPath: string, plataform: PlatformType): string {
+    if (plataform === "windows") {
+        return join(projectPath, 'mvn.cmd');
+    }
+
+    return join(projectPath, 'mvn');
 }
 
 export function buildVsCodePath(projectPath: string): string {
