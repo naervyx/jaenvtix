@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import {dirname} from 'node:path';
+import {existsSync, readFileSync, writeFileSync, mkdirSync} from 'node:fs';
 
 interface VsCodeSettings {
     "java.jdt.ls.java.home"?: string;
@@ -41,8 +41,8 @@ export function updateVsCodeSettings(
     // Read the existing JSON file or create an empty object.
     let data: VsCodeSettings = {};
     
-    if (fs.existsSync(settingsPath)) {
-        const fileContent = fs.readFileSync(settingsPath, 'utf-8');
+    if (existsSync(settingsPath)) {
+        const fileContent = readFileSync(settingsPath, 'utf-8');
         try {
             data = JSON.parse(fileContent) as VsCodeSettings;
         } catch {
@@ -73,16 +73,12 @@ export function updateVsCodeSettings(
 
     // Save the file if changes were made.
     if (result.updated) {
-        // Ensure the directory exists.
-        const dirPath = path.dirname(settingsPath);
-        if (!fs.existsSync(dirPath)) {
-            fs.mkdirSync(dirPath, { recursive: true });
+        const dirPath = dirname(settingsPath);
+        if (!existsSync(dirPath)) {
+            mkdirSync(dirPath, { recursive: true });
         }
-        
-        fs.writeFileSync(settingsPath, JSON.stringify(data, null, 4), 'utf-8');
-        console.log(`Added settings: ${result.addedKeys.join(', ')}`);
-    } else {
-        console.log('All settings already exist. No changes needed.');
+
+        writeFileSync(settingsPath, JSON.stringify(data, null, 4), 'utf-8');
     }
 
     return result;
