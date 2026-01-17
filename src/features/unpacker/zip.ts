@@ -62,7 +62,7 @@ async function decompressEntry(buffer: Buffer, entry: ZipEntry): Promise<Buffer>
         return await inflateRawAsync(compressedData);
     }
 
-    throw new Error(`Método de compressão não suportado: ${entry.compressionMethod}`);
+    throw new Error(`Unsupported compression method: ${entry.compressionMethod}`);
 }
 
 async function extractEntries(buffer: Buffer, entries: ZipEntry[], destPath: string, root: string | null): Promise<void> {

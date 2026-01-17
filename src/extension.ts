@@ -28,7 +28,7 @@ export async function activate(context: vscode.ExtensionContext) {
         );
 
         if (choice === Messages.Choice.YES) {
-            // ========== ETAPA 1: VALIDAÇÕES INICIAIS ==========
+            // ========== STEP 1: INITIAL VALIDATIONS ==========
             const workspaceFolders = vscode.workspace.workspaceFolders;
 
             if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -50,7 +50,7 @@ export async function activate(context: vscode.ExtensionContext) {
             const mavenDistribution = await getMavenDistribution(platform);
 
             if (mavenDistribution === null) {
-                return vscode.window.showWarningMessage('PRECISO DE MENSAGEM');
+                return vscode.window.showWarningMessage(Messages.Warning.MAVEN_DISTRIBUTION_NOT_FOUND);
             }
 
             const workspaceFolder = workspaceFolders[0].uri.fsPath;
@@ -77,10 +77,10 @@ export async function activate(context: vscode.ExtensionContext) {
                 return vscode.window.showWarningMessage(Messages.Warning.NOT_FOUND_JAVA_VERSION);
             }
 
-            // ========== ETAPA 2: INICIALIZAR DIRETÓRIOS ==========
+            // ========== STEP 2: INITIALIZE DIRECTORIES ==========
             initializeBaseDirectories();
 
-            // ========== ETAPA 3: CONSTRUIR PATHS POR VERSÃO ==========
+            // ========== STEP 3: BUILD VERSION PATHS ==========
             const versionPathsMap = new Map<string, VersionPath>();
 
             for (const javaVersion of projectVersionMap.keys()) {
@@ -91,19 +91,19 @@ export async function activate(context: vscode.ExtensionContext) {
                 });
             }
 
-            // ========== ETAPA 4: INICIAR DOWNLOADS SEM REPETIÇÃO ==========
+            // ========== STEP 4: START DOWNLOADS WITHOUT DUPLICATES ==========
             const jdkDownloadCache = new Map<string, Promise<DownloadResult>>();
             const mavenDownloadCache = new Map<string, Promise<DownloadResult>>();
 
             for (const [javaVersion, paths] of versionPathsMap) {
                 const hasJdkHome = directoryHasContent(paths.jdkHome);
 
-                // Verifica se precisa baixar o JDK
+                // Check if the JDK needs to be downloaded.
                 if (!hasJdkHome) {
                     const jdkDistribution = await getJdkDistribution(javaVersion, platform, arch);
 
                     if (jdkDistribution === null) {
-                        return vscode.window.showWarningMessage('PRECISO DE MENSAGEM');
+                        return vscode.window.showWarningMessage(Messages.Warning.JDK_DISTRIBUTION_NOT_FOUND);
                     }
 
                     const jdkDownloadPromise = downloadFile({
@@ -115,7 +115,7 @@ export async function activate(context: vscode.ExtensionContext) {
                     jdkDownloadCache.set(javaVersion, jdkDownloadPromise);
                 }
 
-                // Verifica se precisa baixar o Maven para esta versão do JDK
+                // Check if Maven needs to be downloaded for this JDK version.
                 const hasToolHome = directoryHasContent(paths.toolHome);
 
                 if (!hasToolHome) {
@@ -129,7 +129,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 }
             }
 
-            // ========== ETAPA 6: MONTAR CONTEXTOS ==========
+            // ========== STEP 6: BUILD CONTEXTS ==========
             const projectContexts: ProjectContext[] = [];
 
             for (const [javaVersion, projects] of projectVersionMap) {
@@ -150,7 +150,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 initializeJdkEnvironment(javaVersion);
             }
 
-            // ========== ETAPA 7: AGUARDAR DOWNLOADS E COMEÇAR CONFIGURAÇÕES ==========
+            // ========== STEP 7: WAIT FOR DOWNLOADS AND START CONFIGURATION ==========
             const allDownloads: Promise<DownloadResult>[] = [
                 ...jdkDownloadCache.values(),
                 ...mavenDownloadCache.values(),
@@ -161,14 +161,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
                 const failedDownloads = results.filter(r => !r.success);
                 if (failedDownloads.length > 0) {
-                    return vscode.window.showErrorMessage(`Falha no download: ${failedDownloads[0].error}`);
+                    return vscode.window.showErrorMessage(`Download failed: ${failedDownloads[0].error}`);
                 }
 
                 for (const [javaVersion, paths] of versionPathsMap) {
                     const jdkDownloadPromise = jdkDownloadCache.get(javaVersion);
                     const mavenDownloadPromise = mavenDownloadCache.get(javaVersion);
 
-                    // Extrair JDK se foi baixado
+                    // Extract JDK if it was downloaded.
                     if (jdkDownloadPromise) {
                         const jdkResult = await jdkDownloadPromise;
                         if (jdkResult.success) {
@@ -180,7 +180,7 @@ export async function activate(context: vscode.ExtensionContext) {
                         }
                     }
 
-                    // Extrair Maven se foi baixado
+                    // Extract Maven if it was downloaded.
                     if (mavenDownloadPromise) {
                         const mavenResult = await mavenDownloadPromise;
                         if (mavenResult.success) {
@@ -194,11 +194,11 @@ export async function activate(context: vscode.ExtensionContext) {
                 }
             }
 
-            // ========== ETAPA 8: CONFIGURAR SETTINGS DO VS CODE ==========
+            // ========== STEP 8: CONFIGURE VS CODE SETTINGS ==========
             for (const projectContext of projectContexts) {
                 const settingsPath = buildVsCodeSettingPath(projectContext.projectPath);
 
-                // Monta os paths necessários para a configuração
+                // Build the paths needed for configuration.
                 const javaMavenPaths = {
                     javaHomePath: projectContext.jdkHome,
                     mavenBinPath: buildMavenWrapperPath(projectContext.toolBin, projectContext.platform),
@@ -208,11 +208,11 @@ export async function activate(context: vscode.ExtensionContext) {
                 const updateResult = updateVsCodeSettings(settingsPath, javaMavenPaths);
 
                 if (updateResult.updated) {
-                    console.log(`Projeto ${projectContext.projectPath}: Configurações atualizadas - ${updateResult.addedKeys.join(', ')}`);
+                    console.log(`Project ${projectContext.projectPath}: Settings updated - ${updateResult.addedKeys.join(', ')}`);
                 }
             }
 
-            vscode.window.showInformationMessage('Configuração do ambiente Java/Maven concluída com sucesso!');
+            vscode.window.showInformationMessage('Java/Maven environment configuration completed successfully!');
         }
     });
 

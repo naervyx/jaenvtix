@@ -13,6 +13,8 @@ export class Messages {
     public static readonly PLATAFORM_NOT_SUPPORTED = 'PlatformType not supported. Only Windows, Linux and Mac are supported.';
     public static readonly NOT_FOUND_POM = 'No pom.xml found in workspace. Nothing to do.';
     public static readonly NOT_FOUND_JAVA_VERSION = 'Not found java version in pom.xml. Nothing to do.';
+    public static readonly MAVEN_DISTRIBUTION_NOT_FOUND = 'Unable to resolve a Maven distribution for this platform.';
+    public static readonly JDK_DISTRIBUTION_NOT_FOUND = 'Unable to resolve a JDK distribution for this platform/version.';
   };
 
   public static readonly Choice = class {
