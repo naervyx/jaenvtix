@@ -24,10 +24,10 @@ interface UpdateResult {
 }
 
 /**
- * Lê um arquivo JSON de settings, valida e adiciona tags faltantes
- * @param settingsPath - Caminho para o arquivo settings.json
- * @param paths - Caminhos para Java, Maven e user settings
- * @returns Resultado da operação indicando se houve atualização e quais chaves foram adicionadas
+ * Reads a JSON settings file, validates it, and adds missing tags.
+ * @param settingsPath - Path to the settings.json file.
+ * @param paths - Paths for Java, Maven, and user settings.
+ * @returns Result indicating whether an update occurred and which keys were added.
  */
 export function updateVsCodeSettings(
     settingsPath: string,
@@ -38,7 +38,7 @@ export function updateVsCodeSettings(
         addedKeys: []
     };
 
-    // Lê o arquivo JSON existente ou cria um objeto vazio
+    // Read the existing JSON file or create an empty object.
     let data: VsCodeSettings = {};
     
     if (fs.existsSync(settingsPath)) {
@@ -46,12 +46,12 @@ export function updateVsCodeSettings(
         try {
             data = JSON.parse(fileContent) as VsCodeSettings;
         } catch {
-            console.error('Erro ao parsear o arquivo JSON, criando novo objeto');
+            console.error('Failed to parse the JSON file; creating a new object.');
             data = {};
         }
     }
 
-    // Define as configurações que devem existir
+    // Define required settings.
     const requiredSettings: Record<string, unknown> = {
         "java.jdt.ls.java.home": paths.javaHomePath,
         "java.jdt.ls.lombokSupport.enabled": true,
@@ -62,7 +62,7 @@ export function updateVsCodeSettings(
         "java.configuration.maven.userSettings": paths.userSettingsPath
     };
 
-    // Verifica cada configuração e adiciona se não existir
+    // Check each setting and add it if missing.
     for (const [key, value] of Object.entries(requiredSettings)) {
         if (!(key in data)) {
             data[key] = value;
@@ -71,18 +71,18 @@ export function updateVsCodeSettings(
         }
     }
 
-    // Se houve alterações, salva o arquivo
+    // Save the file if changes were made.
     if (result.updated) {
-        // Garante que o diretório existe
+        // Ensure the directory exists.
         const dirPath = path.dirname(settingsPath);
         if (!fs.existsSync(dirPath)) {
             fs.mkdirSync(dirPath, { recursive: true });
         }
         
         fs.writeFileSync(settingsPath, JSON.stringify(data, null, 4), 'utf-8');
-        console.log(`Configurações adicionadas: ${result.addedKeys.join(', ')}`);
+        console.log(`Added settings: ${result.addedKeys.join(', ')}`);
     } else {
-        console.log('Todas as configurações já existem. Nenhuma alteração necessária.');
+        console.log('All settings already exist. No changes needed.');
     }
 
     return result;
