@@ -1,5 +1,6 @@
 import {dirname} from 'node:path';
 import {existsSync, readFileSync, writeFileSync, mkdirSync} from 'node:fs';
+import {Messages} from '../util/message';
 
 interface VsCodeSettings {
     "java.jdt.ls.java.home"?: string;
@@ -20,11 +21,11 @@ interface JavaMavenPaths {
 
 interface UpdateResult {
     updated: boolean;
-    addedKeys: string[];
+    updatedKeys: string[];
 }
 
 /**
- * Reads a JSON settings file, validates it, and adds missing tags.
+ * Reads a JSON settings file, validates it, and adds/updates required tags.
  * @param settingsPath - Path to the settings.json file.
  * @param paths - Paths for Java, Maven, and user settings.
  * @returns Result indicating whether an update occurred and which keys were added.
@@ -35,7 +36,7 @@ export function updateVsCodeSettings(
 ): UpdateResult {
     const result: UpdateResult = {
         updated: false,
-        addedKeys: []
+        updatedKeys: []
     };
 
     // Read the existing JSON file or create an empty object.
@@ -46,7 +47,7 @@ export function updateVsCodeSettings(
         try {
             data = JSON.parse(fileContent) as VsCodeSettings;
         } catch {
-            console.error('Failed to parse the JSON file; creating a new object.');
+            console.error(Messages.Error.SETTINGS_PARSE_FAILED);
             data = {};
         }
     }
@@ -64,9 +65,9 @@ export function updateVsCodeSettings(
 
     // Check each setting and add it if missing.
     for (const [key, value] of Object.entries(requiredSettings)) {
-        if (!(key in data)) {
+        if (!Object.is(data[key], value)) {
             data[key] = value;
-            result.addedKeys.push(key);
+            result.updatedKeys.push(key);
             result.updated = true;
         }
     }

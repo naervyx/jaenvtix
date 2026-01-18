@@ -1,7 +1,7 @@
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../types';
-import {directoryHasContent} from '../../build/directory';
-import {downloadFile} from '../../../util/fileDownload';
-import {Messages} from '../../../util/message';
+import {hasJdkInstallation, hasMavenInstallation} from '../../build/directory';
+import {downloadFile} from '../../util/fileDownload';
+import {Messages} from '../../util/message';
 import {getJdkDistribution} from '../../build/javaUrl';
 
 export class ScheduleDownloadsStep implements ConfigurationStep {
@@ -9,12 +9,14 @@ export class ScheduleDownloadsStep implements ConfigurationStep {
 
     async run(state: JavaConfigurationState): Promise<ConfigurationStepResult> {
         if (!state.platform || !state.arch || !state.mavenDistribution) {
-            return StepResult.error('Missing platform, architecture, or Maven distribution information');
+            return StepResult.error(Messages.Error.MISSING_PLATFORM_ARCH_MAVEN);
         }
 
+        let needsMavenDownload = false;
+
         for (const [javaVersion, paths] of state.versionPaths) {
-            const hasJdkHome = directoryHasContent(paths.jdkHome);
-            if (!hasJdkHome) {
+            const hasJdkHome = hasJdkInstallation(paths.jdkHome, state.platform);
+            if (!hasJdkHome && !state.jdkDownloads.has(javaVersion)) {
                 const jdkDistribution = await getJdkDistribution(javaVersion, state.platform, state.arch);
                 if (!jdkDistribution) {
                     return StepResult.warning(Messages.Warning.JDK_DISTRIBUTION_NOT_FOUND);
@@ -26,19 +28,21 @@ export class ScheduleDownloadsStep implements ConfigurationStep {
                     extension: jdkDistribution.extension,
                 });
 
-                state.jdkDownloadCache.set(javaVersion, jdkDownloadPromise);
+                state.jdkDownloads.set(javaVersion, jdkDownloadPromise);
             }
 
-            const hasToolHome = directoryHasContent(paths.toolHome);
+            const hasToolHome = hasMavenInstallation(paths.toolBin, state.platform);
             if (!hasToolHome) {
-                const mavenDownloadPromise = downloadFile({
-                    url: state.mavenDistribution.url,
-                    fileName: state.mavenDistribution.name,
-                    extension: state.mavenDistribution.extension,
-                });
-
-                state.mavenDownloadCache.set(javaVersion, mavenDownloadPromise);
+                needsMavenDownload = true;
             }
+        }
+
+        if (needsMavenDownload && !state.mavenDownload) {
+            state.mavenDownload = downloadFile({
+                url: state.mavenDistribution.url,
+                fileName: state.mavenDistribution.name,
+                extension: state.mavenDistribution.extension,
+            });
         }
 
         return StepResult.success();

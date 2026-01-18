@@ -1,8 +1,18 @@
-import { DEFAULT_OS_NAMES, PlatformType } from '../../core/type/platformType';
-import { ArchitectureType, DEFAULT_ARCH_NAMES } from '../../core/type/architectureType';
-import { isUrlAccessible } from '../../util/urlValidator';
-import { JdkDistribution, VendorConfig } from '../../core/javaCore';
-import {determineArchiveType} from "../search/systemArch";
+import {ArchitectureType, DEFAULT_ARCH_NAMES, DEFAULT_OS_NAMES, determineArchiveType, PlatformType} from '../core/system';
+import {isUrlAccessible} from '../util/urlValidator';
+
+type JdkDistribution = {
+    name: string;
+    url: string;
+    extension: string;
+};
+
+type VendorConfig = {
+    baseUrl: string;
+    buildPath: (version: string, os: string, arch: string, ext: string) => string;
+    osNames: Readonly<Record<PlatformType, string | undefined>>;
+    archNames: Readonly<Record<ArchitectureType, string | undefined>>;
+};
 
 type JdkVendor = 'oracle' | 'temurin' | 'corretto';
 

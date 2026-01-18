@@ -1,7 +1,8 @@
 import { promises as fs } from 'node:fs';
 import { inflateRaw } from 'node:zlib';
 import { promisify } from 'node:util';
-import {buildFullPath, ensureDirectory, findCommonRoot, writeFileWithDirectory} from "../../util/extractorUtils";
+import {buildFullPath, ensureDirectory, findCommonRoot, writeFileWithDirectory} from "./extractorUtils";
+import {Messages} from './message';
 
 const inflateRawAsync = promisify(inflateRaw);
 
@@ -62,7 +63,7 @@ async function decompressEntry(buffer: Buffer, entry: ZipEntry): Promise<Buffer>
         return await inflateRawAsync(compressedData);
     }
 
-    throw new Error(`Unsupported compression method: ${entry.compressionMethod}`);
+    throw new Error(Messages.Error.UNSUPPORTED_ZIP_COMPRESSION(entry.compressionMethod));
 }
 
 async function extractEntries(buffer: Buffer, entries: ZipEntry[], destPath: string, root: string | null): Promise<void> {

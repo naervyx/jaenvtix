@@ -5,6 +5,7 @@ import {
     buildVsCodeSettingPath,
 } from '../../build/directory';
 import {updateVsCodeSettings} from '../../build/settingTag';
+import {Messages} from '../../util/message';
 
 export class ConfigureSettingsStep implements ConfigurationStep {
     readonly name = 'ConfigureSettings';
@@ -20,9 +21,7 @@ export class ConfigureSettingsStep implements ConfigurationStep {
 
             const updateResult = updateVsCodeSettings(settingsPath, javaMavenPaths);
             if (updateResult.updated) {
-                console.log(
-                    `Project ${projectContext.projectPath}: Settings updated - ${updateResult.addedKeys.join(', ')}`,
-                );
+                console.log(Messages.Log.SETTINGS_UPDATED(projectContext.projectPath, updateResult.updatedKeys));
             }
         }
 

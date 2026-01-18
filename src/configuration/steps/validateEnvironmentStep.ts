@@ -1,13 +1,8 @@
 import * as vscode from 'vscode';
 
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../types';
-import {Messages} from '../../../util/message';
-import {
-    getArchitecture,
-    getPlatform,
-    isArchitectureSupported,
-    isPlatformSupported,
-} from '../../search/systemArch';
+import {Messages} from '../../util/message';
+import {getArchitecture, getPlatform, isArchitectureSupported, isPlatformSupported} from '../../core/system';
 import {getMavenDistribution} from '../../build/mavenUrl';
 
 export class ValidateEnvironmentStep implements ConfigurationStep {
@@ -29,7 +24,7 @@ export class ValidateEnvironmentStep implements ConfigurationStep {
 
         const platform = getPlatform();
         if (!isPlatformSupported(platform)) {
-            return StepResult.warning(Messages.Warning.PLATAFORM_NOT_SUPPORTED);
+            return StepResult.warning(Messages.Warning.PLATFORM_NOT_SUPPORTED);
         }
 
         const mavenDistribution = await getMavenDistribution(platform);

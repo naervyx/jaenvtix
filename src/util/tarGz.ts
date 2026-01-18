@@ -1,7 +1,7 @@
 
 import { createReadStream } from 'node:fs';
 import { createGunzip } from 'node:zlib';
-import {buildFullPath, ensureDirectory, findCommonRoot, writeFileWithDirectory} from "../../util/extractorUtils";
+import {buildFullPath, ensureDirectory, findCommonRoot, writeFileWithDirectory} from "./extractorUtils";
 
 const TAR_BLOCK_SIZE = 512;
 const TAR_TYPE_FILE = '0';

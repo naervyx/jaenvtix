@@ -1,9 +1,23 @@
-import {ProjectContext} from '../../core/contextCore';
-import {VersionPath} from '../../core/versionCore';
-import {DownloadResult} from '../../util/fileDownload';
-import {PlatformType} from '../../core/type/platformType';
-import {ArchitectureType} from '../../core/type/architectureType';
-import {MavenDistribution} from '../../core/mavenCore';
+import {DownloadResult} from '../util/fileDownload';
+import {ArchitectureType, PlatformType} from '../core/system';
+import {MavenDistribution} from '../build/mavenUrl';
+
+export interface ProjectContext {
+    workspace: string;
+    projectPath: string;
+    platform: PlatformType;
+    arch: ArchitectureType;
+    javaVersion: string;
+    jdkHome: string;
+    toolHome: string;
+    toolBin: string;
+}
+
+export interface VersionPath {
+    jdkHome: string;
+    toolHome: string;
+    toolBin: string;
+}
 
 export interface JavaConfigurationState {
     workspaceFolder?: string;
@@ -13,8 +27,8 @@ export interface JavaConfigurationState {
     projectVersionMap: Map<string, string[]>;
     versionPaths: Map<string, VersionPath>;
     projectContexts: ProjectContext[];
-    jdkDownloadCache: Map<string, Promise<DownloadResult>>;
-    mavenDownloadCache: Map<string, Promise<DownloadResult>>;
+    jdkDownloads: Map<string, Promise<DownloadResult>>;
+    mavenDownload?: Promise<DownloadResult>;
 }
 
 export interface ConfigurationStepResult {
@@ -33,8 +47,7 @@ export function createInitialState(): JavaConfigurationState {
         projectVersionMap: new Map(),
         versionPaths: new Map(),
         projectContexts: [],
-        jdkDownloadCache: new Map(),
-        mavenDownloadCache: new Map(),
+        jdkDownloads: new Map(),
     };
 }
 

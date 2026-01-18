@@ -1,6 +1,6 @@
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../types';
-import {Messages} from '../../../util/message';
-import {findProjectsWithPom} from '../../search/pom';
+import {Messages} from '../../util/message';
+import {findProjectsWithFile} from '../../util/fileSearch';
 import {parseJavaVersionFromPom} from '../../search/javaVersion';
 
 export class ResolveProjectsStep implements ConfigurationStep {
@@ -8,10 +8,10 @@ export class ResolveProjectsStep implements ConfigurationStep {
 
     async run(state: JavaConfigurationState): Promise<ConfigurationStepResult> {
         if (!state.workspaceFolder) {
-            return StepResult.error('Workspace folder not resolved');
+            return StepResult.error(Messages.Error.WORKSPACE_FOLDER_NOT_RESOLVED);
         }
 
-        const projects = findProjectsWithPom(state.workspaceFolder);
+        const projects = findProjectsWithFile(state.workspaceFolder, 'pom.xml');
         if (projects.length === 0) {
             return StepResult.warning(Messages.Warning.NOT_FOUND_POM);
         }

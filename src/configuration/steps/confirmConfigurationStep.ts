@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import {ConfigurationStep, ConfigurationStepResult, StepResult} from '../types';
-import {Messages} from '../../../util/message';
+import {Messages} from '../../util/message';
 
 /**
  * Centralizes the user confirmation step so we can keep the pipeline linear.

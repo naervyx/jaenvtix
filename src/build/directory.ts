@@ -1,8 +1,7 @@
-import { homedir } from 'os';
-import { join } from 'path';
-import { mkdirSync } from 'fs';
-import {existsSync, readdirSync} from "node:fs";
-import {PlatformType} from "../../core/type/platformType";
+import {existsSync, mkdirSync} from 'node:fs';
+import {homedir} from 'node:os';
+import {join} from 'node:path';
+import {PlatformType} from '../core/system';
 
 const USER_HOME_PATH = homedir();
 const MAVEN_LOCAL_REPOSITORY_PATH = join(USER_HOME_PATH, '.m2');
@@ -26,12 +25,12 @@ export function buildMavenBinPath(javaVersion: string): string {
     return join(buildMavenInstallationPath(javaVersion), 'bin');
 }
 
-export function buildMavenWrapperPath(projectPath: string, plataform: PlatformType): string {
-    if (plataform === "windows") {
-        return join(projectPath, 'mvn.cmd');
+export function buildMavenWrapperPath(basePath: string, platform: PlatformType): string {
+    if (platform === 'windows') {
+        return join(basePath, 'mvn.cmd');
     }
 
-    return join(projectPath, 'mvn');
+    return join(basePath, 'mvn');
 }
 
 export function buildVsCodePath(projectPath: string): string {
@@ -42,22 +41,18 @@ export function buildVsCodeSettingPath(projectPath: string): string {
     return join(buildVsCodePath(projectPath), 'settings.json');
 }
 
-export function directoryHasContent(path: string): boolean {
-    if (existsSync(path)) {
-        const contents = readdirSync(path);
-        return contents.length > 0;
-    }
+export function hasJdkInstallation(jdkHome: string, platform: PlatformType): boolean {
+    const javaBin = platform === 'windows' ? 'java.exe' : 'java';
+    return existsSync(join(jdkHome, 'bin', javaBin));
+}
 
-    return false;
+export function hasMavenInstallation(toolBin: string, platform: PlatformType): boolean {
+    const mvnBin = platform === 'windows' ? 'mvn.cmd' : 'mvn';
+    return existsSync(join(toolBin, mvnBin));
 }
 
 export function initializeBaseDirectories(): void {
     mkdirSync(MAVEN_LOCAL_REPOSITORY_PATH, { recursive: true });
     mkdirSync(JAENVTIX_ROOT_PATH, { recursive: true });
     mkdirSync(JAENVTIX_TEMP_PATH, { recursive: true });
-}
-
-export function initializeJdkEnvironment(javaVersion: string): void {
-    mkdirSync(buildJdkVersionPath(javaVersion), { recursive: true });
-    mkdirSync(buildMavenInstallationPath(javaVersion), { recursive: true });
 }

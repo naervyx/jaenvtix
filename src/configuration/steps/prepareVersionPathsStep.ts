@@ -3,14 +3,12 @@ import {
     buildJdkVersionPath,
     buildMavenBinPath,
     buildMavenInstallationPath,
-    initializeBaseDirectories,
 } from '../../build/directory';
 
 export class PrepareVersionPathsStep implements ConfigurationStep {
     readonly name = 'PrepareVersionPaths';
 
     async run(state: JavaConfigurationState): Promise<ConfigurationStepResult> {
-        initializeBaseDirectories();
         state.versionPaths.clear();
 
         for (const javaVersion of state.projectVersionMap.keys()) {
