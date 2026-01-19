@@ -1,5 +1,5 @@
-import {DownloadResult} from '../util/fileDownload';
-import {ArchitectureType, PlatformType} from '../core/system';
+import {DownloadResult} from '../file/fileDownload';
+import {ArchitectureType, PlatformType} from './system';
 import {MavenDistribution} from '../build/mavenUrl';
 
 export interface ProjectContext {
@@ -20,7 +20,7 @@ export interface VersionPath {
 }
 
 export interface JavaConfigurationState {
-    workspaceFolder?: string;
+    workspaceFolders: string[];
     platform?: PlatformType;
     arch?: ArchitectureType;
     mavenDistribution?: MavenDistribution;
@@ -44,6 +44,7 @@ export interface ConfigurationStep {
 
 export function createInitialState(): JavaConfigurationState {
     return {
+        workspaceFolders: [],
         projectVersionMap: new Map(),
         versionPaths: new Map(),
         projectContexts: [],

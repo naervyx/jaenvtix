@@ -1,8 +1,8 @@
-import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../types';
-import {DownloadResult} from '../../util/fileDownload';
+import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
+import {DownloadResult} from '../../file/fileDownload';
 import {hasJdkInstallation, hasMavenInstallation} from '../../build/directory';
-import {extractTarGz} from '../../util/tarGz';
-import {extractZip} from '../../util/zip';
+import {extractTarGz} from '../../file/unpacker/tarGz';
+import {extractZip} from '../../file/unpacker/zip';
 import {Messages} from '../../util/message';
 
 function isFailure(result: DownloadResult): result is DownloadResult & { success: false } {

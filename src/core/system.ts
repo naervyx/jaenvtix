@@ -1,4 +1,4 @@
-import * as os from 'node:os';
+import {arch, platform} from 'node:os';
 
 export type PlatformType = 'windows' | 'linux' | 'darwin' | 'unknown';
 export type ArchitectureType = 'x64' | 'arm64' | 'unsupported';
@@ -32,15 +32,15 @@ export function determineArchiveType(platform: PlatformType): 'zip' | 'tar.gz' {
 }
 
 export function getArchitecture(): ArchitectureType {
-    const arch = os.arch();
-    if (arch === 'x64') {return 'x64';}
-    if (arch === 'arm64') {return 'arm64';}
+    const archType = arch();
+    if (archType === 'x64') {return 'x64';}
+    if (archType === 'arm64') {return 'arm64';}
     return 'unsupported';
 }
 
 export function getPlatform(): PlatformType {
-    const platform = os.platform();
-    switch (platform) {
+    const platformType = platform();
+    switch (platformType) {
         case 'win32': return 'windows';
         case 'linux': return 'linux';
         case 'darwin': return 'darwin';

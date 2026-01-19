@@ -3,18 +3,18 @@ import {determineArchiveType, PlatformType} from '../core/system';
 import {Messages} from '../util/message';
 import {isUrlAccessible} from '../util/urlValidator';
 
-export type MavenDistribution = {
+export interface MavenDistribution {
     name: string;
     url: string;
     extension: string;
     version: string;
-};
+}
 
-type MavenDownloadInfo = {
+interface MavenDownloadInfo {
     version: string;
     zipUrl: string;
     tarGzUrl: string;
-};
+}
 
 const MAVEN_DOWNLOAD_PAGE = 'https://maven.apache.org/download.cgi';
 

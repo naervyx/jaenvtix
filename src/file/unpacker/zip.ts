@@ -1,14 +1,8 @@
 import { promises as fs } from 'node:fs';
 import { inflateRaw } from 'node:zlib';
 import { promisify } from 'node:util';
-import {buildFullPath, ensureDirectory, findCommonRoot, writeFileWithDirectory} from "./extractorUtils";
-import {Messages} from './message';
-
-const inflateRawAsync = promisify(inflateRaw);
-
-const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
-const COMPRESSION_DEFLATE = 8;
-const COMPRESSION_STORE = 0;
+import {buildFullPath, ensureDirectory, findCommonRoot, writeFileWithDirectory} from "../fileExtractor";
+import {Messages} from '../../util/message';
 
 interface ZipEntry {
     name: string;
@@ -17,6 +11,12 @@ interface ZipEntry {
     dataOffset: number;
     isDirectory: boolean;
 }
+
+const inflateRawAsync = promisify(inflateRaw);
+
+const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
+const COMPRESSION_DEFLATE = 8;
+const COMPRESSION_STORE = 0;
 
 function parseZipEntries(buffer: Buffer): ZipEntry[] {
     const entries: ZipEntry[] = [];

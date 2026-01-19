@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../types';
+import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {Messages} from '../../util/message';
 import {getArchitecture, getPlatform, isArchitectureSupported, isPlatformSupported} from '../../core/system';
 import {getMavenDistribution} from '../../build/mavenUrl';
@@ -15,7 +15,7 @@ export class ValidateEnvironmentStep implements ConfigurationStep {
             return StepResult.warning(Messages.Warning.NOT_FOUND_WORKSPACE);
         }
 
-        state.workspaceFolder = this.workspaceFolders[0].uri.fsPath;
+        state.workspaceFolders = this.workspaceFolders.map((folder) => folder.uri.fsPath);
 
         const arch = getArchitecture();
         if (!isArchitectureSupported(arch)) {

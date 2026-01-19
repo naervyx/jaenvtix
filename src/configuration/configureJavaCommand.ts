@@ -9,7 +9,7 @@ import {ScheduleDownloadsStep} from './steps/scheduleDownloadsStep';
 import {BuildProjectContextsStep} from './steps/buildProjectContextsStep';
 import {ProcessDownloadsStep} from './steps/processDownloadsStep';
 import {ConfigureSettingsStep} from './steps/configureSettingsStep';
-import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from './types';
+import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
 import {Messages} from '../util/message';
 
 function createStepGroups(workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined): {

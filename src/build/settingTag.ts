@@ -24,12 +24,6 @@ interface UpdateResult {
     updatedKeys: string[];
 }
 
-/**
- * Reads a JSON settings file, validates it, and adds/updates required tags.
- * @param settingsPath - Path to the settings.json file.
- * @param paths - Paths for Java, Maven, and user settings.
- * @returns Result indicating whether an update occurred and which keys were added.
- */
 export function updateVsCodeSettings(
     settingsPath: string,
     paths: JavaMavenPaths
@@ -39,7 +33,6 @@ export function updateVsCodeSettings(
         updatedKeys: []
     };
 
-    // Read the existing JSON file or create an empty object.
     let data: VsCodeSettings = {};
     
     if (existsSync(settingsPath)) {
@@ -52,7 +45,6 @@ export function updateVsCodeSettings(
         }
     }
 
-    // Define required settings.
     const requiredSettings: Record<string, unknown> = {
         "java.jdt.ls.java.home": paths.javaHomePath,
         "java.jdt.ls.lombokSupport.enabled": true,
@@ -63,7 +55,6 @@ export function updateVsCodeSettings(
         "java.configuration.maven.userSettings": paths.userSettingsPath
     };
 
-    // Check each setting and add it if missing.
     for (const [key, value] of Object.entries(requiredSettings)) {
         if (!Object.is(data[key], value)) {
             data[key] = value;
@@ -72,7 +63,6 @@ export function updateVsCodeSettings(
         }
     }
 
-    // Save the file if changes were made.
     if (result.updated) {
         const dirPath = dirname(settingsPath);
         if (!existsSync(dirPath)) {

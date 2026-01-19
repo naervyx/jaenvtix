@@ -1,17 +1,17 @@
 
 import { createReadStream } from 'node:fs';
 import { createGunzip } from 'node:zlib';
-import {buildFullPath, ensureDirectory, findCommonRoot, writeFileWithDirectory} from "./extractorUtils";
-
-const TAR_BLOCK_SIZE = 512;
-const TAR_TYPE_FILE = '0';
-const TAR_TYPE_DIR = '5';
+import {buildFullPath, ensureDirectory, findCommonRoot, writeFileWithDirectory} from "../fileExtractor";
 
 interface TarEntry {
     name: string;
     type: string;
     size: number;
 }
+
+const TAR_BLOCK_SIZE = 512;
+const TAR_TYPE_FILE = '0';
+const TAR_TYPE_DIR = '5';
 
 function parseTarHeader(buffer: Buffer): TarEntry | null {
     if (buffer.every(byte => byte === 0)) {

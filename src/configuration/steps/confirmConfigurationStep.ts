@@ -1,11 +1,8 @@
 import * as vscode from 'vscode';
 
-import {ConfigurationStep, ConfigurationStepResult, StepResult} from '../types';
+import {ConfigurationStep, ConfigurationStepResult, StepResult} from '../../core/types';
 import {Messages} from '../../util/message';
 
-/**
- * Centralizes the user confirmation step so we can keep the pipeline linear.
- */
 export class ConfirmConfigurationStep implements ConfigurationStep {
     readonly name = 'ConfirmConfiguration';
 

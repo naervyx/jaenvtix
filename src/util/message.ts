@@ -17,7 +17,7 @@ export const Messages = {
   },
   Error: {
     STEP_FAILED: (stepLabel: string, detail: string) => `${stepLabel} failed: ${detail}`,
-    WORKSPACE_FOLDER_NOT_RESOLVED: 'Workspace folder not resolved.',
+    WORKSPACE_FOLDER_NOT_RESOLVED: 'Workspace folders not resolved.',
     MISSING_PLATFORM_ARCH_MAVEN: 'Missing platform, architecture, or Maven distribution information.',
     MISSING_WORKSPACE_PLATFORM_ARCH: 'Missing workspace, platform, or architecture information.',
     MISSING_PLATFORM: 'Missing platform information.',

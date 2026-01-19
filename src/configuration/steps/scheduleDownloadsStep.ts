@@ -1,6 +1,6 @@
-import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../types';
+import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {hasJdkInstallation, hasMavenInstallation} from '../../build/directory';
-import {downloadFile} from '../../util/fileDownload';
+import {downloadFile} from '../../file/fileDownload';
 import {Messages} from '../../util/message';
 import {getJdkDistribution} from '../../build/javaUrl';
 

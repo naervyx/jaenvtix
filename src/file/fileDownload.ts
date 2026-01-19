@@ -3,7 +3,7 @@ import { request as httpRequest, IncomingMessage } from 'node:http';
 import { createWriteStream } from 'node:fs';
 import { join } from 'node:path';
 import { JAENVTIX_TEMP_PATH } from '../build/directory';
-import { Messages } from './message';
+import { Messages } from '../util/message';
 
 export interface DownloadOptions {
     url: string;

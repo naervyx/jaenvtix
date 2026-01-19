@@ -1,4 +1,4 @@
-import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../types';
+import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {
     buildJdkVersionPath,
     buildMavenBinPath,

@@ -1,4 +1,4 @@
-import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../types';
+import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {initializeBaseDirectories} from '../../build/directory';
 
 export class InitializeDirectoriesStep implements ConfigurationStep {
