@@ -32,6 +32,7 @@ export const Messages = {
     REQUEST_FAILED_STATUS: (statusCode: number) => `Request failed with status code ${statusCode}.`,
     REQUEST_TIMEOUT: 'Request timed out.',
     SETTINGS_PARSE_FAILED: 'Failed to parse the settings file. A new settings file will be created.',
+    LAUNCH_PARSE_FAILED: 'Failed to parse the launch file. A new launch file will be created.',
     MAVEN_PAGE_FETCH_FAILED: (url: string) => `Failed to fetch the Maven download page: ${url}.`,
     UNSUPPORTED_ZIP_COMPRESSION: (method: number) => `Unsupported compression method: ${method}.`,
   },
@@ -48,11 +49,16 @@ export const Messages = {
       BuildProjectContexts: 'Build project contexts',
       ProcessDownloads: 'Download and extract tools',
       ConfigureSettings: 'Configure Visual Studio Code settings',
+      ConfigureLaunch: 'Configure Visual Studio Code launch configuration',
     } as Record<string, string>,
   },
   Log: {
     SETTINGS_UPDATED: (projectPath: string, keys: string[]) =>
       `Project ${projectPath}: Settings updated - ${keys.join(', ')}`,
+    LAUNCH_UPDATED: (projectPath: string, names: string[]) =>
+      `Project ${projectPath}: Launch configuration updated - ${names.join(', ')}`,
+    LAUNCH_SKIPPED: (projectPath: string) =>
+      `Project ${projectPath}: Launch configuration skipped (main class not found).`,
   },
   Choice: {
     YES: 'Yes',

@@ -41,6 +41,10 @@ export function buildVsCodeSettingPath(projectPath: string): string {
     return join(buildVsCodePath(projectPath), 'settings.json');
 }
 
+export function buildVsCodeLaunchPath(projectPath: string): string {
+    return join(buildVsCodePath(projectPath), 'launch.json');
+}
+
 export function hasJdkInstallation(jdkHome: string, platform: PlatformType): boolean {
     const javaBin = platform === 'windows' ? 'java.exe' : 'java';
     return existsSync(join(jdkHome, 'bin', javaBin));
