@@ -199,7 +199,7 @@ function resolvePropertyReferences(value: string, properties: Map<string, string
     if (!value.includes('${')) {return value.trim();}
 
     let unresolved = false;
-    const replaced = value.replace(/\$\{([^}]+)\}/g, (_, key) => {
+    const replaced = value.replace(/\$\{([^}]+)}/g, (_, key) => {
         const resolved = properties.get(String(key));
         if (!resolved) {
             unresolved = true;
