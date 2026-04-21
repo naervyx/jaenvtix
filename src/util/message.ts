@@ -14,6 +14,8 @@ export const Messages = {
     MAVEN_DISTRIBUTION_NOT_FOUND: 'Unable to resolve a Maven distribution for this platform.',
     JDK_DISTRIBUTION_NOT_FOUND: 'Unable to resolve a Java Development Kit distribution for this platform and version.',
     CONFIGURATION_CANCELLED: 'Configuration canceled by the user.',
+    TEMP_CLEANUP_FAILED: (filePath: string, detail: string) =>
+      `Failed to remove temporary archive ${filePath}: ${detail}`,
   },
   Error: {
     STEP_FAILED: (stepLabel: string, detail: string) => `${stepLabel} failed: ${detail}`,
@@ -48,6 +50,7 @@ export const Messages = {
       ScheduleDownloads: 'Schedule downloads',
       BuildProjectContexts: 'Build project contexts',
       ProcessDownloads: 'Download and extract tools',
+      WriteMavenWrappers: 'Write Jaenvtix Maven wrapper scripts',
       ConfigureSettings: 'Configure Visual Studio Code settings',
       ConfigureLaunch: 'Configure Visual Studio Code launch configuration',
     } as Record<string, string>,
@@ -59,6 +62,8 @@ export const Messages = {
       `Project ${projectPath}: Launch configuration updated - ${names.join(', ')}`,
     LAUNCH_SKIPPED: (projectPath: string) =>
       `Project ${projectPath}: Launch configuration skipped (main class not found).`,
+    MAVEN_WRAPPER_WRITTEN: (javaVersion: string, scriptPath: string) =>
+      `Java ${javaVersion}: Jaenvtix Maven wrapper written at ${scriptPath}`,
   },
   Choice: {
     YES: 'Yes',

@@ -8,6 +8,7 @@ import {PrepareVersionPathsStep} from './steps/prepareVersionPathsStep';
 import {ScheduleDownloadsStep} from './steps/scheduleDownloadsStep';
 import {BuildProjectContextsStep} from './steps/buildProjectContextsStep';
 import {ProcessDownloadsStep} from './steps/processDownloadsStep';
+import {WriteMavenWrappersStep} from './steps/writeMavenWrappersStep';
 import {ConfigureSettingsStep} from './steps/configureSettingsStep';
 import {ConfigureLaunchStep} from './steps/configureLaunchStep';
 import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
@@ -29,6 +30,7 @@ function createStepGroups(workspaceFolders: readonly vscode.WorkspaceFolder[] | 
             new ScheduleDownloadsStep(),
             new BuildProjectContextsStep(),
             new ProcessDownloadsStep(),
+            new WriteMavenWrappersStep(),
             new ConfigureSettingsStep(),
             new ConfigureLaunchStep(),
         ],

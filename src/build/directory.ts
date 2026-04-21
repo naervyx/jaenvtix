@@ -13,6 +13,10 @@ export function buildDefaultM2SettingsPath(){
     return join(MAVEN_LOCAL_REPOSITORY_PATH, 'settings.xml');
 }
 
+export function buildDefaultM2RepositoryPath(){
+    return join(MAVEN_LOCAL_REPOSITORY_PATH, 'repository');
+}
+
 export function buildJdkVersionPath(javaVersion: string): string {
     return join(JAENVTIX_ROOT_PATH, `jdk-${javaVersion}`);
 }
@@ -31,6 +35,14 @@ export function buildMavenWrapperPath(basePath: string, platform: PlatformType):
     }
 
     return join(basePath, 'mvn');
+}
+
+export function buildJaenvtixMavenScriptPath(basePath: string, platform: PlatformType): string {
+    if (platform === 'windows') {
+        return join(basePath, 'jaenvtix-mvn.cmd');
+    }
+
+    return join(basePath, 'jaenvtix-mvn');
 }
 
 export function buildVsCodePath(projectPath: string): string {

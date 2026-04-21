@@ -1,7 +1,7 @@
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {
     buildDefaultM2SettingsPath,
-    buildMavenWrapperPath,
+    buildJaenvtixMavenScriptPath,
     buildVsCodeSettingPath,
 } from '../../build/directory';
 import {updateVsCodeSettings} from '../../build/settingTag';
@@ -33,7 +33,7 @@ export class ConfigureSettingsStep implements ConfigurationStep {
                 terminalJavaHome: projectContext.jdkHome,
                 mavenHomePath: projectContext.toolHome,
                 mavenBinPath: projectContext.toolBin,
-                mavenExecutablePath: buildMavenWrapperPath(projectContext.toolBin, projectContext.platform),
+                mavenExecutablePath: buildJaenvtixMavenScriptPath(projectContext.toolBin, projectContext.platform),
                 userSettingsPath: buildDefaultM2SettingsPath(),
                 platform: projectContext.platform,
             };

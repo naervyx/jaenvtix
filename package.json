@@ -1,41 +1,70 @@
 {
 	"name": "jaenvtix",
 	"displayName": "Jaenvtix",
-	"description": "Automatic Setup for Java Projects in Visual Studio Code",
-	"publisher": "naervyx",
+	"description": "Automatic Java and Maven configuration for VS Code and Cursor. Detects pom.xml, downloads the matching JDK and Maven, and wires per-project workspace settings.",
+	"publisher": "Naervyx",
 	"version": "0.0.1",
+	"license": "EPL-2.0",
+	"author": {
+		"name": "Alysson Maia"
+	},
 	"engines": {
 		"vscode": "^1.100.0"
 	},
 	"categories": [
+		"Programming Languages",
 		"Other"
 	],
+	"keywords": [
+		"java",
+		"maven",
+		"jdk",
+		"auto-configuration",
+		"environment",
+		"pom.xml",
+		"spring boot",
+		"workspace"
+	],
+	"icon": "icon/logo.png",
+	"galleryBanner": {
+		"color": "#0F172A",
+		"theme": "dark"
+	},
 	"activationEvents": [],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
-            {
-              "command": "jaenvtix.configureJava",
-              "title": "Java: Automatic Configuration"
-            }
+			{
+				"command": "jaenvtix.configureJava",
+				"title": "Java: Automatic Configuration",
+				"category": "Jaenvtix"
+			}
 		]
 	},
-  "devDependencies": {
-    "@eslint/js": "^9.13.0",
-    "@stylistic/eslint-plugin": "^2.9.0",
-    "@types/vscode": "^1.100.0",
-    "@types/node": "^25.0.2",
-    "@vscode/vsce": "^3.2.1",
-    "eslint": "^9.13.0",
+	"devDependencies": {
+		"@eslint/js": "^9.13.0",
+		"@stylistic/eslint-plugin": "^2.9.0",
+		"@types/vscode": "^1.100.0",
+		"@types/node": "^25.0.2",
+		"@vscode/vsce": "^3.9.1",
+		"eslint": "^9.13.0",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.39.0"
 	},
-    "scripts": {
-      "vscode:prepublish": "npm run compile",
-      "compile": "tsc -p ./",
-      "watch": "tsc -watch -p ./",
-      "pretest": "npm run compile && npm run lint",
-      "lint": "eslint",
-      "package": "vsce package --allow-missing-repository"
-    }
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/naervyx/jaenvtix.git"
+	},
+	"bugs": {
+		"url": "https://github.com/naervyx/jaenvtix/issues"
+	},
+	"homepage": "https://github.com/naervyx/jaenvtix#readme",
+	"scripts": {
+		"compile": "tsc -p ./",
+		"vscode:prepublish": "npm run compile",
+		"watch": "tsc -watch -p ./",
+		"pretest": "npm run compile && npm run lint",
+		"lint": "eslint",
+		"package": "vsce package --allow-missing-repository"
+	}
 }
