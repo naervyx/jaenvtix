@@ -1,8 +1,20 @@
 import {execSync} from 'node:child_process';
-import {PlatformType} from '../../core/type/platformType';
-import {isUrlAccessible} from '../../util/urlValidator';
-import {MavenDistribution, MavenDownloadInfo} from '../../core/mavenCore';
-import {determineArchiveType} from "../search/systemArch";
+import {determineArchiveType, PlatformType} from '../core/system';
+import {Messages} from '../util/message';
+import {isUrlAccessible} from '../util/urlValidator';
+
+export interface MavenDistribution {
+    name: string;
+    url: string;
+    extension: string;
+    version: string;
+}
+
+interface MavenDownloadInfo {
+    version: string;
+    zipUrl: string;
+    tarGzUrl: string;
+}
 
 const MAVEN_DOWNLOAD_PAGE = 'https://maven.apache.org/download.cgi';
 
@@ -13,7 +25,7 @@ function fetchPage(url: string): string {
             timeout: 15000,
         });
     } catch {
-        throw new Error(`Failed to fetch: ${url}`);
+        throw new Error(Messages.Error.MAVEN_PAGE_FETCH_FAILED(url));
     }
 }
 

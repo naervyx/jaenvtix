@@ -1,3 +1,14 @@
 node_modules/
 out/
 dist/
+
+# IDE / editor
+.idea/
+.claude/
+
+# Build artifacts
+*.vsix
+
+# Local scratch / temp
+.tmp-*
+*.log

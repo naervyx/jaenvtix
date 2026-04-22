@@ -1,5 +1,5 @@
 import { promises as fs } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve, relative, isAbsolute, sep } from 'node:path';
 
 export async function ensureDirectory(dirPath: string): Promise<void> {
     await fs.mkdir(dirPath, { recursive: true });
@@ -42,6 +42,18 @@ export function buildFullPath(destPath: string, entryName: string, root: string 
     const strippedName = stripRootFromPath(entryName, root);
 
     if (!strippedName || strippedName === '/') {
+        return null;
+    }
+
+    if (isAbsolute(strippedName)) {
+        return null;
+    }
+
+    const resolvedDest = resolve(destPath);
+    const candidate = resolve(resolvedDest, strippedName);
+    const relativePath = relative(resolvedDest, candidate);
+
+    if (relativePath.startsWith('..' + sep) || relativePath === '..' || isAbsolute(relativePath)) {
         return null;
     }
 

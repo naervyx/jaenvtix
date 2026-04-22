@@ -1,8 +1,18 @@
-import { DEFAULT_OS_NAMES, PlatformType } from '../../core/type/platformType';
-import { ArchitectureType, DEFAULT_ARCH_NAMES } from '../../core/type/architectureType';
-import { isUrlAccessible } from '../../util/urlValidator';
-import { JdkDistribution, VendorConfig } from '../../core/javaCore';
-import {determineArchiveType} from "../search/systemArch";
+import {ArchitectureType, DEFAULT_ARCH_NAMES, DEFAULT_OS_NAMES, determineArchiveType, PlatformType} from '../core/system';
+import {isUrlAccessible} from '../util/urlValidator';
+
+interface JdkDistribution {
+    name: string;
+    url: string;
+    extension: string;
+}
+
+interface VendorConfig {
+    baseUrl: string;
+    buildPath: (version: string, os: string, arch: string, ext: string) => string;
+    osNames: Readonly<Record<PlatformType, string | undefined>>;
+    archNames: Readonly<Record<ArchitectureType, string | undefined>>;
+}
 
 type JdkVendor = 'oracle' | 'temurin' | 'corretto';
 
@@ -15,16 +25,16 @@ const VENDOR_CONFIGS: Readonly<Record<JdkVendor, VendorConfig>> = {
         osNames: { ...DEFAULT_OS_NAMES, darwin: 'macos' },
         archNames: DEFAULT_ARCH_NAMES,
     },
-    temurin: {
-        baseUrl: 'https://api.adoptium.net/v3/binary/latest',
-        buildPath: (v, os, arch) => `/${v}/ga/${os}/${arch}/jdk/hotspot/normal/eclipse`,
-        osNames: { ...DEFAULT_OS_NAMES, darwin: 'mac' },
-        archNames: DEFAULT_ARCH_NAMES,
-    },
     corretto: {
         baseUrl: 'https://corretto.aws/downloads/latest',
         buildPath: (v, os, arch, ext) => `/amazon-corretto-${v}-${arch}-${os}-jdk.${ext}`,
         osNames: DEFAULT_OS_NAMES,
+        archNames: DEFAULT_ARCH_NAMES,
+    },
+    temurin: {
+        baseUrl: 'https://api.adoptium.net/v3/binary/latest',
+        buildPath: (v, os, arch) => `/${v}/ga/${os}/${arch}/jdk/hotspot/normal/eclipse`,
+        osNames: { ...DEFAULT_OS_NAMES, darwin: 'mac' },
         archNames: DEFAULT_ARCH_NAMES,
     },
 };
@@ -67,14 +77,14 @@ export async function getJdkDistribution(
         return buildDistribution('oracle', javaVersion, platform, arch);
     }
 
-    const temurin = buildDistribution('temurin', javaVersion, platform, arch);
-    if (temurin && await isUrlAccessible(temurin.url)) {
-        return temurin;
-    }
-
     const corretto = buildDistribution('corretto', javaVersion, platform, arch);
     if (corretto && await isUrlAccessible(corretto.url)) {
         return corretto;
+    }
+
+    const temurin = buildDistribution('temurin', javaVersion, platform, arch);
+    if (temurin && await isUrlAccessible(temurin.url)) {
+        return temurin;
     }
 
     return null;
