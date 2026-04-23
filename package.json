@@ -65,6 +65,7 @@
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
 		"lint": "eslint",
-		"package": "vsce package --allow-missing-repository"
+		"package": "vsce package --allow-missing-repository",
+		"publish:ovsx": "ovsx publish jaenvtix-$npm_package_version.vsix"
 	}
 }
