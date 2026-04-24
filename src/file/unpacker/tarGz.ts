@@ -15,6 +15,17 @@ const TAR_TYPE_FILE = '0';
 const TAR_TYPE_DIR = '5';
 const IS_POSIX = process.platform !== 'win32';
 
+// Tar metadata records that do not represent extractable content. Several
+// Linux/macOS distributions (notably Amazon Corretto JDK 11/17) prepend a
+// PAX global header to the archive; including its name in root detection
+// makes findCommonRoot fall back to null and the JDK ends up nested under
+// `<jdkHome>/amazon-corretto-…/` instead of being flattened.
+const TAR_METADATA_TYPES = new Set(['g', 'x', 'L', 'K', 'V']);
+
+function isContentEntry(type: string): boolean {
+    return !TAR_METADATA_TYPES.has(type);
+}
+
 function parseOctalField(buffer: Buffer): number {
     const text = buffer.toString('utf8').replace(/\0/g, '').trim();
     if (!text) {
@@ -70,7 +81,9 @@ function collectEntryNames(buffer: Buffer): string[] {
             break;
         }
 
-        entries.push(header.name);
+        if (isContentEntry(header.type)) {
+            entries.push(header.name);
+        }
         offset += TAR_BLOCK_SIZE;
         offset += Math.ceil(header.size / TAR_BLOCK_SIZE) * TAR_BLOCK_SIZE;
     }
