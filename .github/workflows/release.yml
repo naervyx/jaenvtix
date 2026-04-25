@@ -138,3 +138,66 @@ jobs:
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          ASSET: ${{ needs.build.outputs.vsix }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+          NAME: ${{ needs.build.outputs.name }}
+        shell: bash
+        run: |
+          # We use the `gh release` CLI instead of softprops/action-gh-release
+          # because softprops still ships on the Node 20 runtime that GitHub
+          # is deprecating. `gh` is a system binary on the runner, so it
+          # isn't affected.
+          #
+          # Behaviour by release state — DESIGNED TO NEVER DELETE OR
+          # OVERWRITE a release the maintainer set up manually:
+          #
+          #   * No release for $TAG       → create one, attach $ASSET, publish.
+          #   * Draft release for $TAG    → attach $ASSET (--clobber), publish.
+          #   * Published release for $TAG, missing $ASSET → attach $ASSET.
+          #   * Published release for $TAG, $ASSET already present → no-op.
+          #
+          # If the maintainer manually creates AND publishes a release at
+          # the same time as the tag (the original failure mode this fixes),
+          # GitHub considers that release immutable for asset uploads.
+          # `gh release upload` will then fail. We surface the failure with
+          # a clear message instead of silently destroying their release —
+          # the safe recovery is for the maintainer to delete the release
+          # by hand and let the workflow recreate it on a re-run.
+          set -euo pipefail
+          TITLE="${NAME^} ${VERSION}"   # e.g. "Jaenvtix 0.0.3"
+
+          if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "No existing release for $TAG — creating from scratch."
+            gh release create "$TAG" "$ASSET" \
+              --repo "$REPO" \
+              --title "$TITLE" \
+              --generate-notes
+            exit 0
+          fi
+
+          IS_DRAFT=$(gh release view "$TAG" --repo "$REPO" --json isDraft --jq .isDraft)
+          HAS_ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets --jq ".assets[].name | select(. == \"$ASSET\")" || true)
+
+          if [ -n "$HAS_ASSET" ]; then
+            echo "Release $TAG already has $ASSET attached — nothing to do."
+            exit 0
+          fi
+
+          echo "Release $TAG exists (draft=$IS_DRAFT). Attaching $ASSET..."
+          if ! gh release upload "$TAG" "$ASSET" --repo "$REPO" --clobber; then
+            cat >&2 <<MSG
+          ::error title=Cannot upload to existing release::Release $TAG already exists and rejected the asset upload.
+          This usually happens when the release was created manually and published at the same time as the tag — GitHub then considers it immutable for asset uploads.
+          To recover: delete the release on GitHub (the tag will stay), then re-run this workflow:
+            gh release delete "$TAG" --yes --repo "$REPO"
+            gh workflow run release.yml --ref "$TAG"
+          MSG
+            exit 1
+          fi
+
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "Promoting draft release $TAG to published."
+            gh release edit "$TAG" --repo "$REPO" --draft=false --title "$TITLE"
+          fi
