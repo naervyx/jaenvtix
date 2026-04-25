@@ -1,9 +1,15 @@
 import { request as httpsRequest } from 'node:https';
 import { request as httpRequest } from 'node:http';
 
-export function isUrlAccessible(url: string): Promise<boolean> {
+export function isUrlAccessible(url: string, timeoutMs = 5000): Promise<boolean> {
     return new Promise((resolve) => {
-        const urlObj = new URL(url);
+        let urlObj: URL;
+        try {
+            urlObj = new URL(url);
+        } catch {
+            resolve(false);
+            return;
+        }
         const isHttps = urlObj.protocol === 'https:';
         const request = isHttps ? httpsRequest : httpRequest;
 
@@ -12,7 +18,7 @@ export function isUrlAccessible(url: string): Promise<boolean> {
             port: urlObj.port || (isHttps ? 443 : 80),
             path: urlObj.pathname + urlObj.search,
             method: 'HEAD',
-            timeout: 5000,
+            timeout: timeoutMs,
         }, (res) => {
             const status = res.statusCode ?? 0;
             resolve(status >= 200 && status < 400);
