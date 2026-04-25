@@ -1,15 +1,25 @@
 import {basename} from 'node:path';
 
-import * as vscode from 'vscode';
-
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {buildVsCodeLaunchPath} from '../../build/directory';
 import {updateVsCodeLaunchConfig} from '../../build/launchConfig';
 import {resolveJavaLaunchInfo} from '../../search/javaLaunchInfo';
 import {Messages} from '../../util/message';
 
+export interface ConfigureLaunchDeps {
+    /**
+     * Surfaces a malformed launch.json to the user. Wired by the orchestrator
+     * to vscode.window.showWarningMessage so that data loss is visible
+     * instead of being buried in console output. Defaults to a no-op for
+     * unit tests that exercise the step directly.
+     */
+    notifyMalformed?: (filePath: string) => void;
+}
+
 export class ConfigureLaunchStep implements ConfigurationStep {
     readonly name = 'ConfigureLaunch';
+
+    constructor(private readonly deps: ConfigureLaunchDeps = {}) {}
 
     async run(state: JavaConfigurationState): Promise<ConfigurationStepResult> {
         for (const projectContext of state.projectContexts) {
@@ -33,11 +43,7 @@ export class ConfigureLaunchStep implements ConfigurationStep {
 
             const launchPath = buildVsCodeLaunchPath(projectContext.projectPath);
             const updateResult = updateVsCodeLaunchConfig(launchPath, [launchConfig], {
-                onMalformed: (filePath) => {
-                    void vscode.window.showWarningMessage(
-                        Messages.Warning.LAUNCH_JSON_MALFORMED(filePath)
-                    );
-                },
+                onMalformed: (filePath) => this.deps.notifyMalformed?.(filePath),
             });
             if (updateResult.updated) {
                 console.log(Messages.Log.LAUNCH_UPDATED(projectContext.projectPath, updateResult.updatedNames));

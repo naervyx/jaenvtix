@@ -1,7 +1,7 @@
 import {ArchitectureType, DEFAULT_ARCH_NAMES, DEFAULT_OS_NAMES, determineArchiveType, PlatformType} from '../core/system';
 import {isUrlAccessible} from '../util/urlValidator';
 
-interface JdkDistribution {
+export interface JdkDistribution {
     name: string;
     url: string;
     extension: string;

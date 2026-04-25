@@ -18,7 +18,17 @@ interface MavenDownloadInfo {
 
 const MAVEN_DOWNLOAD_PAGE = 'https://maven.apache.org/download.cgi';
 
-function fetchPage(url: string): string {
+export type FetchPageFn = (url: string) => string | Promise<string>;
+export type IsUrlAccessibleFn = (url: string) => Promise<boolean>;
+
+export interface MavenDistributionDeps {
+    /** Override how the Maven download page HTML is fetched. Defaults to curl. */
+    fetchPage?: FetchPageFn;
+    /** Override the URL accessibility probe. Defaults to a HEAD request. */
+    isUrlAccessible?: IsUrlAccessibleFn;
+}
+
+function defaultFetchPage(url: string): string {
     try {
         return execSync(`curl -s -L --max-time 10 "${url}"`, {
             encoding: 'utf-8',
@@ -80,11 +90,17 @@ function parseDownloadLinks(html: string): MavenDownloadInfo | null {
     };
 }
 
-export async function getMavenDistribution(platform: PlatformType): Promise<MavenDistribution | null> {
+export async function getMavenDistribution(
+    platform: PlatformType,
+    deps: MavenDistributionDeps = {}
+): Promise<MavenDistribution | null> {
+    const fetchPage = deps.fetchPage ?? defaultFetchPage;
+    const probe = deps.isUrlAccessible ?? isUrlAccessible;
+
     let html: string;
 
     try {
-        html = fetchPage(MAVEN_DOWNLOAD_PAGE);
+        html = await fetchPage(MAVEN_DOWNLOAD_PAGE);
     } catch {
         return null;
     }
@@ -98,7 +114,7 @@ export async function getMavenDistribution(platform: PlatformType): Promise<Mave
     const extension = determineArchiveType(platform);
     const url = platform === 'windows' ? downloadInfo.zipUrl : downloadInfo.tarGzUrl;
 
-    const accessible = await isUrlAccessible(url);
+    const accessible = await probe(url);
     if (!accessible) {
         return null;
     }

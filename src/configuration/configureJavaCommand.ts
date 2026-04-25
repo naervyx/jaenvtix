@@ -13,11 +13,14 @@ import {ConfigureSettingsStep} from './steps/configureSettingsStep';
 import {ConfigureLaunchStep} from './steps/configureLaunchStep';
 import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
 import {Messages} from '../util/message';
+import {runStep, runSteps} from './stepRunner';
 
-function createStepGroups(workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined): {
+export interface StepGroups {
     preConfirm: ConfigurationStep[];
     postConfirm: ConfigurationStep[];
-} {
+}
+
+export function getDefaultStepGroups(workspaceFolders: readonly {uri: {fsPath: string}}[] | undefined): StepGroups {
     return {
         preConfirm: [
             new ValidateEnvironmentStep(workspaceFolders),
@@ -32,43 +35,19 @@ function createStepGroups(workspaceFolders: readonly vscode.WorkspaceFolder[] | 
             new ProcessDownloadsStep(),
             new WriteMavenWrappersStep(),
             new ConfigureSettingsStep(),
-            new ConfigureLaunchStep(),
+            new ConfigureLaunchStep({
+                notifyMalformed: (filePath) => {
+                    void vscode.window.showWarningMessage(
+                        Messages.Warning.LAUNCH_JSON_MALFORMED(filePath)
+                    );
+                },
+            }),
         ],
     };
 }
 
-function getStepLabel(step: ConfigurationStep): string {
-    return Messages.Progress.STEPS[step.name] ?? step.name;
-}
-
 function buildProgressMessage(step: ConfigurationStep): string {
     return Messages.Progress.STEPS[step.name] ?? Messages.Progress.DEFAULT;
-}
-
-async function runStep(
-    step: ConfigurationStep,
-    state: JavaConfigurationState
-): Promise<ConfigurationStepResult> {
-    try {
-        return await step.run(state);
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return StepResult.error(Messages.Error.STEP_FAILED(getStepLabel(step), message));
-    }
-}
-
-async function runSteps(
-    steps: ConfigurationStep[],
-    state: JavaConfigurationState
-): Promise<ConfigurationStepResult> {
-    for (const step of steps) {
-        const result = await runStep(step, state);
-        if (!result.success) {
-            return result;
-        }
-    }
-
-    return StepResult.success();
 }
 
 async function runStepsWithProgress(
@@ -107,7 +86,7 @@ async function runStepsWithProgress(
 }
 
 export async function runConfigureJavaCommand(): Promise<void> {
-    const { preConfirm, postConfirm } = createStepGroups(vscode.workspace.workspaceFolders);
+    const { preConfirm, postConfirm } = getDefaultStepGroups(vscode.workspace.workspaceFolders);
     const state = createInitialState();
     let result = await runSteps(preConfirm, state);
 
