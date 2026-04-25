@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write
 
+env:
+  # Node 22 is the current LTS and matches the CI workflow.
+  NODE_VERSION: '22'
+
 jobs:
   build:
     name: Build and package
@@ -21,24 +25,38 @@ jobs:
     outputs:
       version: ${{ steps.meta.outputs.version }}
       vsix: ${{ steps.meta.outputs.vsix }}
+      publisher: ${{ steps.meta.outputs.publisher }}
+      name: ${{ steps.meta.outputs.name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
+      - name: Cache node_modules
+        id: nm-cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install dependencies
-        run: npm ci
+        if: steps.nm-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Resolve version and verify tag
         id: meta
         shell: bash
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
-          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
-          echo "vsix=jaenvtix-$PKG_VERSION.vsix" >> "$GITHUB_OUTPUT"
+          PKG_PUBLISHER=$(node -p "require('./package.json').publisher")
+          PKG_NAME=$(node -p "require('./package.json').name")
+          echo "version=$PKG_VERSION"     >> "$GITHUB_OUTPUT"
+          echo "publisher=$PKG_PUBLISHER" >> "$GITHUB_OUTPUT"
+          echo "name=$PKG_NAME"           >> "$GITHUB_OUTPUT"
+          echo "vsix=$PKG_NAME-$PKG_VERSION.vsix" >> "$GITHUB_OUTPUT"
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             TAG_VERSION="${GITHUB_REF_NAME#release/}"
             if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
@@ -56,7 +74,7 @@ jobs:
       - name: Package .vsix
         run: npx --yes @vscode/vsce package --out "${{ steps.meta.outputs.vsix }}"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: vsix
           path: ${{ steps.meta.outputs.vsix }}
@@ -68,21 +86,55 @@ jobs:
     needs: build
     if: github.event_name == 'push' || inputs.dry_run == false
     runs-on: ubuntu-latest
-    environment: production
+    environment: tags-deploy
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: vsix
 
-      - name: Publish to Open VSX
+      - name: Validate Open VSX token
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: npx --yes ovsx publish "${{ needs.build.outputs.vsix }}" --pat "$OVSX_PAT"
+        shell: bash
+        run: |
+          if [ -z "${OVSX_PAT:-}" ]; then
+            echo "::error title=Missing Open VSX token::Repository/environment secret OVSX_PAT is not configured or is not available to this workflow."
+            exit 1
+          fi
 
-      - name: Create GitHub Release
+      - name: Publish to Open VSX (skip if already published)
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          ASSET: ${{ needs.build.outputs.vsix }}
+          PUBLISHER: ${{ needs.build.outputs.publisher }}
+          NAME: ${{ needs.build.outputs.name }}
+          VERSION: ${{ needs.build.outputs.version }}
+        shell: bash
+        run: |
+          # Open VSX rejects republishing the same version. Probe the
+          # public API first so a re-run of the workflow on the same
+          # tag (e.g. after a downstream step failed) doesn't abort here.
+          set -euo pipefail
+          URL="https://open-vsx.org/api/${PUBLISHER}/${NAME}/${VERSION}"
+          HTTP=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 "$URL" || echo "000")
+
+          if [ "$HTTP" = "200" ]; then
+            echo "Open VSX already has ${PUBLISHER}.${NAME}@${VERSION} — skipping publish."
+            exit 0
+          fi
+
+          if [ "$HTTP" != "404" ] && [ "$HTTP" != "000" ]; then
+            # Anything other than "exists" (200) or "not found" (404) is a
+            # registry / network problem. Don't silently treat it as
+            # "doesn't exist" — fail loud so the maintainer can investigate.
+            echo "::error title=Open VSX probe failed::Unexpected HTTP $HTTP from $URL"
+            exit 1
+          fi
+
+          echo "Publishing ${PUBLISHER}.${NAME}@${VERSION} to Open VSX..."
+          npx --yes ovsx publish "$ASSET" --pat "$OVSX_PAT"
+
+      - name: Publish GitHub Release
         if: github.event_name == 'push'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ needs.build.outputs.vsix }}
-          generate_release_notes: true
-          fail_on_unmatched_files: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
