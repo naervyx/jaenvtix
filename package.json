@@ -44,10 +44,11 @@
 	"devDependencies": {
 		"@eslint/js": "^9.13.0",
 		"@stylistic/eslint-plugin": "^2.9.0",
-		"@types/vscode": "^1.100.0",
 		"@types/node": "^25.0.2",
+		"@types/vscode": "^1.100.0",
 		"@vscode/vsce": "^3.9.1",
 		"eslint": "^9.13.0",
+		"tsx": "^4.21.0",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.39.0"
 	},
@@ -64,6 +65,7 @@
 		"vscode:prepublish": "npm run compile",
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
+		"test": "node --import tsx --test \"test/**/*.test.ts\"",
 		"lint": "eslint",
 		"package": "vsce package --allow-missing-repository",
 		"publish:ovsx": "ovsx publish jaenvtix-$npm_package_version.vsix"
