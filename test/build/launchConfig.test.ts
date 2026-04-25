@@ -137,4 +137,35 @@ describe('updateVsCodeLaunchConfig', () => {
         const launch = await readLaunch(launchPath);
         assert.equal(launch.configurations?.[0].name, 'Java backend');
     });
+
+    it('REGRESSION (B4): invokes onMalformed once when the existing launch.json is unparseable', async () => {
+        const {launchPath, cleanup} = await withLaunchFile();
+        cleanups.push(cleanup);
+        await fs.mkdir(join(launchPath, '..'), {recursive: true});
+        writeFileSync(launchPath, '{still-malformed', 'utf-8');
+
+        const calls: string[] = [];
+        const result = updateVsCodeLaunchConfig(
+            launchPath,
+            [{type: 'java', request: 'launch', name: 'Java backend', mainClass: 'com.example.Main'}],
+            {onMalformed: (filePath) => calls.push(filePath)},
+        );
+
+        assert.equal(result.updated, true);
+        assert.deepEqual(calls, [launchPath]);
+    });
+
+    it('REGRESSION (B4): does NOT invoke onMalformed when the existing launch.json parses cleanly', async () => {
+        const {launchPath, cleanup} = await withLaunchFile({version: '0.2.0', configurations: []});
+        cleanups.push(cleanup);
+
+        let invoked = false;
+        updateVsCodeLaunchConfig(
+            launchPath,
+            [{type: 'java', request: 'launch', name: 'Java backend', mainClass: 'com.example.Main'}],
+            {onMalformed: () => {invoked = true;}},
+        );
+
+        assert.equal(invoked, false);
+    });
 });

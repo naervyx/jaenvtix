@@ -22,6 +22,16 @@ interface UpdateResult {
     updatedNames: string[];
 }
 
+interface UpdateOptions {
+    /**
+     * Called once when the existing launch.json file fails to parse. The
+     * extension entry-point wires this to a VS Code warning notification so
+     * the user is told their previous launch configurations were dropped
+     * (instead of the data loss being silently logged to the dev console).
+     */
+    onMalformed?: (filePath: string) => void;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -36,7 +46,8 @@ function normalizeConfigurations(configurations: unknown): LaunchConfiguration[]
 
 export function updateVsCodeLaunchConfig(
     launchPath: string,
-    desiredConfigs: LaunchConfiguration[]
+    desiredConfigs: LaunchConfiguration[],
+    options: UpdateOptions = {}
 ): UpdateResult {
     const result: UpdateResult = {
         updated: false,
@@ -52,6 +63,7 @@ export function updateVsCodeLaunchConfig(
         } catch {
             console.error(Messages.Error.LAUNCH_PARSE_FAILED);
             data = {};
+            options.onMalformed?.(launchPath);
         }
     }
 

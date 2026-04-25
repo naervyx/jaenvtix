@@ -1,7 +1,7 @@
 import { request as httpsRequest, RequestOptions } from 'node:https';
 import { request as httpRequest, IncomingMessage } from 'node:http';
-import { createWriteStream } from 'node:fs';
-import { join } from 'node:path';
+import { createWriteStream, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { JAENVTIX_TEMP_PATH } from '../build/directory';
 import { Messages } from '../util/message';
 
@@ -11,6 +11,11 @@ export interface DownloadOptions {
     extension: string;
     timeout?: number;
     redirectsLeft?: number;
+    /**
+     * Override the destination directory. Defaults to JAENVTIX_TEMP_PATH.
+     * Primarily used by tests to avoid touching the real user temp tree.
+     */
+    targetDir?: string;
 }
 
 export interface DownloadResult {
@@ -28,8 +33,8 @@ function isRedirect(statusCode: number): boolean {
 }
 
 export function downloadFile(options: DownloadOptions): Promise<DownloadResult> {
-    const { url, fileName, extension, timeout = 30000, redirectsLeft = 5 } = options;
-    const fullPath = join(JAENVTIX_TEMP_PATH, `${fileName}.${extension}`);
+    const { url, fileName, extension, timeout = 30000, redirectsLeft = 5, targetDir = JAENVTIX_TEMP_PATH } = options;
+    const fullPath = join(targetDir, `${fileName}.${extension}`);
 
     return new Promise((resolve) => {
         let urlObj: URL;
@@ -81,13 +86,25 @@ export function downloadFile(options: DownloadOptions): Promise<DownloadResult> 
                     ...options,
                     url: redirectUrl.toString(),
                     redirectsLeft: redirectsLeft - 1,
-                }).then(resolve);
+                }).then(resolve).catch((err: unknown) => {
+                    const message = err instanceof Error ? err.message : String(err);
+                    resolve({ success: false, filePath: fullPath, error: message });
+                });
                 return;
             }
 
             if (statusCode >= 400) {
                 response.resume();
                 resolve({ success: false, filePath: fullPath, error: Messages.Error.REQUEST_FAILED_STATUS(statusCode) });
+                return;
+            }
+
+            try {
+                mkdirSync(dirname(fullPath), { recursive: true });
+            } catch (err) {
+                response.resume();
+                const message = err instanceof Error ? err.message : String(err);
+                resolve({ success: false, filePath: fullPath, error: message });
                 return;
             }
 

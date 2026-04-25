@@ -1,5 +1,7 @@
 import {basename} from 'node:path';
 
+import * as vscode from 'vscode';
+
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {buildVsCodeLaunchPath} from '../../build/directory';
 import {updateVsCodeLaunchConfig} from '../../build/launchConfig';
@@ -30,7 +32,13 @@ export class ConfigureLaunchStep implements ConfigurationStep {
             };
 
             const launchPath = buildVsCodeLaunchPath(projectContext.projectPath);
-            const updateResult = updateVsCodeLaunchConfig(launchPath, [launchConfig]);
+            const updateResult = updateVsCodeLaunchConfig(launchPath, [launchConfig], {
+                onMalformed: (filePath) => {
+                    void vscode.window.showWarningMessage(
+                        Messages.Warning.LAUNCH_JSON_MALFORMED(filePath)
+                    );
+                },
+            });
             if (updateResult.updated) {
                 console.log(Messages.Log.LAUNCH_UPDATED(projectContext.projectPath, updateResult.updatedNames));
             }

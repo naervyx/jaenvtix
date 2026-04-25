@@ -16,6 +16,8 @@ export const Messages = {
     CONFIGURATION_CANCELLED: 'Configuration canceled by the user.',
     TEMP_CLEANUP_FAILED: (filePath: string, detail: string) =>
       `Failed to remove temporary archive ${filePath}: ${detail}`,
+    LAUNCH_JSON_MALFORMED: (filePath: string) =>
+      `Existing launch.json at ${filePath} could not be parsed and was reset. Previous launch configurations were dropped.`,
   },
   Error: {
     STEP_FAILED: (stepLabel: string, detail: string) => `${stepLabel} failed: ${detail}`,

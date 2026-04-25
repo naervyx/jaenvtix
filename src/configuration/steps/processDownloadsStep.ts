@@ -42,16 +42,16 @@ async function extractArchive(result: DownloadResult, targetPath: string): Promi
  * mode was zero. Best-effort — a missing directory or a single chmod failure
  * must not abort the configuration pipeline.
  */
-async function ensureBinDirectoryExecutable(root: string, platform: PlatformType): Promise<void> {
+export async function ensureBinDirectoryExecutable(root: string, platform: PlatformType): Promise<void> {
     if (platform === 'windows') {
         return;
     }
 
     const binPath = join(root, 'bin');
 
-    let entries: string[];
+    let entries: import('node:fs').Dirent[];
     try {
-        entries = await fs.readdir(binPath);
+        entries = await fs.readdir(binPath, { recursive: true, withFileTypes: true });
     } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
         if (code === 'ENOENT') {
@@ -62,12 +62,18 @@ async function ensureBinDirectoryExecutable(root: string, platform: PlatformType
     }
 
     await Promise.all(entries.map(async (entry) => {
-        const filePath = join(binPath, entry);
+        if (!entry.isFile()) {
+            return;
+        }
+        // `entry.parentPath` is the absolute directory holding `entry.name`.
+        // Falls back to `entry.path` (deprecated alias) for older Node 20 minor
+        // versions where `parentPath` is not yet exposed.
+        const parentDir = (entry as { parentPath?: string; path?: string }).parentPath
+            ?? (entry as { path?: string }).path
+            ?? binPath;
+        const filePath = join(parentDir, entry.name);
         try {
-            const stat = await fs.stat(filePath);
-            if (stat.isFile()) {
-                await fs.chmod(filePath, 0o755);
-            }
+            await fs.chmod(filePath, 0o755);
         } catch {
             // Best-effort: ignore per-file failures.
         }

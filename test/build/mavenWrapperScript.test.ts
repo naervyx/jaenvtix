@@ -78,6 +78,24 @@ describe('writeJaenvtixMavenWrapper — Windows batch script', () => {
         const second = writeJaenvtixMavenWrapper(input);
         assert.equal(second.updated, false);
     });
+
+    it('REGRESSION (B2): normalizes a forward-slash toolBin into the windows mvn.cmd path', async () => {
+        const {input, cleanup} = await buildScenario({
+            platform: 'windows',
+            scriptName: 'jaenvtix-mvn.cmd',
+            // Caller hands us a normalized path with forward slashes (can happen
+            // when a path was built via path.posix.join or fed by the Maven
+            // distribution metadata). The wrapper must still emit a valid
+            // Windows `call "...\\mvn.cmd"` line — never a stray forward slash.
+            overrides: {toolBin: 'C:/maven/3.9.6/bin'},
+        });
+        cleanups.push(cleanup);
+
+        writeJaenvtixMavenWrapper(input);
+        const written = await fs.readFile(input.scriptPath, 'utf-8');
+        assert.match(written, /call "C:\\maven\\3\.9\.6\\bin\\mvn\.cmd"/);
+        assert.ok(!/C:\/maven/.test(written), 'must not leak forward slashes into the mvn.cmd path');
+    });
 });
 
 describe('writeJaenvtixMavenWrapper — Unix shell script', () => {
