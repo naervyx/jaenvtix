@@ -25,6 +25,8 @@ jobs:
     outputs:
       version: ${{ steps.meta.outputs.version }}
       vsix: ${{ steps.meta.outputs.vsix }}
+      publisher: ${{ steps.meta.outputs.publisher }}
+      name: ${{ steps.meta.outputs.name }}
     steps:
       - uses: actions/checkout@v5
 
@@ -49,8 +51,12 @@ jobs:
         shell: bash
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
-          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
-          echo "vsix=jaenvtix-$PKG_VERSION.vsix" >> "$GITHUB_OUTPUT"
+          PKG_PUBLISHER=$(node -p "require('./package.json').publisher")
+          PKG_NAME=$(node -p "require('./package.json').name")
+          echo "version=$PKG_VERSION"     >> "$GITHUB_OUTPUT"
+          echo "publisher=$PKG_PUBLISHER" >> "$GITHUB_OUTPUT"
+          echo "name=$PKG_NAME"           >> "$GITHUB_OUTPUT"
+          echo "vsix=$PKG_NAME-$PKG_VERSION.vsix" >> "$GITHUB_OUTPUT"
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             TAG_VERSION="${GITHUB_REF_NAME#release/}"
             if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
@@ -80,75 +86,55 @@ jobs:
     needs: build
     if: github.event_name == 'push' || inputs.dry_run == false
     runs-on: ubuntu-latest
-    environment: production
+    environment: tags-deploy
     steps:
       - uses: actions/download-artifact@v5
         with:
           name: vsix
 
-      - name: Publish to Open VSX
+      - name: Validate Open VSX token
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: npx --yes ovsx publish "${{ needs.build.outputs.vsix }}" --pat "$OVSX_PAT"
+        shell: bash
+        run: |
+          if [ -z "${OVSX_PAT:-}" ]; then
+            echo "::error title=Missing Open VSX token::Repository/environment secret OVSX_PAT is not configured or is not available to this workflow."
+            exit 1
+          fi
+
+      - name: Publish to Open VSX (skip if already published)
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          ASSET: ${{ needs.build.outputs.vsix }}
+          PUBLISHER: ${{ needs.build.outputs.publisher }}
+          NAME: ${{ needs.build.outputs.name }}
+          VERSION: ${{ needs.build.outputs.version }}
+        shell: bash
+        run: |
+          # Open VSX rejects republishing the same version. Probe the
+          # public API first so a re-run of the workflow on the same
+          # tag (e.g. after a downstream step failed) doesn't abort here.
+          set -euo pipefail
+          URL="https://open-vsx.org/api/${PUBLISHER}/${NAME}/${VERSION}"
+          HTTP=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 "$URL" || echo "000")
+
+          if [ "$HTTP" = "200" ]; then
+            echo "Open VSX already has ${PUBLISHER}.${NAME}@${VERSION} — skipping publish."
+            exit 0
+          fi
+
+          if [ "$HTTP" != "404" ] && [ "$HTTP" != "000" ]; then
+            # Anything other than "exists" (200) or "not found" (404) is a
+            # registry / network problem. Don't silently treat it as
+            # "doesn't exist" — fail loud so the maintainer can investigate.
+            echo "::error title=Open VSX probe failed::Unexpected HTTP $HTTP from $URL"
+            exit 1
+          fi
+
+          echo "Publishing ${PUBLISHER}.${NAME}@${VERSION} to Open VSX..."
+          npx --yes ovsx publish "$ASSET" --pat "$OVSX_PAT"
 
       - name: Publish GitHub Release
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-          ASSET: ${{ needs.build.outputs.vsix }}
-          REPO: ${{ github.repository }}
-        shell: bash
-        run: |
-          # We use the `gh release` CLI instead of softprops/action-gh-release
-          # because softprops still ships on the Node 20 runtime that GitHub
-          # is deprecating. `gh` is a system binary on the runner, so it
-          # isn't affected.
-          #
-          # Behaviour by release state — DESIGNED TO NEVER DELETE OR
-          # OVERWRITE a release the maintainer set up manually:
-          #
-          #   * No release for $TAG       → create one, attach $ASSET, publish.
-          #   * Draft release for $TAG    → attach $ASSET (--clobber), publish.
-          #   * Published release for $TAG, missing $ASSET → attach $ASSET.
-          #   * Published release for $TAG, $ASSET already present → no-op.
-          #
-          # If the maintainer manually creates AND publishes a release at
-          # the same time as the tag (the original failure mode this fixes),
-          # GitHub considers that release immutable for asset uploads.
-          # `gh release upload` will then fail. We surface the failure with
-          # a clear message instead of silently destroying their release —
-          # the safe recovery is for the maintainer to delete the release
-          # by hand and let the workflow recreate it on a re-run.
-          set -euo pipefail
-
-          if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-            echo "No existing release for $TAG — creating from scratch."
-            gh release create "$TAG" "$ASSET" --repo "$REPO" --generate-notes
-            exit 0
-          fi
-
-          IS_DRAFT=$(gh release view "$TAG" --repo "$REPO" --json isDraft --jq .isDraft)
-          HAS_ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets --jq ".assets[].name | select(. == \"$ASSET\")" || true)
-
-          if [ -n "$HAS_ASSET" ]; then
-            echo "Release $TAG already has $ASSET attached — nothing to do."
-            exit 0
-          fi
-
-          echo "Release $TAG exists (draft=$IS_DRAFT). Attaching $ASSET..."
-          if ! gh release upload "$TAG" "$ASSET" --repo "$REPO" --clobber; then
-            cat >&2 <<MSG
-          ::error title=Cannot upload to existing release::Release $TAG already exists and rejected the asset upload.
-          This usually happens when the release was created manually and published at the same time as the tag — GitHub then considers it immutable for asset uploads.
-          To recover: delete the release on GitHub (the tag will stay), then re-run this workflow:
-            gh release delete "$TAG" --yes --repo "$REPO"
-            gh workflow run release.yml --ref "$TAG"
-          MSG
-            exit 1
-          fi
-
-          if [ "$IS_DRAFT" = "true" ]; then
-            echo "Promoting draft release $TAG to published."
-            gh release edit "$TAG" --repo "$REPO" --draft=false
-          fi
