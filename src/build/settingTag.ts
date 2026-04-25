@@ -1,4 +1,4 @@
-import {dirname, join} from 'node:path';
+import {dirname, posix, win32} from 'node:path';
 import {existsSync, readFileSync, writeFileSync, mkdirSync} from 'node:fs';
 import {Messages} from '../util/message';
 import type {PlatformType} from '../core/system';
@@ -71,7 +71,8 @@ function getPathVariableName(platform: PlatformType, existingEnv?: TerminalEnv):
 }
 
 function buildTerminalEnvUpdates(paths: JavaMavenPaths, existingEnv?: TerminalEnv): TerminalEnv {
-    const javaBinPath = join(paths.terminalJavaHome, 'bin');
+    const pathJoin = paths.platform === 'windows' ? win32.join : posix.join;
+    const javaBinPath = pathJoin(paths.terminalJavaHome, 'bin');
     const pathKey = getPathVariableName(paths.platform, existingEnv);
     const pathDelimiter = paths.platform === 'windows' ? ';' : ':';
     const envPathRef = pathKey === 'PATH' ? '${env:PATH}' : '${env:Path}';

@@ -14,7 +14,7 @@ interface VendorConfig {
     archNames: Readonly<Record<ArchitectureType, string | undefined>>;
 }
 
-type JdkVendor = 'oracle' | 'temurin' | 'corretto';
+export type JdkVendor = 'oracle' | 'temurin' | 'corretto';
 
 const ORACLE_VERSIONS = new Set(['21', '25']);
 
@@ -43,7 +43,7 @@ function capitalize(str: string): string {
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-function buildDistribution(
+export function buildDistribution(
     vendor: JdkVendor,
     javaVersion: string,
     platform: PlatformType,
