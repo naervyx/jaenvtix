@@ -2,6 +2,17 @@ import {isAbsolute, relative} from 'node:path';
 
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {Messages} from '../../util/message';
+import {detectMavenWrapper} from '../../file/fileSearch';
+
+function resolveHasMvnw(state: JavaConfigurationState, project: string): boolean {
+    const cached = state.projectsHasMvnw.get(project);
+    if (typeof cached === 'boolean') {
+        return cached;
+    }
+    // Fallback: detect on-demand if for some reason the resolution step
+    // didn't populate this entry (defensive — should not normally happen).
+    return detectMavenWrapper(project);
+}
 
 function resolveWorkspaceRoot(projectPath: string, workspaceFolders: string[]): string | null {
     let bestMatch: string | null = null;
@@ -46,6 +57,7 @@ export class BuildProjectContextsStep implements ConfigurationStep {
                     jdkHome: paths.jdkHome,
                     toolHome: paths.toolHome,
                     toolBin: paths.toolBin,
+                    hasMvnw: resolveHasMvnw(state, project),
                 });
             }
         }

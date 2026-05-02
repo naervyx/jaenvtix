@@ -29,7 +29,7 @@ public class Cli { public static void main(String[] args) {} }`),
         const state = createInitialState();
         state.projectContexts = [{
             workspace: root, projectPath: root, platform: 'linux', arch: 'x64',
-            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
         }];
 
         const result = await new ConfigureLaunchStep().run(state);
@@ -52,7 +52,7 @@ public class BootApp { public static void main(String[] args) {} }`),
         const state = createInitialState();
         state.projectContexts = [{
             workspace: root, projectPath: root, platform: 'linux', arch: 'x64',
-            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
         }];
 
         await new ConfigureLaunchStep().run(state);
@@ -68,7 +68,7 @@ public class BootApp { public static void main(String[] args) {} }`),
         const state = createInitialState();
         state.projectContexts = [{
             workspace: root, projectPath: root, platform: 'linux', arch: 'x64',
-            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
         }];
 
         const result = await new ConfigureLaunchStep().run(state);
@@ -88,7 +88,7 @@ public class X { public static void main(String[] args) {} }`),
         const state = createInitialState();
         state.projectContexts = [{
             workspace: root, projectPath: root, platform: 'linux', arch: 'x64',
-            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
         }];
 
         await new ConfigureLaunchStep({notifyMalformed: (p) => calls.push(p)}).run(state);
@@ -110,7 +110,7 @@ public class X { public static void main(String[] args) {} }`),
         const state = createInitialState();
         state.projectContexts = [{
             workspace: root, projectPath: root, platform: 'linux', arch: 'x64',
-            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
         }];
 
         await new ConfigureLaunchStep().run(state);

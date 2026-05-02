@@ -129,7 +129,11 @@ export class ProcessDownloadsStep implements ConfigurationStep {
                 return StepResult.error(Messages.Error.JDK_EXTRACTION_FAILED(javaVersion));
             }
 
-            if (!hasMavenInstallation(paths.toolBin, state.platform)) {
+            // When `state.mavenDownload` is undefined the schedule step
+            // decided no Maven download was needed (every project ships its
+            // own `mvnw`). In that case, missing Maven in the cache is
+            // expected — not a failure.
+            if (state.mavenDownload && !hasMavenInstallation(paths.toolBin, state.platform)) {
                 return StepResult.error(Messages.Error.MAVEN_EXTRACTION_FAILED(javaVersion));
             }
         }

@@ -4,6 +4,8 @@ export const Messages = {
   Info: {
     START_CONFIG: 'This project looks like a Java project. Do you want to start automatic configuration?',
     CONFIGURATION_COMPLETED: 'Java and Maven environment configuration completed successfully!',
+    AUTO_CONFIG_PREFERENCE_RESET:
+      'Jaenvtix auto-configuration preference reset. Reload the window (or open another workspace) to see the prompt again.',
   },
   Warning: {
     NOT_FOUND_WORKSPACE: 'No workspaces open. Nothing to do.',
@@ -48,13 +50,17 @@ export const Messages = {
       ResolveProjects: 'Resolve projects',
       ConfirmConfiguration: 'Confirm configuration',
       InitializeDirectories: 'Initialize directories',
+      DetectInstalledJdks: 'Detect installed JDKs',
       PrepareVersionPaths: 'Build version paths',
       ScheduleDownloads: 'Schedule downloads',
       BuildProjectContexts: 'Build project contexts',
       ProcessDownloads: 'Download and extract tools',
       WriteMavenWrappers: 'Write Jaenvtix Maven wrapper scripts',
+      WriteToolchains: 'Write ~/.m2/toolchains.xml',
       ConfigureSettings: 'Configure Visual Studio Code settings',
+      ConfigureUserRuntimes: 'Register JDKs in Visual Studio Code user settings',
       ConfigureLaunch: 'Configure Visual Studio Code launch configuration',
+      RefreshProjectConfiguration: 'Refresh Java Language Server project configuration',
     } as Record<string, string>,
   },
   Log: {
@@ -66,9 +72,14 @@ export const Messages = {
       `Project ${projectPath}: Launch configuration skipped (main class not found).`,
     MAVEN_WRAPPER_WRITTEN: (javaVersion: string, scriptPath: string) =>
       `Java ${javaVersion}: Jaenvtix Maven wrapper written at ${scriptPath}`,
+    USER_RUNTIMES_UPDATED: (count: number) =>
+      `User-level java.configuration.runtimes updated (${count} entr${count === 1 ? 'y' : 'ies'}).`,
+    TOOLCHAINS_XML_WRITTEN: (path: string) =>
+      `~/.m2/toolchains.xml updated at ${path}`,
   },
   Choice: {
     YES: 'Yes',
+    ALWAYS: 'Always',
     NO: 'No',
   },
 } as const;

@@ -1,7 +1,38 @@
+import {relative, isAbsolute, sep} from 'node:path';
+
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {Messages} from '../../util/message';
-import {findProjectsWithFile} from '../../file/fileSearch';
+import {detectMavenWrapper, findProjectsWithFile} from '../../file/fileSearch';
 import {parseJavaVersionFromPom} from '../../search/javaVersion';
+
+/**
+ * Returns true when `descendant` is strictly nested under `ancestor` (not the
+ * same path). Path-aware so it works on both POSIX and Windows separators.
+ */
+function isStrictDescendant(ancestor: string, descendant: string): boolean {
+    if (ancestor === descendant) {return false;}
+    const rel = relative(ancestor, descendant);
+    if (!rel) {return false;}
+    if (rel.startsWith('..' + sep) || rel === '..') {return false;}
+    if (isAbsolute(rel)) {return false;}
+    return true;
+}
+
+/**
+ * Among `candidates`, finds the closest path that is a strict ancestor of
+ * `descendant`. "Closest" means longest matching prefix, so a parent module
+ * inside a sub-tree wins over the workspace root.
+ */
+function findClosestAncestor(descendant: string, candidates: readonly string[]): string | null {
+    let bestMatch: string | null = null;
+    for (const candidate of candidates) {
+        if (!isStrictDescendant(candidate, descendant)) {continue;}
+        if (!bestMatch || candidate.length > bestMatch.length) {
+            bestMatch = candidate;
+        }
+    }
+    return bestMatch;
+}
 
 export class ResolveProjectsStep implements ConfigurationStep {
     readonly name = 'ResolveProjects';
@@ -24,16 +55,42 @@ export class ResolveProjectsStep implements ConfigurationStep {
         }
 
         state.projectVersionMap.clear();
+        state.projectsHasMvnw.clear();
+
+        const projectVersions = new Map<string, string>();
 
         for (const project of projects) {
-            const javaVersion = parseJavaVersionFromPom(project);
-            if (!javaVersion) {
-                continue;
-            }
+            // Detect mvnw once here so downstream steps (download scheduling,
+            // wrapper writing, project-context building) can reuse the result
+            // without hitting the filesystem again.
+            state.projectsHasMvnw.set(project, detectMavenWrapper(project));
 
-            const projectList = state.projectVersionMap.get(javaVersion) ?? [];
+            const javaVersion = parseJavaVersionFromPom(project);
+            if (javaVersion) {
+                projectVersions.set(project, javaVersion);
+            }
+        }
+
+        // Multi-module inheritance: a child pom that declares no Java version
+        // of its own inherits from the closest ancestor pom in the same
+        // workspace that does declare one. This matches the typical Maven
+        // monorepo (Spring Boot, Quarkus, etc.) where the parent pom owns
+        // `<java.version>` and modules inherit silently.
+        const projectsWithDirectVersion = [...projectVersions.keys()];
+        for (const project of projects) {
+            if (projectVersions.has(project)) {continue;}
+            const ancestor = findClosestAncestor(project, projectsWithDirectVersion);
+            if (!ancestor) {continue;}
+            const inherited = projectVersions.get(ancestor);
+            if (inherited) {
+                projectVersions.set(project, inherited);
+            }
+        }
+
+        for (const [project, version] of projectVersions) {
+            const projectList = state.projectVersionMap.get(version) ?? [];
             projectList.push(project);
-            state.projectVersionMap.set(javaVersion, projectList);
+            state.projectVersionMap.set(version, projectList);
         }
 
         if (state.projectVersionMap.size === 0) {

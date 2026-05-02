@@ -224,3 +224,173 @@ describe('updateVsCodeSettings — terminal.integrated.env per platform', () => 
         assert.equal(env.JAVA_HOME, '/home/dev/.jaenvtix/jdk-17');
     });
 });
+
+describe('updateVsCodeSettings — maven.terminal.customEnv per-folder', () => {
+    // Business rule: vscode-maven applies `maven.terminal.customEnv` to its
+    // own Maven Explorer terminal. We must write it explicitly so that
+    // `mvn` invocations from that flow run with the project's JAVA_HOME,
+    // independently of whatever `terminal.integrated.env.*` already does
+    // for other terminals.
+    const cleanups: (() => Promise<void>)[] = [];
+
+    afterEach(async () => {
+        await Promise.all(cleanups.splice(0).map((fn) => fn()));
+    });
+
+    it('writes JAVA_HOME, MAVEN_HOME, M2_HOME and PATH entries to maven.terminal.customEnv', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+        const customEnv = settings['maven.terminal.customEnv'] as {environmentVariable: string; value: string}[];
+
+        const byKey = Object.fromEntries(customEnv.map((entry) => [entry.environmentVariable, entry.value]));
+        assert.equal(byKey.JAVA_HOME, '/home/dev/.jaenvtix/jdk-17');
+        assert.equal(byKey.MAVEN_HOME, '/home/dev/.jaenvtix/jdk-17/mvn-custom');
+        assert.equal(byKey.M2_HOME, '/home/dev/.jaenvtix/jdk-17/mvn-custom');
+        assert.equal(byKey.PATH, '/home/dev/.jaenvtix/jdk-17/bin:/home/dev/.jaenvtix/jdk-17/mvn-custom/bin:${env:PATH}');
+    });
+
+    it('preserves user-authored entries with environmentVariable Jaenvtix does not manage', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {
+                'maven.terminal.customEnv': [
+                    {environmentVariable: 'MY_CUSTOM_VAR', value: 'preserve-me'},
+                ],
+            },
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+        const customEnv = settings['maven.terminal.customEnv'] as {environmentVariable: string; value: string}[];
+
+        const myCustom = customEnv.find((entry) => entry.environmentVariable === 'MY_CUSTOM_VAR');
+        assert.equal(myCustom?.value, 'preserve-me');
+    });
+
+    it('updates an existing entry when its environmentVariable collides with a managed one', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {
+                'maven.terminal.customEnv': [
+                    {environmentVariable: 'JAVA_HOME', value: '/old/jdk'},
+                ],
+            },
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+        const customEnv = settings['maven.terminal.customEnv'] as {environmentVariable: string; value: string}[];
+
+        const javaHome = customEnv.find((entry) => entry.environmentVariable === 'JAVA_HOME');
+        assert.equal(javaHome?.value, '/home/dev/.jaenvtix/jdk-17');
+        // Only one JAVA_HOME entry — no duplicates.
+        assert.equal(customEnv.filter((e) => e.environmentVariable === 'JAVA_HOME').length, 1);
+    });
+
+    it('reports updated=false on a no-op second pass', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const second = updateVsCodeSettings(settingsPath, paths);
+        assert.equal(second.updated, false);
+    });
+});
+
+describe('updateVsCodeSettings — mvnw vs Jaenvtix wrapper', () => {
+    // Business rule: when the project ships its own `mvnw`, Jaenvtix yields to it.
+    // Concretely:
+    //   - `maven.executable.path` is NOT written (so vscode-maven keeps using mvnw)
+    //   - `maven.executable.preferMavenWrapper` stays `true` (vscode-maven default)
+    // When the project does NOT ship `mvnw`, Jaenvtix takes ownership:
+    //   - `maven.executable.path` points at the Jaenvtix wrapper
+    //   - `maven.executable.preferMavenWrapper` is `false` so vscode-maven uses
+    //     the explicit path instead of falling back to a (non-existent) mvnw.
+    const cleanups: (() => Promise<void>)[] = [];
+
+    afterEach(async () => {
+        await Promise.all(cleanups.splice(0).map((fn) => fn()));
+    });
+
+    it('yields to mvnw: omits maven.executable.path AND maven.executable.preferMavenWrapper when mavenExecutablePath is undefined', async () => {
+        // Both keys are dropped — vscode-maven's default `preferMavenWrapper: true`
+        // is already what we want, so writing it would be redundant noise.
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, {...paths, mavenExecutablePath: undefined});
+        const settings = await readSettings(settingsPath);
+
+        assert.equal('maven.executable.path' in settings, false);
+        assert.equal('maven.executable.preferMavenWrapper' in settings, false);
+    });
+
+    it('takes ownership: writes maven.executable.path and sets preferMavenWrapper=false when mavenExecutablePath is defined', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+
+        assert.equal(settings['maven.executable.path'], '/home/dev/.jaenvtix/jdk-17/mvn-custom/bin/mvn');
+        assert.equal(settings['maven.executable.preferMavenWrapper'], false);
+    });
+
+    it('removes a previously written maven.executable.path/preferMavenWrapper when project later starts shipping mvnw', async () => {
+        // Scenario: a previous Jaenvtix run pointed maven.executable.path to its wrapper
+        // and forced preferMavenWrapper=false. The user then committed `mvnw` to the
+        // project. Re-running Jaenvtix must drop both stale keys so vscode-maven falls
+        // back to its default (which uses the project's mvnw).
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {
+                'maven.executable.path': '/home/dev/.jaenvtix/jdk-17/mvn-custom/bin/jaenvtix-mvn',
+                'maven.executable.preferMavenWrapper': false,
+            },
+        );
+        cleanups.push(cleanup);
+
+        const result = updateVsCodeSettings(settingsPath, {...paths, mavenExecutablePath: undefined});
+        const settings = await readSettings(settingsPath);
+
+        assert.equal(result.updated, true);
+        assert.equal('maven.executable.path' in settings, false);
+        assert.equal('maven.executable.preferMavenWrapper' in settings, false);
+    });
+
+    it('does NOT write maven.terminal.customEnv when the project ships mvnw (avoids redundancy with terminal.integrated.env.*)', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, {...paths, mavenExecutablePath: undefined});
+        const settings = await readSettings(settingsPath);
+
+        assert.equal('maven.terminal.customEnv' in settings, false);
+        // The general-purpose terminal env still IS written — vscode-maven's
+        // own terminal inherits it via VS Code core.
+        assert.ok(settings['terminal.integrated.env.linux']);
+    });
+
+    it('removes a previously written maven.terminal.customEnv when project later starts shipping mvnw', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {
+                'maven.terminal.customEnv': [
+                    {environmentVariable: 'JAVA_HOME', value: '/old/jdk'},
+                ],
+            },
+        );
+        cleanups.push(cleanup);
+
+        const result = updateVsCodeSettings(settingsPath, {...paths, mavenExecutablePath: undefined});
+        const settings = await readSettings(settingsPath);
+
+        assert.equal(result.updated, true);
+        assert.equal('maven.terminal.customEnv' in settings, false);
+    });
+});
