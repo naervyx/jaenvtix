@@ -5,11 +5,17 @@ import type {PlatformType} from '../core/system';
 
 type TerminalEnv = Record<string, string>;
 
+interface MavenTerminalEnvEntry {
+    environmentVariable: string;
+    value: string;
+}
+
 interface VsCodeSettings {
     "java.jdt.ls.java.home"?: string;
     "java.jdt.ls.lombokSupport.enabled"?: boolean;
     "maven.executable.preferMavenWrapper"?: boolean;
     "maven.executable.path"?: string;
+    "maven.terminal.customEnv"?: MavenTerminalEnvEntry[];
     "java.compile.nullAnalysis.mode"?: string;
     "java.configuration.updateBuildConfiguration"?: string;
     "java.configuration.maven.userSettings"?: string;
@@ -26,7 +32,20 @@ interface JavaMavenPaths {
     terminalJavaHome: string;
     mavenHomePath: string;
     mavenBinPath: string;
-    mavenExecutablePath: string;
+    /**
+     * Path to the Jaenvtix Maven wrapper script.
+     *
+     * When defined (project does NOT ship `mvnw`), Jaenvtix points
+     * `maven.executable.path` to it and disables vscode-maven's preference
+     * for the in-project wrapper.
+     *
+     * When undefined (project ships `mvnw`), Jaenvtix yields to the
+     * project's wrapper: it leaves `maven.executable.path` unset and keeps
+     * `maven.executable.preferMavenWrapper: true` so vscode-maven picks
+     * `mvnw`/`mvnw.cmd` from the project root. JAVA_HOME still flows
+     * through `terminal.integrated.env.*`.
+     */
+    mavenExecutablePath?: string;
     userSettingsPath: string;
     platform: PlatformType;
 }
@@ -101,6 +120,84 @@ function mergeTerminalEnv(existing: unknown, updates: TerminalEnv): { merged: Te
     return { merged, updated };
 }
 
+/**
+ * Builds the `maven.terminal.customEnv` entries vscode-maven applies to its
+ * own terminal. Unlike `terminal.integrated.env.*` (which the VS Code core
+ * applies to every terminal opened in the folder), `maven.terminal.customEnv`
+ * is consumed specifically by the Maven Explorer terminal of vscode-maven.
+ *
+ * Both are written: the core env handles user-opened terminals; this one
+ * handles the Maven Explorer flow. They reinforce each other and keep the
+ * per-folder JAVA_HOME explicit/auditable in either path.
+ */
+function buildMavenCustomEnv(paths: JavaMavenPaths): MavenTerminalEnvEntry[] {
+    const pathJoin = paths.platform === 'windows' ? win32.join : posix.join;
+    const javaBinPath = pathJoin(paths.terminalJavaHome, 'bin');
+    const pathDelimiter = paths.platform === 'windows' ? ';' : ':';
+    const combinedPath = `${javaBinPath}${pathDelimiter}${paths.mavenBinPath}${pathDelimiter}\${env:PATH}`;
+
+    return [
+        {environmentVariable: 'JAVA_HOME', value: paths.terminalJavaHome},
+        {environmentVariable: 'MAVEN_HOME', value: paths.mavenHomePath},
+        {environmentVariable: 'M2_HOME', value: paths.mavenHomePath},
+        {environmentVariable: 'PATH', value: combinedPath},
+    ];
+}
+
+function isMavenCustomEnvArray(value: unknown): value is MavenTerminalEnvEntry[] {
+    if (!Array.isArray(value)) {return false;}
+    return value.every((entry) =>
+        Boolean(entry) &&
+        typeof entry === 'object' &&
+        typeof (entry as MavenTerminalEnvEntry).environmentVariable === 'string' &&
+        typeof (entry as MavenTerminalEnvEntry).value === 'string'
+    );
+}
+
+/**
+ * Non-destructive merge of `maven.terminal.customEnv`.
+ *
+ * Business rules:
+ * - Existing entries with an `environmentVariable` Jaenvtix doesn't manage
+ *   are preserved verbatim (the user may have added their own).
+ * - Existing entries that DO collide on `environmentVariable` are updated
+ *   in place — same env var, new value.
+ * - Order of pre-existing entries is preserved; new managed entries are
+ *   appended after them.
+ */
+function mergeMavenCustomEnv(
+    existing: unknown,
+    updates: readonly MavenTerminalEnvEntry[]
+): { merged: MavenTerminalEnvEntry[]; updated: boolean } {
+    const existingEntries = isMavenCustomEnvArray(existing) ? existing : [];
+    const updatesByKey = new Map(updates.map((entry) => [entry.environmentVariable, entry.value]));
+    const merged: MavenTerminalEnvEntry[] = [];
+    let updated = !isMavenCustomEnvArray(existing);
+
+    for (const entry of existingEntries) {
+        const newValue = updatesByKey.get(entry.environmentVariable);
+        if (typeof newValue === 'string') {
+            if (newValue !== entry.value) {
+                merged.push({environmentVariable: entry.environmentVariable, value: newValue});
+                updated = true;
+            } else {
+                merged.push({environmentVariable: entry.environmentVariable, value: entry.value});
+            }
+            updatesByKey.delete(entry.environmentVariable);
+            continue;
+        }
+
+        merged.push({environmentVariable: entry.environmentVariable, value: entry.value});
+    }
+
+    for (const [environmentVariable, value] of updatesByKey) {
+        merged.push({environmentVariable, value});
+        updated = true;
+    }
+
+    return {merged, updated};
+}
+
 export function updateVsCodeSettings(
     settingsPath: string,
     paths: JavaMavenPaths
@@ -122,10 +219,19 @@ export function updateVsCodeSettings(
         }
     }
 
+    // When the project ships `mvnw`, Jaenvtix yields to it: omit
+    // `maven.executable.path` AND `maven.executable.preferMavenWrapper`
+    // entirely — vscode-maven's default (`preferMavenWrapper: true`) already
+    // does the right thing, so writing redundant keys would be noise.
+    // When there is no mvnw, point at the Jaenvtix wrapper and explicitly
+    // disable vscode-maven's wrapper preference (otherwise it would search
+    // for a non-existent `mvnw`).
+    const respectMvnw = typeof paths.mavenExecutablePath === 'undefined';
+
     const requiredSettings: Record<string, unknown> = {
         "java.jdt.ls.java.home": paths.javaHomePath,
         "java.jdt.ls.lombokSupport.enabled": true,
-        "maven.executable.preferMavenWrapper": false,
+        "maven.executable.preferMavenWrapper": respectMvnw ? undefined : false,
         "maven.executable.path": paths.mavenExecutablePath,
         "java.compile.nullAnalysis.mode": "automatic",
         "java.configuration.updateBuildConfiguration": "automatic",
@@ -189,6 +295,32 @@ export function updateVsCodeSettings(
         data[terminalEnvKey] = mergedTerminalEnv;
         result.updatedKeys.push(String(terminalEnvKey));
         result.updated = true;
+    }
+
+    const customEnvKey = 'maven.terminal.customEnv';
+    if (respectMvnw) {
+        // When the project drives Maven via its own mvnw, the env that vscode-maven
+        // would inject via `customEnv` is already covered by `terminal.integrated.env.*`
+        // (which the VS Code core applies to every terminal opened in the folder,
+        // including the Maven Explorer one). Writing `customEnv` would be redundant
+        // — drop the key if a previous run left it behind.
+        if (customEnvKey in data) {
+            delete data[customEnvKey];
+            result.updatedKeys.push(customEnvKey);
+            result.updated = true;
+        }
+    } else {
+        const customEnvUpdates = buildMavenCustomEnv(paths);
+        const { merged: mergedCustomEnv, updated: customEnvUpdated } = mergeMavenCustomEnv(
+            data[customEnvKey],
+            customEnvUpdates,
+        );
+
+        if (customEnvUpdated) {
+            data[customEnvKey] = mergedCustomEnv;
+            result.updatedKeys.push(customEnvKey);
+            result.updated = true;
+        }
     }
 
     if (result.updated) {

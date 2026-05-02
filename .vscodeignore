@@ -1,9 +1,20 @@
 .vscode/**
 .vscode-test/**
 .claude/**
+.tests/**
+test/**
 src/**
 icon/*.svg
 node_modules/**
+# Re-include `jdk-utils` (runtime dependency: scans installed JDKs in the user
+# machine to skip downloading what is already there). It has no own runtime
+# deps, so reincluding the package directory is enough.
+!node_modules/jdk-utils
+!node_modules/jdk-utils/**
+node_modules/jdk-utils/**/*.ts
+node_modules/jdk-utils/**/*.map
+node_modules/jdk-utils/test/**
+node_modules/jdk-utils/bin/**
 .idea/**
 .git/**
 .gitignore
@@ -13,6 +24,7 @@ node_modules/**
 vsc-extension-quickstart.md
 eslint.config.mjs
 tsconfig.json
+tsconfig.test.json
 **/tsconfig.json
 **/.eslintrc.json
 **/*.map

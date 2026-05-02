@@ -30,6 +30,7 @@ describe('ConfigureSettingsStep', () => {
             jdkHome: '/home/dev/.jaenvtix/jdk-21',
             toolHome: '/home/dev/.jaenvtix/jdk-21/mvn-custom',
             toolBin: '/home/dev/.jaenvtix/jdk-21/mvn-custom/bin',
+            hasMvnw: false,
         }];
 
         const result = await new ConfigureSettingsStep().run(state);
@@ -52,6 +53,7 @@ describe('ConfigureSettingsStep', () => {
             jdkHome: '/home/dev/.jaenvtix/jdk-11',
             toolHome: '/home/dev/.jaenvtix/jdk-11/mvn-custom',
             toolBin: '/home/dev/.jaenvtix/jdk-11/mvn-custom/bin',
+            hasMvnw: false,
         }];
 
         await new ConfigureSettingsStep().run(state);
@@ -75,11 +77,11 @@ describe('ConfigureSettingsStep', () => {
         state.projectContexts = [
             {
                 workspace: a, projectPath: a, platform: 'linux', arch: 'x64',
-                javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b',
+                javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
             },
             {
                 workspace: b, projectPath: b, platform: 'linux', arch: 'x64',
-                javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b',
+                javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
             },
         ];
 
@@ -94,5 +96,64 @@ describe('ConfigureSettingsStep', () => {
         state.platform = 'linux';
         const result = await new ConfigureSettingsStep().run(state);
         assert.equal(result.success, true);
+    });
+
+    // Business rule: the per-project decision of whether to point `maven.executable.path`
+    // at the Jaenvtix wrapper depends on whether the project ships its own mvnw.
+    // The ProjectContext.hasMvnw flag is the single source of truth for this decision.
+
+    it('omits maven.executable.path, maven.executable.preferMavenWrapper AND maven.terminal.customEnv when projectContext.hasMvnw is true', async () => {
+        // Three redundant keys when the project ships mvnw:
+        // - `maven.executable.path` would point at a wrapper Jaenvtix is NOT going to use
+        // - `maven.executable.preferMavenWrapper: true` is already vscode-maven's default
+        // - `maven.terminal.customEnv` duplicates `terminal.integrated.env.*` for this folder
+        const project = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [{
+            workspace: project, projectPath: project, platform: 'linux', arch: 'x64',
+            javaVersion: '21',
+            jdkHome: '/home/dev/.jaenvtix/jdk-21',
+            toolHome: '/home/dev/.jaenvtix/jdk-21/mvn-custom',
+            toolBin: '/home/dev/.jaenvtix/jdk-21/mvn-custom/bin',
+            hasMvnw: true,
+        }];
+
+        await new ConfigureSettingsStep().run(state);
+        const settings = JSON.parse(
+            await fs.readFile(join(project, '.vscode', 'settings.json'), 'utf-8'),
+        );
+
+        assert.equal('maven.executable.path' in settings, false);
+        assert.equal('maven.executable.preferMavenWrapper' in settings, false);
+        assert.equal('maven.terminal.customEnv' in settings, false);
+        // terminal.integrated.env.* remains — it covers the Maven Explorer terminal
+        // via VS Code core env injection.
+        assert.ok(settings['terminal.integrated.env.linux']);
+    });
+
+    it('writes maven.executable.path pointing to the Jaenvtix wrapper of the paired JDK when hasMvnw is false', async () => {
+        const project = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [{
+            workspace: project, projectPath: project, platform: 'linux', arch: 'x64',
+            javaVersion: '17',
+            jdkHome: '/home/dev/.jaenvtix/jdk-17',
+            toolHome: '/home/dev/.jaenvtix/jdk-17/mvn-custom',
+            toolBin: '/home/dev/.jaenvtix/jdk-17/mvn-custom/bin',
+            hasMvnw: false,
+        }];
+
+        await new ConfigureSettingsStep().run(state);
+        const settings = JSON.parse(
+            await fs.readFile(join(project, '.vscode', 'settings.json'), 'utf-8'),
+        );
+
+        const executablePath = settings['maven.executable.path'] as string;
+        assert.ok(executablePath, 'expected maven.executable.path to be written');
+        assert.match(executablePath, /jdk-17/);
+        assert.match(executablePath, /jaenvtix-mvn/);
+        assert.equal(settings['maven.executable.preferMavenWrapper'], false);
     });
 });

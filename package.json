@@ -30,13 +30,20 @@
 		"color": "#0F172A",
 		"theme": "dark"
 	},
-	"activationEvents": [],
+	"activationEvents": [
+		"workspaceContains:**/pom.xml"
+	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
 				"command": "jaenvtix.configureJava",
 				"title": "Java: Automatic Configuration",
+				"category": "Jaenvtix"
+			},
+			{
+				"command": "jaenvtix.resetAutoConfigPreference",
+				"title": "Reset Auto-Configuration Preference",
 				"category": "Jaenvtix"
 			}
 		]
@@ -69,5 +76,8 @@
 		"lint": "eslint",
 		"package": "vsce package --allow-missing-repository",
 		"publish:ovsx": "ovsx publish jaenvtix-$npm_package_version.vsix"
+	},
+	"dependencies": {
+		"jdk-utils": "^0.6.0"
 	}
 }

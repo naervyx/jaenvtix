@@ -119,6 +119,65 @@ describe('ScheduleDownloadsStep', () => {
         assert.equal(state.mavenDownload, undefined);
     });
 
+    // Business rule: when every Maven project in the workspace ships its own
+    // `mvnw`, the Jaenvtix-managed Maven is never invoked. Skip the Maven
+    // download (and the wrapper generation downstream) to save bandwidth and
+    // disk in mvnw-only workspaces.
+
+    it('does NOT schedule a Maven download when every project ships its own mvnw', async () => {
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.arch = 'x64';
+        state.mavenDistribution = maven;
+        state.versionPaths.set('17', {
+            jdkHome: '/nonexistent/jdk-17',
+            toolHome: '/nonexistent/jdk-17/mvn-custom',
+            toolBin: '/nonexistent/jdk-17/mvn-custom/bin',
+        });
+        state.projectVersionMap.set('17', ['/ws/spring-a', '/ws/spring-b']);
+        state.projectsHasMvnw.set('/ws/spring-a', true);
+        state.projectsHasMvnw.set('/ws/spring-b', true);
+
+        const calls: DownloadOptions[] = [];
+        const step = new ScheduleDownloadsStep({
+            getJdkDistribution: async (version) => jdk(version),
+            downloadFile: async (opts) => {calls.push(opts); return {success: true, filePath: '/x'};},
+        });
+
+        await step.run(state);
+
+        assert.equal(state.mavenDownload, undefined);
+        assert.equal(calls.filter((c) => c.fileName === 'maven-3.9.6').length, 0);
+        // JDK download still happens — JDK is needed regardless of mvnw.
+        assert.equal(state.jdkDownloads.has('17'), true);
+    });
+
+    it('schedules a Maven download when at least one project does NOT ship mvnw', async () => {
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.arch = 'x64';
+        state.mavenDistribution = maven;
+        state.versionPaths.set('17', {
+            jdkHome: '/nonexistent/jdk-17',
+            toolHome: '/nonexistent/jdk-17/mvn-custom',
+            toolBin: '/nonexistent/jdk-17/mvn-custom/bin',
+        });
+        state.projectVersionMap.set('17', ['/ws/with-mvnw', '/ws/without-mvnw']);
+        state.projectsHasMvnw.set('/ws/with-mvnw', true);
+        state.projectsHasMvnw.set('/ws/without-mvnw', false);
+
+        const calls: DownloadOptions[] = [];
+        const step = new ScheduleDownloadsStep({
+            getJdkDistribution: async (version) => jdk(version),
+            downloadFile: async (opts) => {calls.push(opts); return {success: true, filePath: '/x'};},
+        });
+
+        await step.run(state);
+
+        assert.ok(state.mavenDownload, 'expected Maven download to be scheduled');
+        assert.equal(calls.filter((c) => c.fileName === 'maven-3.9.6').length, 1);
+    });
+
     it('does NOT re-schedule a JDK download already present in jdkDownloads', async () => {
         const state = createInitialState();
         state.platform = 'linux';

@@ -9,6 +9,9 @@ dist/
 # Build artifacts
 *.vsix
 
+# Local empirical-validation playgrounds (re-creatable; not part of the source)
+.tests/
+
 # Local scratch / temp
 .tmp-*
 *.log

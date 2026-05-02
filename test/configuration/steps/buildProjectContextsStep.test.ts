@@ -1,8 +1,11 @@
-import {describe, it} from 'node:test';
+import {describe, it, afterEach} from 'node:test';
 import assert from 'node:assert/strict';
+import {promises as fs} from 'node:fs';
+import {join} from 'node:path';
 
 import {BuildProjectContextsStep} from '../../../src/configuration/steps/buildProjectContextsStep';
 import {createInitialState} from '../../../src/core/types';
+import {createTempDir, removeTempDir} from '../../fixtures/tempDir';
 
 describe('BuildProjectContextsStep', () => {
     it('errors when platform/arch/workspaceFolders are missing', async () => {
@@ -84,12 +87,64 @@ describe('BuildProjectContextsStep', () => {
         state.versionPaths.set('17', {jdkHome: '/j', toolHome: '/m', toolBin: '/m/b'});
         state.projectContexts.push({
             workspace: '/stale', projectPath: '/stale', platform: 'linux', arch: 'x64',
-            javaVersion: 'old', jdkHome: '/x', toolHome: '/x', toolBin: '/x',
+            javaVersion: 'old', jdkHome: '/x', toolHome: '/x', toolBin: '/x', hasMvnw: false,
         });
 
         await new BuildProjectContextsStep().run(state);
 
         assert.equal(state.projectContexts.length, 1);
         assert.equal(state.projectContexts[0].javaVersion, '17');
+    });
+
+    // Business rule: each ProjectContext must report whether the project ships
+    // its own Maven Wrapper (`mvnw` POSIX or `mvnw.cmd` Windows). Downstream steps
+    // use this flag to decide whether Jaenvtix yields to the in-project wrapper
+    // (preserving the team's pinned Maven version) or takes ownership via
+    // `maven.executable.path` pointing to its own wrapper.
+
+    describe('hasMvnw detection', () => {
+        const cleanups: (() => Promise<void>)[] = [];
+
+        afterEach(async () => {
+            await Promise.all(cleanups.splice(0).map((fn) => fn()));
+        });
+
+        async function projectWithFiles(files: string[]): Promise<string> {
+            const root = await createTempDir();
+            cleanups.push(() => removeTempDir(root));
+            for (const file of files) {
+                await fs.writeFile(join(root, file), '');
+            }
+            return root;
+        }
+
+        async function runWith(projectPath: string) {
+            const state = createInitialState();
+            state.platform = 'linux';
+            state.arch = 'x64';
+            state.workspaceFolders = [projectPath];
+            state.projectVersionMap.set('17', [projectPath]);
+            state.versionPaths.set('17', {jdkHome: '/j', toolHome: '/m', toolBin: '/m/b'});
+            await new BuildProjectContextsStep().run(state);
+            return state;
+        }
+
+        it('reports hasMvnw=true when the project ships POSIX `mvnw`', async () => {
+            const project = await projectWithFiles(['mvnw']);
+            const state = await runWith(project);
+            assert.equal(state.projectContexts[0].hasMvnw, true);
+        });
+
+        it('reports hasMvnw=true when the project ships Windows `mvnw.cmd`', async () => {
+            const project = await projectWithFiles(['mvnw.cmd']);
+            const state = await runWith(project);
+            assert.equal(state.projectContexts[0].hasMvnw, true);
+        });
+
+        it('reports hasMvnw=false when the project ships neither `mvnw` nor `mvnw.cmd`', async () => {
+            const project = await projectWithFiles([]);
+            const state = await runWith(project);
+            assert.equal(state.projectContexts[0].hasMvnw, false);
+        });
     });
 });

@@ -1,8 +1,118 @@
 import * as vscode from 'vscode';
 
 import {runConfigureJavaCommand} from './configuration/configureJavaCommand';
+import {
+    AUTO_CONFIG_ALWAYS_KEY,
+    AUTO_CONFIG_DISMISSED_KEY,
+    decideAutoConfigAction,
+} from './activation/autoConfigPrompt';
+import {Messages} from './util/message';
+
+const CONFIGURE_JAVA_COMMAND = 'jaenvtix.configureJava';
+const RESET_AUTO_CONFIG_PREFERENCE_COMMAND = 'jaenvtix.resetAutoConfigPreference';
+
+/**
+ * Module-level guard so the auto-config prompt fires AT MOST ONCE per
+ * extension host lifetime, regardless of how many times `activate()` is
+ * called. Multi-root workspaces and `workspaceContains:**` activation
+ * events can re-trigger activation per folder; without this guard, the
+ * user would see N prompts (or N silent runs) for an N-folder workspace.
+ *
+ * Reset on a new VS Code session because the module reloads.
+ */
+let autoConfigDelivered = false;
 
 export async function activate(context: vscode.ExtensionContext) {
-    const configureJava = vscode.commands.registerCommand('jaenvtix.configureJava', runConfigureJavaCommand);
+    const configureJava = vscode.commands.registerCommand(
+        CONFIGURE_JAVA_COMMAND,
+        (options?: import('./configuration/configureJavaCommand').ConfigureJavaOptions) =>
+            runConfigureJavaCommand(options),
+    );
     context.subscriptions.push(configureJava);
+
+    const resetAutoConfig = vscode.commands.registerCommand(
+        RESET_AUTO_CONFIG_PREFERENCE_COMMAND,
+        async () => {
+            // Clear both layers so the next workspace open re-prompts:
+            // - workspaceState: per-workspace Yes/No answer
+            // - globalState: cross-workspace "Always" preference
+            await context.workspaceState.update(AUTO_CONFIG_DISMISSED_KEY, undefined);
+            await context.globalState.update(AUTO_CONFIG_ALWAYS_KEY, undefined);
+            // Reset the in-memory guard so a Reload Window in this same
+            // host instance is enough to see the prompt again.
+            autoConfigDelivered = false;
+            void vscode.window.showInformationMessage(Messages.Info.AUTO_CONFIG_PREFERENCE_RESET);
+        },
+    );
+    context.subscriptions.push(resetAutoConfig);
+
+    void offerAutoConfigIfNeeded(context);
+}
+
+/**
+ * On activation (triggered by the `workspaceContains` event for any
+ * pom.xml in the workspace), decide between three paths:
+ *
+ *   1. Auto-run (silent) — when the user has previously chosen "Always".
+ *   2. Prompt — when no decision has been made for this workspace yet.
+ *   3. Skip — when the user already answered Yes/No for this workspace.
+ *
+ * Errors are swallowed: failing to show the prompt or run the command
+ * must never block the extension from being usable via the Command
+ * Palette.
+ */
+async function offerAutoConfigIfNeeded(context: vscode.ExtensionContext): Promise<void> {
+    if (autoConfigDelivered) {
+        return;
+    }
+    autoConfigDelivered = true;
+
+    try {
+        const workspaceDismissed = context.workspaceState.get<boolean>(AUTO_CONFIG_DISMISSED_KEY);
+        const alwaysAccepted = context.globalState.get<boolean>(AUTO_CONFIG_ALWAYS_KEY);
+        const decision = decideAutoConfigAction(
+            vscode.workspace.workspaceFolders,
+            workspaceDismissed,
+            alwaysAccepted,
+        );
+
+        if (decision === 'skip') {
+            return;
+        }
+
+        if (decision === 'auto-run') {
+            await vscode.commands.executeCommand(CONFIGURE_JAVA_COMMAND, {skipConfirmation: true});
+            return;
+        }
+
+        // decision === 'prompt'
+        const choice = await vscode.window.showInformationMessage(
+            Messages.Info.START_CONFIG,
+            Messages.Choice.YES,
+            Messages.Choice.ALWAYS,
+            Messages.Choice.NO,
+        );
+
+        if (choice === Messages.Choice.ALWAYS) {
+            await context.globalState.update(AUTO_CONFIG_ALWAYS_KEY, true);
+            await vscode.commands.executeCommand(CONFIGURE_JAVA_COMMAND, {skipConfirmation: true});
+            return;
+        }
+
+        if (choice === Messages.Choice.YES) {
+            await vscode.commands.executeCommand(CONFIGURE_JAVA_COMMAND, {skipConfirmation: true});
+        }
+
+        // Persist BOTH explicit per-workspace answers ("Yes" → already ran,
+        // "No" → user opted out). The Command Palette stays available either
+        // way for re-runs.
+        if (choice === Messages.Choice.YES || choice === Messages.Choice.NO) {
+            await context.workspaceState.update(AUTO_CONFIG_DISMISSED_KEY, true);
+        }
+        // A `null`/`undefined` choice means the notification was dismissed
+        // via the X button. We deliberately do NOT persist that — it's
+        // ambiguous (user may have just been busy), so we re-ask next session.
+    } catch (error) {
+        console.warn('[jaenvtix] Auto-config prompt failed:', error);
+    }
 }

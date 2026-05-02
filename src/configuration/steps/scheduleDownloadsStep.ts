@@ -28,6 +28,15 @@ export class ScheduleDownloadsStep implements ConfigurationStep {
             return StepResult.error(Messages.Error.MISSING_PLATFORM_ARCH_MAVEN);
         }
 
+        // When every project ships its own `mvnw`, the Jaenvtix Maven is
+        // never invoked. Avoid downloading and extracting it in that case —
+        // the wrapper script generation step also short-circuits, and the
+        // settings step already leaves `maven.executable.path` unset.
+        const projectsWithVersion = [...state.projectVersionMap.values()].flat();
+        const everyProjectHasMvnw =
+            projectsWithVersion.length > 0 &&
+            projectsWithVersion.every((project) => state.projectsHasMvnw.get(project) === true);
+
         let needsMavenDownload = false;
 
         for (const [javaVersion, paths] of state.versionPaths) {
@@ -45,6 +54,10 @@ export class ScheduleDownloadsStep implements ConfigurationStep {
                 });
 
                 state.jdkDownloads.set(javaVersion, jdkDownloadPromise);
+            }
+
+            if (everyProjectHasMvnw) {
+                continue;
             }
 
             const hasToolHome = hasMavenInstallation(paths.toolBin, state.platform);

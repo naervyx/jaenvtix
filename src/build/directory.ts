@@ -17,6 +17,10 @@ export function buildDefaultM2RepositoryPath(){
     return join(MAVEN_LOCAL_REPOSITORY_PATH, 'repository');
 }
 
+export function buildDefaultM2ToolchainsPath(){
+    return join(MAVEN_LOCAL_REPOSITORY_PATH, 'toolchains.xml');
+}
+
 export function buildJdkVersionPath(javaVersion: string): string {
     return join(JAENVTIX_ROOT_PATH, `jdk-${javaVersion}`);
 }

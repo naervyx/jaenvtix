@@ -4,13 +4,17 @@ import {ConfirmConfigurationStep} from './steps/confirmConfigurationStep';
 import {ValidateEnvironmentStep} from './steps/validateEnvironmentStep';
 import {ResolveProjectsStep} from './steps/resolveProjectsStep';
 import {InitializeDirectoriesStep} from './steps/initializeDirectoriesStep';
+import {DetectInstalledJdksStep} from './steps/detectInstalledJdksStep';
 import {PrepareVersionPathsStep} from './steps/prepareVersionPathsStep';
 import {ScheduleDownloadsStep} from './steps/scheduleDownloadsStep';
 import {BuildProjectContextsStep} from './steps/buildProjectContextsStep';
 import {ProcessDownloadsStep} from './steps/processDownloadsStep';
 import {WriteMavenWrappersStep} from './steps/writeMavenWrappersStep';
+import {WriteToolchainsStep} from './steps/writeToolchainsStep';
 import {ConfigureSettingsStep} from './steps/configureSettingsStep';
+import {ConfigureUserRuntimesStep} from './steps/configureUserRuntimesStep';
 import {ConfigureLaunchStep} from './steps/configureLaunchStep';
+import {RefreshProjectConfigurationStep} from './steps/refreshProjectConfigurationStep';
 import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
 import {Messages} from '../util/message';
 import {runStep, runSteps} from './stepRunner';
@@ -20,21 +24,41 @@ export interface StepGroups {
     postConfirm: ConfigurationStep[];
 }
 
-export function getDefaultStepGroups(workspaceFolders: readonly {uri: {fsPath: string}}[] | undefined): StepGroups {
+export interface ConfigureJavaOptions {
+    /**
+     * When true, the in-pipeline `ConfirmConfigurationStep` is skipped because
+     * the caller (e.g. the auto-config prompt at activation) has already asked
+     * the user. Prevents the user from seeing the same "Configure Java/Maven?"
+     * prompt twice in a row.
+     */
+    skipConfirmation?: boolean;
+}
+
+export function getDefaultStepGroups(
+    workspaceFolders: readonly {uri: {fsPath: string}}[] | undefined,
+    options: ConfigureJavaOptions = {},
+): StepGroups {
+    const preConfirm: ConfigurationStep[] = [
+        new ValidateEnvironmentStep(workspaceFolders),
+        new ResolveProjectsStep(),
+    ];
+    if (!options.skipConfirmation) {
+        preConfirm.push(new ConfirmConfigurationStep());
+    }
+
     return {
-        preConfirm: [
-            new ValidateEnvironmentStep(workspaceFolders),
-            new ResolveProjectsStep(),
-            new ConfirmConfigurationStep(),
-        ],
+        preConfirm,
         postConfirm: [
             new InitializeDirectoriesStep(),
+            new DetectInstalledJdksStep(),
             new PrepareVersionPathsStep(),
             new ScheduleDownloadsStep(),
             new BuildProjectContextsStep(),
             new ProcessDownloadsStep(),
             new WriteMavenWrappersStep(),
+            new WriteToolchainsStep(),
             new ConfigureSettingsStep(),
+            new ConfigureUserRuntimesStep(),
             new ConfigureLaunchStep({
                 notifyMalformed: (filePath) => {
                     void vscode.window.showWarningMessage(
@@ -42,6 +66,7 @@ export function getDefaultStepGroups(workspaceFolders: readonly {uri: {fsPath: s
                     );
                 },
             }),
+            new RefreshProjectConfigurationStep(),
         ],
     };
 }
@@ -85,8 +110,11 @@ async function runStepsWithProgress(
     });
 }
 
-export async function runConfigureJavaCommand(): Promise<void> {
-    const { preConfirm, postConfirm } = getDefaultStepGroups(vscode.workspace.workspaceFolders);
+export async function runConfigureJavaCommand(options?: ConfigureJavaOptions): Promise<void> {
+    const { preConfirm, postConfirm } = getDefaultStepGroups(
+        vscode.workspace.workspaceFolders,
+        options,
+    );
     const state = createInitialState();
     let result = await runSteps(preConfirm, state);
 

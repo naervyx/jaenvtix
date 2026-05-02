@@ -21,3 +21,22 @@ export function toJavaRuntimeName(version: string): string {
 
     return `JavaSE-${major}`;
 }
+
+/**
+ * Maps a major Java version to the value Maven expects under
+ * `<toolchains><toolchain><provides><version>...</version>`.
+ * Java 8 and older use the legacy `1.x` form; modern releases use the
+ * major number alone.
+ */
+export function toMavenToolchainVersion(version: string): string {
+    const major = parseJavaVersionNumber(version);
+    if (!major) {
+        return version;
+    }
+
+    if (major <= 8) {
+        return `1.${major}`;
+    }
+
+    return `${major}`;
+}

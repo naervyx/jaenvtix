@@ -27,13 +27,23 @@ export class ConfigureSettingsStep implements ConfigurationStep {
                 default: true,
             }];
 
+            // If the project ships its own `mvnw`, leave `maven.executable.path`
+            // undefined so vscode-maven picks the project's wrapper. JAVA_HOME
+            // still flows through `terminal.integrated.env.*` and the per-folder
+            // `maven.terminal.customEnv` reinforces it for the Maven Explorer
+            // terminal. Otherwise, point at the Jaenvtix wrapper which forces
+            // JAVA_HOME explicitly before invoking Maven.
+            const mavenExecutablePath = projectContext.hasMvnw
+                ? undefined
+                : buildJaenvtixMavenScriptPath(projectContext.toolBin, projectContext.platform);
+
             const javaMavenPaths = {
                 javaHomePath: useToolingJavaHome ? projectContext.jdkHome : undefined,
                 runtimes,
                 terminalJavaHome: projectContext.jdkHome,
                 mavenHomePath: projectContext.toolHome,
                 mavenBinPath: projectContext.toolBin,
-                mavenExecutablePath: buildJaenvtixMavenScriptPath(projectContext.toolBin, projectContext.platform),
+                mavenExecutablePath,
                 userSettingsPath: buildDefaultM2SettingsPath(),
                 platform: projectContext.platform,
             };
