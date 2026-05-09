@@ -1,11 +1,34 @@
 import {arch, platform} from 'node:os';
 
+/**
+ * Normalized platform identifier used throughout Jaenvtix.
+ *
+ * - `'windows'`: mapped from Node.js `'win32'`.
+ * - `'linux'`: mapped from Node.js `'linux'`.
+ * - `'darwin'`: mapped from Node.js `'darwin'` (macOS).
+ * - `'unknown'`: any other platform; treated as unsupported.
+ */
 export type PlatformType = 'windows' | 'linux' | 'darwin' | 'unknown';
+
+/**
+ * Normalized CPU architecture identifier used throughout Jaenvtix.
+ *
+ * - `'x64'`: 64-bit x86.
+ * - `'arm64'`: 64-bit ARM (Apple Silicon, AWS Graviton, etc.).
+ * - `'unsupported'`: any other architecture; no JDK distribution is available.
+ */
 export type ArchitectureType = 'x64' | 'arm64' | 'unsupported';
 
+/** Platforms for which Jaenvtix can resolve and install JDK/Maven distributions. */
 export const SUPPORTED_PLATFORMS = new Set<PlatformType>(['windows', 'linux', 'darwin']);
+
+/** CPU architectures for which JDK distributions are available. */
 export const SUPPORTED_ARCHITECTURES = new Set<ArchitectureType>(['x64', 'arm64']);
 
+/**
+ * Maps each `PlatformType` to the OS name segment used in JDK download URLs.
+ * `undefined` means no distribution URL can be constructed for that platform.
+ */
 export const DEFAULT_OS_NAMES: Readonly<Record<PlatformType, string | undefined>> = {
     windows: 'windows',
     linux: 'linux',
@@ -13,24 +36,38 @@ export const DEFAULT_OS_NAMES: Readonly<Record<PlatformType, string | undefined>
     unknown: undefined,
 };
 
+/**
+ * Maps each `ArchitectureType` to the architecture segment used in JDK download URLs.
+ * `undefined` means no distribution URL can be constructed for that architecture.
+ */
 export const DEFAULT_ARCH_NAMES: Readonly<Record<ArchitectureType, string | undefined>> = {
     x64: 'x64',
     arm64: 'aarch64',
     unsupported: undefined,
 };
 
+/** Returns `true` if Jaenvtix supports downloading JDK distributions for this architecture. */
 export function isArchitectureSupported(arch: ArchitectureType): boolean {
     return SUPPORTED_ARCHITECTURES.has(arch);
 }
 
+/** Returns `true` if Jaenvtix supports downloading JDK/Maven distributions for this platform. */
 export function isPlatformSupported(platform: PlatformType): boolean {
     return SUPPORTED_PLATFORMS.has(platform);
 }
 
+/**
+ * Returns the archive format expected for JDK and Maven distributions on the given platform.
+ * Windows distributions are shipped as `.zip`; all other platforms use `.tar.gz`.
+ */
 export function determineArchiveType(platform: PlatformType): 'zip' | 'tar.gz' {
     return platform === 'windows' ? 'zip' : 'tar.gz';
 }
 
+/**
+ * Reads `os.arch()` and maps it to the normalized `ArchitectureType`.
+ * Returns `'unsupported'` for any architecture Jaenvtix does not handle.
+ */
 export function getArchitecture(): ArchitectureType {
     const archType = arch();
     if (archType === 'x64') {return 'x64';}
@@ -38,6 +75,11 @@ export function getArchitecture(): ArchitectureType {
     return 'unsupported';
 }
 
+/**
+ * Reads `os.platform()` and maps it to the normalized `PlatformType`.
+ * Node.js reports Windows as `'win32'`; this function normalizes it to `'windows'`.
+ * Returns `'unknown'` for any platform Jaenvtix does not handle.
+ */
 export function getPlatform(): PlatformType {
     const platformType = platform();
     switch (platformType) {

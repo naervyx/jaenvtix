@@ -19,6 +19,15 @@ import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConf
 import {Messages} from '../util/message';
 import {runStep, runSteps} from './stepRunner';
 
+/**
+ * The configuration pipeline split into two phases:
+ * - `preConfirm`: validation and project discovery steps that run before the
+ *   user is asked to confirm. Cheap and fast; aborts early if the workspace
+ *   is not a Java project or the environment is unsupported.
+ * - `postConfirm`: download, extraction, and settings-writing steps that run
+ *   after the user has confirmed (or when `skipConfirmation` is set). These
+ *   steps are wrapped in a VS Code progress notification.
+ */
 export interface StepGroups {
     preConfirm: ConfigurationStep[];
     postConfirm: ConfigurationStep[];
@@ -34,6 +43,11 @@ export interface ConfigureJavaOptions {
     skipConfirmation?: boolean;
 }
 
+/**
+ * Builds the default two-phase step list for the `jaenvtix.configureJava` command.
+ * The `preConfirm` list always includes validation and project resolution; the
+ * `ConfirmConfigurationStep` is added only when `options.skipConfirmation` is not set.
+ */
 export function getDefaultStepGroups(
     workspaceFolders: readonly {uri: {fsPath: string}}[] | undefined,
     options: ConfigureJavaOptions = {},
@@ -110,6 +124,18 @@ async function runStepsWithProgress(
     });
 }
 
+/**
+ * Entry point for the `jaenvtix.configureJava` command.
+ *
+ * Business rules:
+ * - Runs the `preConfirm` steps synchronously (no progress UI). If any step
+ *   returns a non-success result the pipeline is aborted immediately.
+ * - On success, runs the `postConfirm` steps wrapped in a VS Code progress
+ *   notification with per-step labels and a cancellation token.
+ * - A `warning` result shows a warning notification; an `error` result shows
+ *   an error notification. A result with no message is silently discarded
+ *   (e.g. the user dismissed the confirm prompt).
+ */
 export async function runConfigureJavaCommand(options?: ConfigureJavaOptions): Promise<void> {
     const { preConfirm, postConfirm } = getDefaultStepGroups(
         vscode.workspace.workspaceFolders,

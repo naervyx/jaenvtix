@@ -20,6 +20,18 @@ export interface ValidateEnvironmentDeps {
     getMavenDistribution?: (platform: PlatformType) => Promise<MavenDistribution | null>;
 }
 
+/**
+ * First step in the configuration pipeline. Validates that Jaenvtix can run in
+ * the current environment and resolves the Maven distribution to use.
+ *
+ * Business rules:
+ * - Returns a warning (not an error) for unsupported platform/architecture so
+ *   the message shown to the user is non-alarming.
+ * - Populates `state.platform`, `state.arch`, and `state.mavenDistribution` on
+ *   success so downstream steps do not need to probe the environment again.
+ * - Accepts `deps` for dependency injection so unit tests can exercise the step
+ *   without making network requests or reading `process.platform`.
+ */
 export class ValidateEnvironmentStep implements ConfigurationStep {
     readonly name = 'ValidateEnvironment';
 

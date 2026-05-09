@@ -44,6 +44,19 @@ function normalizeConfigurations(configurations: unknown): LaunchConfiguration[]
     return configurations.filter((entry) => isRecord(entry)) as LaunchConfiguration[];
 }
 
+/**
+ * Merges `desiredConfigs` into the VS Code `launch.json` at `launchPath`,
+ * writing the file only when a change is detected.
+ *
+ * Business rules:
+ * - Matches existing entries by `name`; updates in place when a field differs,
+ *   appends when no match is found.
+ * - Ensures `version: "0.2.0"` is present (the current VS Code launch schema version).
+ * - Creates the `.vscode/` directory if it does not exist.
+ * - When the existing file is malformed JSON, resets to an empty configuration
+ *   and calls `options.onMalformed` so the caller can surface a warning to the user.
+ * - Returns `updated: false` when nothing changed (idempotent re-runs).
+ */
 export function updateVsCodeLaunchConfig(
     launchPath: string,
     desiredConfigs: LaunchConfiguration[],

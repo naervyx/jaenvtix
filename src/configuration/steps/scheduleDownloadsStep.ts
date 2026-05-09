@@ -15,6 +15,22 @@ export interface ScheduleDownloadsDeps {
     downloadFile?: (options: DownloadOptions) => Promise<DownloadResult>;
 }
 
+/**
+ * Determines which JDK and Maven archives need to be downloaded, then fires
+ * the download promises without awaiting them (scheduling).
+ *
+ * Business rules:
+ * - A JDK download is scheduled for a version only when the Jaenvtix cache slot
+ *   does not already contain a valid JDK installation. Already-installed JDKs
+ *   detected in `DetectInstalledJdksStep` are skipped too (they live outside
+ *   the Jaenvtix cache but are checked via `hasJdkInstallation`).
+ * - Maven is NOT downloaded when every project in the workspace ships its own
+ *   `mvnw`. In that case `state.mavenDownload` remains undefined and subsequent
+ *   steps skip Maven-related work accordingly.
+ * - Returns a warning (not an error) when a JDK distribution cannot be resolved,
+ *   because the user may still be able to configure the project manually.
+ * - Accepts `deps` for dependency injection to allow unit testing without network access.
+ */
 export class ScheduleDownloadsStep implements ConfigurationStep {
     readonly name = 'ScheduleDownloads';
 

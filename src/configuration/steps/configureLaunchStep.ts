@@ -16,6 +16,19 @@ export interface ConfigureLaunchDeps {
     notifyMalformed?: (filePath: string) => void;
 }
 
+/**
+ * Generates a VS Code launch configuration for each Maven project that has a
+ * discoverable main class.
+ *
+ * Business rules:
+ * - Resolves the main class via `resolveJavaLaunchInfo`, which checks the
+ *   `pom.xml` first (Spring Boot `<start-class>` / `<mainClass>`) and falls
+ *   back to scanning `src/main/java` for a `main` method.
+ * - Projects without a discoverable main class are silently skipped (a log
+ *   message is written so the skip is auditable, but it is not an error).
+ * - Generated config names follow the pattern `Jaenvtix: <Java|Spring Boot> (<ProjectName>)`.
+ * - Delegates merge and persistence to `updateVsCodeLaunchConfig`.
+ */
 export class ConfigureLaunchStep implements ConfigurationStep {
     readonly name = 'ConfigureLaunch';
 

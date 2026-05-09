@@ -34,6 +34,21 @@ function findClosestAncestor(descendant: string, candidates: readonly string[]):
     return bestMatch;
 }
 
+/**
+ * Discovers all Maven projects in the workspace and resolves the Java version
+ * required by each, including multi-module inheritance.
+ *
+ * Business rules:
+ * - Scans one level deep in each workspace folder for `pom.xml` files.
+ * - Detects `mvnw`/`mvnw.cmd` for each project and stores the result in
+ *   `state.projectsHasMvnw` so downstream steps can reuse it without a second
+ *   filesystem hit.
+ * - A child pom that declares no Java version inherits from the closest ancestor
+ *   pom in the same workspace that does declare one. This mirrors how Spring Boot,
+ *   Quarkus, and other Maven monorepos structure their parent–child version ownership.
+ * - Returns a warning (no error) when no projects or no Java versions are found,
+ *   so the pipeline stops quietly rather than showing a red error message.
+ */
 export class ResolveProjectsStep implements ConfigurationStep {
     readonly name = 'ResolveProjects';
 

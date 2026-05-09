@@ -2,6 +2,7 @@ import {chmodSync, existsSync, readFileSync, writeFileSync} from 'node:fs';
 import {posix, win32} from 'node:path';
 import type {PlatformType} from '../core/system';
 
+/** All paths needed to generate the platform-specific Jaenvtix Maven wrapper script. */
 export interface MavenWrapperInput {
     jdkHome: string;
     toolHome: string;
@@ -9,10 +10,13 @@ export interface MavenWrapperInput {
     userSettingsPath: string;
     localRepoPath: string;
     platform: PlatformType;
+    /** Destination path where the script will be written (from `buildJaenvtixMavenScriptPath`). */
     scriptPath: string;
 }
 
+/** Outcome of `writeJaenvtixMavenWrapper`. */
 export interface MavenWrapperResult {
+    /** `true` when the file was created or its content changed; `false` on a no-op re-run. */
     updated: boolean;
     scriptPath: string;
 }
@@ -25,6 +29,7 @@ function escapeBashDouble(value: string): string {
     return value.replace(/(["`\\$])/g, '\\$1');
 }
 
+/** Generates a Windows `.cmd` batch script that sets env vars and delegates to `mvn.cmd`. */
 function buildWindowsScript(input: MavenWrapperInput): string {
     const mvnCmd = win32.join(input.toolBin, 'mvn.cmd');
     const javaHome = escapeBatch(input.jdkHome);
@@ -46,6 +51,7 @@ function buildWindowsScript(input: MavenWrapperInput): string {
     ].join('\r\n');
 }
 
+/** Generates a POSIX `sh` script that exports env vars and `exec`s `mvn`. */
 function buildUnixScript(input: MavenWrapperInput): string {
     const mvnBin = posix.join(input.toolBin, 'mvn');
     return [
@@ -60,6 +66,19 @@ function buildUnixScript(input: MavenWrapperInput): string {
     ].join('\n');
 }
 
+/**
+ * Writes the platform-specific Jaenvtix Maven wrapper script to `input.scriptPath`.
+ *
+ * Business rules:
+ * - Generates a Windows `.cmd` batch script or a POSIX `sh` script depending on
+ *   `input.platform`. Both scripts set `JAVA_HOME`, `MAVEN_HOME`, `M2_HOME`, and
+ *   `PATH`, then delegate to the Maven binary with the user settings and local repo.
+ * - Only writes the file when the content differs from what is already on disk
+ *   (change detection), so the file's mtime is not bumped on no-op re-runs.
+ * - Always applies `chmod 0755` on POSIX so the script is executable after the
+ *   first write and after any update.
+ * - Returns `updated: true` only when the file was created or changed.
+ */
 export function writeJaenvtixMavenWrapper(input: MavenWrapperInput): MavenWrapperResult {
     const content = input.platform === 'windows' ? buildWindowsScript(input) : buildUnixScript(input);
     const existing = existsSync(input.scriptPath) ? readFileSync(input.scriptPath, 'utf-8') : null;

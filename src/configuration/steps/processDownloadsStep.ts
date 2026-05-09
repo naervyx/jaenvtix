@@ -80,6 +80,22 @@ export async function ensureBinDirectoryExecutable(root: string, platform: Platf
     }));
 }
 
+/**
+ * Awaits all in-flight download promises, extracts the archives to their target
+ * paths, ensures executable permissions, and cleans up temp files.
+ *
+ * Business rules:
+ * - Awaits all JDK and Maven downloads in parallel (`Promise.all`) before starting
+ *   extraction, so a single failure short-circuits without partial extractions.
+ * - Each JDK version is extracted only once per `jdkHome` path, even when shared
+ *   across multiple projects.
+ * - Maven is extracted into each version's `toolHome` independently, because Maven
+ *   is co-located with the JDK cache slot.
+ * - Calls `ensureBinDirectoryExecutable` after each extraction on POSIX systems.
+ * - Temp archive files are deleted after all extractions complete.
+ * - When `state.mavenDownload` is undefined (no Maven was downloaded because all
+ *   projects ship `mvnw`), a missing Maven installation is not treated as an error.
+ */
 export class ProcessDownloadsStep implements ConfigurationStep {
     readonly name = 'ProcessDownloads';
 

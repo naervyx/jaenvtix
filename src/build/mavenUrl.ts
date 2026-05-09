@@ -3,6 +3,7 @@ import {determineArchiveType, PlatformType} from '../core/system';
 import {Messages} from '../util/message';
 import {isUrlAccessible} from '../util/urlValidator';
 
+/** A resolved Maven distribution: the download URL, archive format, and version string. */
 export interface MavenDistribution {
     name: string;
     url: string;
@@ -90,6 +91,21 @@ function parseDownloadLinks(html: string): MavenDownloadInfo | null {
     };
 }
 
+/**
+ * Fetches the Apache Maven download page and returns the latest available
+ * distribution for the given platform.
+ *
+ * Business rules:
+ * - Scrapes `maven.apache.org/download.cgi` for `.zip` and `.tar.gz` download
+ *   links, then selects the highest version using numeric segment comparison.
+ * - Windows receives a `.zip` archive; all other platforms receive `.tar.gz`.
+ * - Probes the resolved URL for accessibility before returning; returns `null`
+ *   if the URL is unreachable.
+ * - Returns `null` on any failure: fetch error, page with no recognizable links,
+ *   or inaccessible URL — the caller treats this as a terminal warning.
+ * - Accepts `deps` for dependency injection (custom fetch or probe function)
+ *   to keep the function unit-testable without network access.
+ */
 export async function getMavenDistribution(
     platform: PlatformType,
     deps: MavenDistributionDeps = {}

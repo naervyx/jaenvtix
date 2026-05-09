@@ -15,11 +15,14 @@ const TAR_TYPE_FILE = '0';
 const TAR_TYPE_DIR = '5';
 const IS_POSIX = process.platform !== 'win32';
 
-// Tar metadata records that do not represent extractable content. Several
-// Linux/macOS distributions (notably Amazon Corretto JDK 11/17) prepend a
-// PAX global header to the archive; including its name in root detection
-// makes findCommonRoot fall back to null and the JDK ends up nested under
-// `<jdkHome>/amazon-corretto-…/` instead of being flattened.
+/**
+ * TAR entry type flags that represent metadata rather than extractable content.
+ * Several Linux/macOS JDK distributions (notably Amazon Corretto 11/17) prepend
+ * a PAX global header (`g`) to the archive. Including its name in root detection
+ * causes `findCommonRoot` to return `null`, so the JDK ends up nested under
+ * `<jdkHome>/amazon-corretto-…/` instead of being flattened directly into `<jdkHome>/`.
+ * Filtering these out before calling `findCommonRoot` prevents that mis-nesting.
+ */
 const TAR_METADATA_TYPES = new Set(['g', 'x', 'L', 'K', 'V']);
 
 function isContentEntry(type: string): boolean {
@@ -124,6 +127,21 @@ async function extractEntries(buffer: Buffer, destPath: string, root: string | n
     }
 }
 
+/**
+ * Extracts a `.tar.gz` archive at `sourcePath` into `destPath`.
+ *
+ * Business rules:
+ * - Decompresses the gzip layer first, then parses the resulting TAR stream
+ *   entirely in memory.
+ * - Skips PAX metadata entries (`g`, `x`, `L`, `K`, `V` type flags) so that
+ *   PAX global headers prepended by Amazon Corretto archives do not interfere
+ *   with common-root detection.
+ * - Strips a single common root directory when all content entries share one.
+ * - Preserves Unix file permissions (`mode` field) via `chmod` on POSIX systems;
+ *   on Windows the chmod call is skipped because the field is not meaningful.
+ * - A failed `chmod` on a single file is silently ignored — it must not abort
+ *   the rest of the extraction.
+ */
 export async function extractTarGz(sourcePath: string, destPath: string): Promise<void> {
     const buffer = await decompressGzip(sourcePath);
     const entries = collectEntryNames(buffer);

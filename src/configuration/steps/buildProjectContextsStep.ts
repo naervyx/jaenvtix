@@ -4,6 +4,11 @@ import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, Step
 import {Messages} from '../../util/message';
 import {detectMavenWrapper} from '../../file/fileSearch';
 
+/**
+ * Returns the mvnw status for `project` from the cache populated by
+ * `ResolveProjectsStep`. Falls back to a live filesystem check when the
+ * cache entry is missing — defensive guard, should not occur in normal flow.
+ */
 function resolveHasMvnw(state: JavaConfigurationState, project: string): boolean {
     const cached = state.projectsHasMvnw.get(project);
     if (typeof cached === 'boolean') {
@@ -14,6 +19,11 @@ function resolveHasMvnw(state: JavaConfigurationState, project: string): boolean
     return detectMavenWrapper(project);
 }
 
+/**
+ * Returns the workspace folder that contains `projectPath`, preferring the
+ * deepest (longest-path) match when multiple workspace folders overlap.
+ * Returns `null` when no workspace folder is an ancestor of the project.
+ */
 function resolveWorkspaceRoot(projectPath: string, workspaceFolders: string[]): string | null {
     let bestMatch: string | null = null;
 
@@ -32,6 +42,19 @@ function resolveWorkspaceRoot(projectPath: string, workspaceFolders: string[]): 
     return bestMatch;
 }
 
+/**
+ * Constructs the final per-project `ProjectContext` objects consumed by the
+ * settings, toolchains, wrapper, and launch configuration steps.
+ *
+ * Business rules:
+ * - Produces one context per (Java version × project) pair, joining
+ *   `state.projectVersionMap` with `state.versionPaths`.
+ * - The `workspace` field is set to the deepest workspace folder that contains
+ *   the project; falls back to `projectPath` itself when no workspace folder
+ *   matches (e.g. a manually added folder outside the declared workspace).
+ * - `hasMvnw` is read from the `ResolveProjectsStep` cache; a live fallback
+ *   probe is used defensively if the cache entry is missing.
+ */
 export class BuildProjectContextsStep implements ConfigurationStep {
     readonly name = 'BuildProjectContexts';
 

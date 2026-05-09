@@ -5,19 +5,35 @@ import { dirname, join } from 'node:path';
 import { JAENVTIX_TEMP_PATH } from '../build/directory';
 import { Messages } from '../util/message';
 
+/**
+ * Parameters for a single file download. The resulting file is always written
+ * as `<targetDir>/<fileName>.<extension>`.
+ */
 export interface DownloadOptions {
+    /** Fully-qualified HTTP or HTTPS URL to download. */
     url: string;
+    /** Base name for the local file (without extension). */
     fileName: string;
+    /** File extension, e.g. `'zip'` or `'tar.gz'`. */
     extension: string;
+    /** Request timeout in milliseconds. Defaults to 30 000 ms. */
     timeout?: number;
+    /**
+     * How many redirects are still permitted before failing.
+     * Decremented on each recursive hop; defaults to 5.
+     */
     redirectsLeft?: number;
     /**
-     * Override the destination directory. Defaults to JAENVTIX_TEMP_PATH.
+     * Override the destination directory. Defaults to `JAENVTIX_TEMP_PATH`.
      * Primarily used by tests to avoid touching the real user temp tree.
      */
     targetDir?: string;
 }
 
+/**
+ * Result of a completed download attempt (success or failure).
+ * `filePath` is always populated so callers can clean up partial files if needed.
+ */
 export interface DownloadResult {
     success: boolean;
     filePath: string;
@@ -32,6 +48,17 @@ function isRedirect(statusCode: number): boolean {
     return [301, 302, 303, 307, 308].includes(statusCode);
 }
 
+/**
+ * Downloads a file from `options.url` and writes it to disk, returning a
+ * `DownloadResult` that is always resolved (never rejected).
+ *
+ * Business rules:
+ * - Follows HTTP redirects (301, 302, 303, 307, 308) up to `redirectsLeft` hops.
+ * - Automatically creates the destination directory if it does not exist.
+ * - Treats any 4xx or 5xx response as a failure; does not leave partial files.
+ * - Network errors and timeouts resolve to a failure result rather than rejecting
+ *   the promise, so callers do not need a try/catch.
+ */
 export function downloadFile(options: DownloadOptions): Promise<DownloadResult> {
     const { url, fileName, extension, timeout = 30000, redirectsLeft = 5, targetDir = JAENVTIX_TEMP_PATH } = options;
     const fullPath = join(targetDir, `${fileName}.${extension}`);

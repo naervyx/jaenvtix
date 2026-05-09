@@ -8,6 +8,19 @@ import {
 import {writeJaenvtixMavenWrapper} from '../../build/mavenWrapperScript';
 import {Messages} from '../../util/message';
 
+/**
+ * Writes the Jaenvtix Maven wrapper script (`jaenvtix-mvn` / `jaenvtix-mvn.cmd`)
+ * for each Java version into the version's Maven `bin/` directory.
+ *
+ * Business rules:
+ * - Skips wrapper generation for a version when no Maven binary is present in
+ *   `paths.toolBin` — this happens when every project for that version ships
+ *   its own `mvnw` and `ScheduleDownloadsStep` skipped the Maven download.
+ *   Writing a wrapper that delegates to a non-existent `mvn` would produce a
+ *   broken script.
+ * - Uses change detection (content diff) so the file's mtime is not bumped on
+ *   no-op re-runs.
+ */
 export class WriteMavenWrappersStep implements ConfigurationStep {
     readonly name = 'WriteMavenWrappers';
 

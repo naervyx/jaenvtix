@@ -22,6 +22,19 @@ const RESET_AUTO_CONFIG_PREFERENCE_COMMAND = 'jaenvtix.resetAutoConfigPreference
  */
 let autoConfigDelivered = false;
 
+/**
+ * VS Code extension activation entry point. Called once per extension host when
+ * a `pom.xml` is detected in the workspace (`workspaceContains` activation event).
+ *
+ * Business rules:
+ * - Registers two commands:
+ *   - `jaenvtix.configureJava`: runs the full configuration pipeline.
+ *   - `jaenvtix.resetAutoConfigPreference`: clears both the per-workspace and the
+ *     global "Always" preference so the user is prompted again.
+ * - Calls `offerAutoConfigIfNeeded` to handle the auto-config prompt or silent
+ *   run; errors are swallowed so the extension remains usable via the Command
+ *   Palette even if the activation-time prompt fails.
+ */
 export async function activate(context: vscode.ExtensionContext) {
     const configureJava = vscode.commands.registerCommand(
         CONFIGURE_JAVA_COMMAND,

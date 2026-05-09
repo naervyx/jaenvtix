@@ -18,6 +18,7 @@ const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
 const COMPRESSION_DEFLATE = 8;
 const COMPRESSION_STORE = 0;
 
+/** Reads sequential local file headers from a ZIP buffer until the signature no longer matches. */
 function parseZipEntries(buffer: Buffer): ZipEntry[] {
     const entries: ZipEntry[] = [];
     let offset = 0;
@@ -52,6 +53,7 @@ function parseZipEntries(buffer: Buffer): ZipEntry[] {
     return entries;
 }
 
+/** Decompresses a single ZIP entry using STORE (pass-through) or DEFLATE. */
 async function decompressEntry(buffer: Buffer, entry: ZipEntry): Promise<Buffer> {
     const compressedData = buffer.subarray(entry.dataOffset, entry.dataOffset + entry.compressedSize);
 
@@ -66,6 +68,7 @@ async function decompressEntry(buffer: Buffer, entry: ZipEntry): Promise<Buffer>
     throw new Error(Messages.Error.UNSUPPORTED_ZIP_COMPRESSION(entry.compressionMethod));
 }
 
+/** Writes each non-directory entry to `destPath`, skipping unsafe or empty paths. */
 async function extractEntries(buffer: Buffer, entries: ZipEntry[], destPath: string, root: string | null): Promise<void> {
     for (const entry of entries) {
         const fullPath = buildFullPath(destPath, entry.name, root);
@@ -83,6 +86,17 @@ async function extractEntries(buffer: Buffer, entries: ZipEntry[], destPath: str
     }
 }
 
+/**
+ * Extracts a ZIP archive at `sourcePath` into `destPath`.
+ *
+ * Business rules:
+ * - Supports STORE (method 0) and DEFLATE (method 8) compression; any other
+ *   method throws an error with the unsupported method code.
+ * - Strips a single common root directory when all entries share one, so JDK
+ *   contents land directly in `destPath` rather than a nested subdirectory.
+ * - Uses `buildFullPath` for every entry, which silently skips path-traversal
+ *   attempts (entries with `..` components).
+ */
 export async function extractZip(sourcePath: string, destPath: string): Promise<void> {
     const buffer = await fs.readFile(sourcePath);
     const entries = parseZipEntries(buffer);

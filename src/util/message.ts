@@ -1,5 +1,18 @@
 const UNKNOWN_ERROR_DETAIL = 'Unknown error';
 
+/**
+ * Centralized UI and log strings for Jaenvtix. Keeping all user-facing text
+ * here prevents duplicated literals and makes it easy to review wording.
+ *
+ * Structure:
+ * - `Info` — informational messages shown in VS Code notification toasts.
+ * - `Warning` — non-fatal issues surfaced as warning notifications.
+ * - `Error` — error messages for failed operations.
+ * - `Progress` — labels displayed in the progress notification during the
+ *   configuration pipeline (one label per step).
+ * - `Log` — structured messages written to the output channel.
+ * - `Choice` — button labels for Yes/Always/No prompts.
+ */
 export const Messages = {
   Info: {
     START_CONFIG: 'This project looks like a Java project. Do you want to start automatic configuration?',

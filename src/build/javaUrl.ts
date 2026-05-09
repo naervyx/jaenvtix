@@ -1,6 +1,7 @@
 import {ArchitectureType, DEFAULT_ARCH_NAMES, DEFAULT_OS_NAMES, determineArchiveType, PlatformType} from '../core/system';
 import {isUrlAccessible} from '../util/urlValidator';
 
+/** A resolved JDK download: the vendor-specific download URL, file name, and archive extension. */
 export interface JdkDistribution {
     name: string;
     url: string;
@@ -14,6 +15,14 @@ interface VendorConfig {
     archNames: Readonly<Record<ArchitectureType, string | undefined>>;
 }
 
+/**
+ * JDK vendors supported by Jaenvtix.
+ *
+ * - `'oracle'`: Oracle JDK — only for versions listed in `ORACLE_VERSIONS` (LTS releases
+ *   with a publicly available binary).
+ * - `'corretto'`: Amazon Corretto — tried first for non-Oracle versions.
+ * - `'temurin'`: Eclipse Temurin (Adoptium) — fallback when Corretto URL is not accessible.
+ */
 export type JdkVendor = 'oracle' | 'temurin' | 'corretto';
 
 const ORACLE_VERSIONS = new Set(['21', '25']);
@@ -43,6 +52,15 @@ function capitalize(str: string): string {
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+/**
+ * Constructs a `JdkDistribution` for the given vendor, Java version, platform and
+ * architecture by applying the vendor-specific URL template.
+ *
+ * Business rules:
+ * - Returns `null` when the vendor has no mapping for the requested platform or
+ *   architecture (e.g. Oracle does not publish ARM64 binaries for all versions).
+ * - Does NOT probe the URL for accessibility — the caller is responsible for that.
+ */
 export function buildDistribution(
     vendor: JdkVendor,
     javaVersion: string,
@@ -68,6 +86,17 @@ export function buildDistribution(
     };
 }
 
+/**
+ * Resolves the best available JDK distribution for the given version, platform,
+ * and architecture, probing URLs for accessibility before returning.
+ *
+ * Business rules:
+ * - For versions listed in `ORACLE_VERSIONS` (currently LTS releases with public
+ *   Oracle binaries), Oracle JDK is returned directly without an accessibility probe.
+ * - For all other versions, Amazon Corretto is tried first; if its URL is
+ *   inaccessible, Eclipse Temurin is the fallback.
+ * - Returns `null` when no accessible distribution can be found for the combination.
+ */
 export async function getJdkDistribution(
     javaVersion: string,
     platform: PlatformType,

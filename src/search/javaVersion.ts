@@ -93,6 +93,35 @@ function isSelfClosingTag(xml: string, gtIndex: number): boolean {
     return xml.charCodeAt(gtIndex - 1) === 47;
 }
 
+/**
+ * Extracts the Java version from a `pom.xml` XML string using a streaming
+ * character-level parser (no DOM or SAX dependency).
+ *
+ * Recognized configuration patterns (in priority order):
+ * - `<properties><java.version>` — Spring Boot convention.
+ * - `<properties><maven.compiler.release>` — preferred modern form.
+ * - `<properties><maven.compiler.source>` — older form, lower priority.
+ * - `<build><plugins><plugin>maven-compiler-plugin<configuration><release>` — plugin-level release.
+ * - `<build><plugins><plugin>maven-compiler-plugin<configuration><compilerVersion>` — legacy plugin config.
+ * - `<build><plugins><plugin>toolchains-maven-plugin|maven-toolchains-plugin<configuration><jdkToolchain><version>`.
+ *
+ * Business rules:
+ * - Returns the Java major version as a string (e.g. `'17'`, `'8'`).
+ * - Normalizes legacy `1.8` format to `'8'`; strips patch segments from modern versions.
+ * - Stops as soon as the first valid version is found (short-circuits).
+ * - Returns `null` when no recognized pattern is found or the version is unparseable.
+ *
+ * State machine variables:
+ * - `tagStack` tracks nesting depth so the parser knows whether a tag is
+ *   inside `<properties>`, a specific `<plugin>`, etc.
+ * - `capturedTagName/Depth/Text` implement a single-tag text capture: only
+ *   text between a start and end tag at a known depth is accumulated.
+ * - `pluginContainerDepth`, `currentPluginKind`, `configurationDepth`, and
+ *   `jdkToolchainDepth` track context within a `<plugin>` block.
+ * - Accumulator values (`compilerReleaseValue`, etc.) hold captured text
+ *   until the `<artifactId>` resolves which plugin is active and the correct
+ *   accumulator can be committed.
+ */
 function parseJavaVersionFromXml(xml: string): string | null {
     const tagStack: string[] = [];
 
@@ -355,6 +384,10 @@ function parseJavaVersionFromXml(xml: string): string | null {
     return detectedJavaVersion;
 }
 
+/**
+ * Reads `pom.xml` from `pomPath` and returns the Java version declared in it,
+ * or `null` when the file cannot be read or no version is found.
+ */
 export function parseJavaVersionFromPom(pomPath: string): string | null {
     try {
         const pomXml = readFileSync(join(pomPath, 'pom.xml'), 'utf-8');

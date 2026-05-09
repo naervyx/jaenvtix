@@ -26,9 +26,23 @@ interface VsCodeSettings {
     [key: string]: unknown;
 }
 
+/**
+ * All path and platform inputs required to generate the VS Code per-folder
+ * `settings.json` entries for a single project at a specific Java version.
+ */
 interface JavaMavenPaths {
+    /**
+     * Absolute path to the JDK used by jdt.ls (`java.jdt.ls.java.home`).
+     * Omitted for Java 21+ projects because jdt.ls ships its own JDK and
+     * the key should not be written (avoids overriding the bundled tooling JDK).
+     */
     javaHomePath?: string;
+    /**
+     * Entries for `java.configuration.runtimes`. Written only for Java < 21
+     * projects; omitted (and the key removed) when empty.
+     */
     runtimes?: JavaRuntime[];
+    /** Absolute path to the JDK used in terminal environments and Maven invocations. */
     terminalJavaHome: string;
     mavenHomePath: string;
     mavenBinPath: string;
@@ -198,6 +212,28 @@ function mergeMavenCustomEnv(
     return {merged, updated};
 }
 
+/**
+ * Writes or updates the VS Code per-folder `settings.json` at `settingsPath`
+ * with Java and Maven configuration derived from `paths`.
+ *
+ * Business rules:
+ * - Always writes: `java.jdt.ls.lombokSupport.enabled`, `java.compile.nullAnalysis.mode`,
+ *   `java.configuration.updateBuildConfiguration`, `java.configuration.maven.userSettings`.
+ * - Writes `java.jdt.ls.java.home` only for Java < 21; omits (and removes) it for
+ *   Java 21+ where jdt.ls manages its own tooling JDK.
+ * - When the project does NOT ship `mvnw`: writes `maven.executable.path` and sets
+ *   `maven.executable.preferMavenWrapper: false` to prevent vscode-maven from
+ *   searching for a non-existent wrapper. Also writes `maven.terminal.customEnv`.
+ * - When the project DOES ship `mvnw`: removes both `maven.executable.*` keys and
+ *   `maven.terminal.customEnv` — vscode-maven's defaults handle the wrapper.
+ *   JAVA_HOME is still injected via `terminal.integrated.env.*`.
+ * - Terminal env (`terminal.integrated.env.linux/windows/osx`) is merged
+ *   non-destructively: existing user-defined keys are preserved; managed keys
+ *   (`JAVA_HOME`, `MAVEN_HOME`, `M2_HOME`, `PATH`/`Path`) are updated.
+ * - Recovers from malformed JSON by resetting to an empty settings object.
+ * - Creates `.vscode/` if it does not exist.
+ * - Returns `updated: false` when nothing changed (safe to re-run).
+ */
 export function updateVsCodeSettings(
     settingsPath: string,
     paths: JavaMavenPaths

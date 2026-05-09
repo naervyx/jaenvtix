@@ -14,6 +14,21 @@ interface JavaRuntime {
     default?: boolean;
 }
 
+/**
+ * Writes or updates the per-project `.vscode/settings.json` for each `ProjectContext`.
+ *
+ * Business rules:
+ * - For Java 21+ projects: writes `java.jdt.ls.java.home` (jdt.ls uses the
+ *   project JDK directly); the `runtimes` array is omitted.
+ * - For Java < 21 projects: omits `java.jdt.ls.java.home`; writes a
+ *   `java.configuration.runtimes` entry so jdt.ls can compile the project
+ *   using the correct source level while running on its own bundled JDK.
+ * - When the project ships `mvnw`: leaves `maven.executable.path` undefined so
+ *   vscode-maven defers to the project wrapper.
+ * - When the project does NOT ship `mvnw`: points `maven.executable.path` at
+ *   the Jaenvtix wrapper script which enforces `JAVA_HOME` before invoking Maven.
+ * - Delegates all merge and persistence logic to `updateVsCodeSettings`.
+ */
 export class ConfigureSettingsStep implements ConfigurationStep {
     readonly name = 'ConfigureSettings';
 

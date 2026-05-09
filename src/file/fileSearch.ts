@@ -1,6 +1,14 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+/**
+ * Returns all directories under `root` that contain a file named `fileName`.
+ *
+ * Business rules:
+ * - Checks `root` itself first, then scans one level of immediate child directories.
+ * - Intentionally non-recursive: scanning deeply nested trees would be slow and
+ *   would return submodules or vendored dependencies that are not top-level projects.
+ */
 export function findProjectsWithFile(root: string, fileName: string): string[] {
     const projects: string[] = [];
 

@@ -1,6 +1,11 @@
 import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {join} from 'node:path';
 
+/**
+ * Launch metadata resolved for a Maven project:
+ * the fully-qualified main class, the Maven artifact ID (used as the VS Code
+ * project name in the launch config), and whether the project is a Spring Boot app.
+ */
 export interface JavaLaunchInfo {
     mainClass: string | null;
     projectName?: string;
@@ -215,6 +220,11 @@ function resolvePropertyReferences(value: string, properties: Map<string, string
     return replaced;
 }
 
+/**
+ * Extracts the main class and Spring Boot flag from a `pom.xml` XML string.
+ * Checks `<start-class>` (Spring Boot) and `<mainClass>` properties, resolving
+ * any `${property}` references against the `<properties>` block.
+ */
 function parsePomLaunchInfo(xml: string): JavaLaunchInfo {
     const properties = parsePomProperties(xml);
     const artifactId = parseArtifactIdFromXml(xml) ?? undefined;
@@ -231,20 +241,28 @@ function parsePomLaunchInfo(xml: string): JavaLaunchInfo {
     };
 }
 
+/** Extracts the `package` declaration from Java source content, or `null` if absent. */
 function readPackageName(content: string): string | null {
     return PACKAGE_PATTERN.exec(content)?.[1] ?? null;
 }
 
+/** Returns the name of the first `class` declared at or after `index` in the source. */
 function findClassNameAfter(content: string, index: number): string | null {
     const match = /\bclass\s+([A-Za-z0-9_]+)\b/.exec(content.slice(index));
     return match?.[1] ?? null;
 }
 
+/** Returns the name of the first `class` declared anywhere in the source. */
 function findFirstClassName(content: string): string | null {
     const match = /\bclass\s+([A-Za-z0-9_]+)\b/.exec(content);
     return match?.[1] ?? null;
 }
 
+/**
+ * Returns the name of the class that contains `public static void main`.
+ * Finds the last `class` declaration before the `main` method signature,
+ * which handles inner classes by attributing the method to the enclosing class.
+ */
 function findMainMethodClassName(content: string): string | null {
     const mainIndex = content.search(MAIN_METHOD_PATTERN);
     if (mainIndex < 0) {return null;}
@@ -261,6 +279,7 @@ function toQualifiedClassName(packageName: string | null, className: string | nu
     return `${packageName}.${className}`;
 }
 
+/** Recursively collects all `.java` file paths under `root` into `files`. */
 function collectJavaFiles(root: string, files: string[]): void {
     if (!existsSync(root)) {return;}
 
@@ -278,6 +297,11 @@ function collectJavaFiles(root: string, files: string[]): void {
     }
 }
 
+/**
+ * Scans `src/main/java` for the main class. Spring Boot classes annotated with
+ * `@SpringBootApplication` take priority; otherwise the first class with a
+ * `public static void main` method is returned.
+ */
 function findMainClassInSources(projectPath: string): { mainClass: string | null; isSpringBoot: boolean } {
     const sourceRoot = join(projectPath, 'src', 'main', 'java');
     const javaFiles: string[] = [];
@@ -316,6 +340,19 @@ function findMainClassInSources(projectPath: string): { mainClass: string | null
     return { mainClass: mainCandidate, isSpringBoot: false };
 }
 
+/**
+ * Resolves the launch info for a Maven project at `projectPath`.
+ *
+ * Business rules:
+ * - Tries `pom.xml` first: checks `<start-class>` (Spring Boot) and
+ *   `<mainClass>` properties (with `${ref}` resolution). When found, uses
+ *   the `<artifactId>` as the project name in the launch config.
+ * - If `pom.xml` yields no main class, falls back to scanning `.java` files
+ *   under `src/main/java`. A `@SpringBootApplication` class takes priority
+ *   over a class with a bare `main` method.
+ * - Always returns a `JavaLaunchInfo`; `mainClass` is `null` when no main
+ *   entry point can be found — the caller decides whether to skip or warn.
+ */
 export function resolveJavaLaunchInfo(projectPath: string): JavaLaunchInfo {
     const pomPath = join(projectPath, 'pom.xml');
 
