@@ -1,3 +1,8 @@
+import {existsSync} from 'node:fs';
+import {join} from 'node:path';
+
+import {fixPath} from './runtimePathFix';
+
 export interface JavaRuntime {
     name: string;
     path: string;
@@ -9,6 +14,62 @@ export interface JavaRuntime {
 export interface MergeResult {
     merged: JavaRuntime[];
     updated: boolean;
+}
+
+export interface FixedRuntime {
+    entry: JavaRuntime;
+    oldPath: string;
+}
+
+export interface CleanResult {
+    kept: JavaRuntime[];
+    fixed: FixedRuntime[];
+    removed: JavaRuntime[];
+}
+
+export function validateRuntime(entry: JavaRuntime, os: NodeJS.Platform): boolean {
+    const binary = os === 'win32' ? 'javac.exe' : 'javac';
+    return existsSync(join(entry.path, 'bin', binary));
+}
+
+/**
+ * Validate existing `java.configuration.runtimes` entries and attempt to
+ * recover those with broken paths before falling back to removal.
+ *
+ * - Valid entries are kept as-is (name, default, sources, javadoc preserved).
+ * - Invalid entries are fixed via fixPath() when enableFix is true, rewriting
+ *   only the path while preserving all other fields.
+ * - Entries that cannot be fixed (or when enableFix is false) are removed.
+ */
+export function validateAndCleanRuntimes(
+    existing: readonly JavaRuntime[],
+    enableFix: boolean,
+    os: NodeJS.Platform,
+): CleanResult {
+    const kept: JavaRuntime[] = [];
+    const fixed: FixedRuntime[] = [];
+    const removed: JavaRuntime[] = [];
+
+    for (const entry of existing) {
+        if (validateRuntime(entry, os)) {
+            kept.push({...entry});
+            continue;
+        }
+
+        if (enableFix) {
+            const newPath = fixPath(entry.path, os);
+            if (newPath !== undefined) {
+                const fixedEntry = {...entry, path: newPath};
+                kept.push(fixedEntry);
+                fixed.push({entry: fixedEntry, oldPath: entry.path});
+                continue;
+            }
+        }
+
+        removed.push({...entry});
+    }
+
+    return {kept, fixed, removed};
 }
 
 /**

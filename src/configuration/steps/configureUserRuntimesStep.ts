@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {Messages} from '../../util/message';
 import {toJavaRuntimeName} from '../../util/javaVersion';
-import {JavaRuntime, mergeUserRuntimes} from '../../build/userRuntimesMerge';
+import {JavaRuntime, mergeUserRuntimes, validateAndCleanRuntimes} from '../../build/userRuntimesMerge';
 
 /**
  * Populates the user-level `java.configuration.runtimes` with every JDK
@@ -40,9 +40,21 @@ export class ConfigureUserRuntimesStep implements ConfigurationStep {
         // never be written. Inspect lets us look only at the Global layer.
         const inspected = config.inspect<JavaRuntime[]>('runtimes');
         const existing = inspected?.globalValue ?? [];
-        const {merged, updated} = mergeUserRuntimes(existing, candidates);
 
-        if (!updated) {
+        const enableFix = vscode.workspace.getConfiguration('jaenvtix').get<boolean>('enableRuntimePathFix', true);
+        const {kept, fixed, removed} = validateAndCleanRuntimes(existing, enableFix, process.platform);
+
+        for (const {oldPath, entry} of fixed) {
+            console.log(Messages.Log.RUNTIME_PATH_FIXED(oldPath, entry.path));
+        }
+        for (const entry of removed) {
+            console.log(Messages.Log.RUNTIME_REMOVED(entry.name, entry.path));
+        }
+
+        const {merged, updated} = mergeUserRuntimes(kept, candidates);
+        const changed = fixed.length > 0 || removed.length > 0 || updated;
+
+        if (!changed) {
             return StepResult.success();
         }
 
