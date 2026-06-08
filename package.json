@@ -46,7 +46,17 @@
 				"title": "Reset Auto-Configuration Preference",
 				"category": "Jaenvtix"
 			}
-		]
+		],
+		"configuration": {
+			"title": "Jaenvtix",
+			"properties": {
+				"jaenvtix.enableRuntimePathFix": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "When enabled, Jaenvtix attempts to recover invalid `java.configuration.runtimes` paths (e.g. a user who pointed to `bin/` instead of the JDK root) before removing the entry. Disable to always remove broken entries without trying to fix the path."
+				}
+			}
+		}
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.13.0",

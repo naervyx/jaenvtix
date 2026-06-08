@@ -89,6 +89,10 @@ export const Messages = {
       `User-level java.configuration.runtimes updated (${count} entr${count === 1 ? 'y' : 'ies'}).`,
     TOOLCHAINS_XML_WRITTEN: (path: string) =>
       `~/.m2/toolchains.xml updated at ${path}`,
+    RUNTIME_PATH_FIXED: (oldPath: string, newPath: string) =>
+      `Fixed runtime path: ${oldPath} → ${newPath}`,
+    RUNTIME_REMOVED: (name: string, path: string) =>
+      `Removed invalid runtime: ${name} (${path})`,
   },
   Choice: {
     YES: 'Yes',
