@@ -1,5 +1,6 @@
 import {dirname, posix, win32} from 'node:path';
 import {existsSync, readFileSync, writeFileSync, mkdirSync} from 'node:fs';
+import {cpus} from 'node:os';
 import {Messages} from '../util/message';
 import type {PlatformType} from '../core/system';
 
@@ -234,6 +235,30 @@ function mergeMavenCustomEnv(
  * - Creates `.vscode/` if it does not exist.
  * - Returns `updated: false` when nothing changed (safe to re-run).
  */
+/**
+ * Writes sensible Java defaults into a plain settings object without overwriting
+ * keys that are already present (`setIfUndefined` semantics). Pass `osPlatform`
+ * explicitly in tests to control which platform-specific tunings are applied.
+ */
+export function applyUserJavaTunings(
+    data: VsCodeSettings,
+    osPlatform: string = process.platform,
+): VsCodeSettings {
+    const result = {...data};
+    setIfUndefined(result, 'java.debug.settings.hotCodeReplace', 'auto');
+    setIfUndefined(result, 'java.maxConcurrentBuilds', Math.max(1, cpus().length - 1));
+    setIfUndefined(result, 'java.dependency.packagePresentation', 'hierarchical');
+    setIfUndefined(result, 'java.sources.organizeImports.staticStarThreshold', 1);
+    if (osPlatform === 'win32') {
+        setIfUndefined(result, 'java.test.config', [{vmArgs: ['-Dfile.encoding=UTF-8']}]);
+    }
+    return result;
+}
+
+function setIfUndefined<T>(obj: Record<string, unknown>, key: string, value: T): void {
+    if (obj[key] === undefined) {obj[key] = value;}
+}
+
 export function updateVsCodeSettings(
     settingsPath: string,
     paths: JavaMavenPaths

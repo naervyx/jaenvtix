@@ -72,6 +72,7 @@ export const Messages = {
       WriteToolchains: 'Write ~/.m2/toolchains.xml',
       ConfigureSettings: 'Configure Visual Studio Code settings',
       ConfigureUserRuntimes: 'Register JDKs in Visual Studio Code user settings',
+      ApplyUserTunings: 'Apply sensible Java defaults to user settings',
       ConfigureLaunch: 'Configure Visual Studio Code launch configuration',
       RefreshProjectConfiguration: 'Refresh Java Language Server project configuration',
     } as Record<string, string>,
