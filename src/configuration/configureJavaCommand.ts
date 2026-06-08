@@ -13,6 +13,7 @@ import {WriteMavenWrappersStep} from './steps/writeMavenWrappersStep';
 import {WriteToolchainsStep} from './steps/writeToolchainsStep';
 import {ConfigureSettingsStep} from './steps/configureSettingsStep';
 import {ConfigureUserRuntimesStep} from './steps/configureUserRuntimesStep';
+import {ApplyUserTuningsStep} from './steps/applyUserTuningsStep';
 import {ConfigureLaunchStep} from './steps/configureLaunchStep';
 import {RefreshProjectConfigurationStep} from './steps/refreshProjectConfigurationStep';
 import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
@@ -73,6 +74,7 @@ export function getDefaultStepGroups(
             new WriteToolchainsStep(),
             new ConfigureSettingsStep(),
             new ConfigureUserRuntimesStep(),
+            new ApplyUserTuningsStep(),
             new ConfigureLaunchStep({
                 notifyMalformed: (filePath) => {
                     void vscode.window.showWarningMessage(

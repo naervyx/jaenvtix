@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {promises as fs, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 
-import {updateVsCodeSettings} from '../../src/build/settingTag';
+import {updateVsCodeSettings, applyUserJavaTunings} from '../../src/build/settingTag';
 import type {PlatformType} from '../../src/core/system';
 import {createTempDir, removeTempDir} from '../fixtures/tempDir';
 
@@ -392,5 +392,48 @@ describe('updateVsCodeSettings — mvnw vs Jaenvtix wrapper', () => {
 
         assert.equal(result.updated, true);
         assert.equal('maven.terminal.customEnv' in settings, false);
+    });
+});
+
+describe('applyUserJavaTunings', () => {
+    it('writes 4 settings on Linux (no java.test.config)', () => {
+        const result = applyUserJavaTunings({}, 'linux');
+        assert.equal(result['java.debug.settings.hotCodeReplace'], 'auto');
+        assert.notEqual(result['java.maxConcurrentBuilds'], undefined);
+        assert.equal(result['java.dependency.packagePresentation'], 'hierarchical');
+        assert.equal(result['java.sources.organizeImports.staticStarThreshold'], 1);
+        assert.equal('java.test.config' in result, false);
+    });
+
+    it('writes 5 settings on Windows (includes java.test.config with UTF-8 vmArg)', () => {
+        const result = applyUserJavaTunings({}, 'win32');
+        assert.equal(result['java.debug.settings.hotCodeReplace'], 'auto');
+        assert.deepEqual(result['java.test.config'], [{vmArgs: ['-Dfile.encoding=UTF-8']}]);
+    });
+
+    it('preserves an existing hotCodeReplace value and writes the remaining 3', () => {
+        const result = applyUserJavaTunings({'java.debug.settings.hotCodeReplace': 'manual'}, 'linux');
+        assert.equal(result['java.debug.settings.hotCodeReplace'], 'manual');
+        assert.equal(result['java.dependency.packagePresentation'], 'hierarchical');
+        assert.equal(result['java.sources.organizeImports.staticStarThreshold'], 1);
+        assert.notEqual(result['java.maxConcurrentBuilds'], undefined);
+    });
+
+    it('is a no-op when all 5 keys are already set (Windows)', () => {
+        const input: Record<string, unknown> = {
+            'java.debug.settings.hotCodeReplace': 'manual',
+            'java.maxConcurrentBuilds': 2,
+            'java.dependency.packagePresentation': 'flat',
+            'java.sources.organizeImports.staticStarThreshold': 99,
+            'java.test.config': [],
+        };
+        const result = applyUserJavaTunings(input, 'win32');
+        assert.deepEqual(result, input);
+    });
+
+    it('computes maxConcurrentBuilds as CPU-count minus 1, minimum 1', () => {
+        const result = applyUserJavaTunings({}, 'linux');
+        const computed = result['java.maxConcurrentBuilds'] as number;
+        assert.ok(computed >= 1, 'must be at least 1');
     });
 });
