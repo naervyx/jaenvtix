@@ -3,7 +3,7 @@
 	"displayName": "Jaenvtix",
 	"description": "Automatic Java and Maven configuration for VS Code and Cursor. Detects pom.xml, downloads the matching JDK and Maven, and wires per-project workspace settings.",
 	"publisher": "naervyx",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"license": "EPL-2.0",
 	"author": {
 		"name": "Alysson Maia"
