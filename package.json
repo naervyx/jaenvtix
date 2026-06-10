@@ -68,7 +68,7 @@
 		"@stylistic/eslint-plugin": "^2.9.0",
 		"@types/node": "^25.0.2",
 		"@types/vscode": "^1.100.0",
-		"@vscode/vsce": "^3.9.1",
+		"@vscode/vsce": "^3.9.2",
 		"eslint": "^9.13.0",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.2",
@@ -84,9 +84,9 @@
 	"homepage": "https://github.com/naervyx/jaenvtix#readme",
 	"scripts": {
 		"compile": "tsc -p ./",
-		"vscode:prepublish": "npm run compile",
+		"vscode:prepublish": "bun run compile",
 		"watch": "tsc -watch -p ./",
-		"pretest": "npm run compile && npm run lint",
+		"pretest": "bun run compile && bun run lint",
 		"test": "node --import tsx --test \"test/**/*.test.ts\"",
 		"lint": "eslint",
 		"package": "vsce package --allow-missing-repository",
@@ -94,5 +94,8 @@
 	},
 	"dependencies": {
 		"jdk-utils": "^0.6.0"
-	}
+	},
+	"trustedDependencies": [
+		"@vscode/vsce-sign"
+	]
 }

@@ -18,14 +18,18 @@ env:
   # Node 22 is the current LTS and is the first line that natively
   # globs `node --test "test/**/*.test.ts"` (Node 20 leaves the literal
   # quoted string and fails with "Could not find ...").
+  # Node stays on the runner even though Bun manages packages: the test
+  # suite (and the extension itself) runs on the Node runtime.
   NODE_VERSION: '22'
+  BUN_VERSION: '1.3.14'
 
 jobs:
   test:
-    # `npm test` triggers the `pretest` script in package.json, which runs
-    # `npm run compile && npm run lint`, then runs the unit tests. So a
-    # single `npm test` already covers lint + tsc + tests — no need to
-    # invoke them as separate steps.
+    # `bun run test` triggers the `pretest` script in package.json, which
+    # runs `bun run compile && bun run lint`, then runs the unit tests. So
+    # a single `bun run test` already covers lint + tsc + tests — no need
+    # to invoke them as separate steps. (Note: `bun run test`, never
+    # `bun test` — the latter is Bun's own test runner, not our script.)
     name: Lint + compile + test (ubuntu)
     runs-on: ubuntu-latest
     steps:
@@ -34,27 +38,29 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Cache node_modules
         id: nm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
-          # Cache the resolved node_modules tree (not just the npm
-          # download cache that setup-node already handles). On a cache
-          # hit we skip `npm ci` entirely — the install step becomes a
-          # ~2s cache restore instead of a 60s+ install.
+          # Cache the resolved node_modules tree. On a cache hit we skip
+          # `bun install` entirely — the install step becomes a ~2s cache
+          # restore instead of a full install.
           path: node_modules
-          key: nm-${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-bun${{ env.BUN_VERSION }}-${{ hashFiles('bun.lock') }}
 
       - name: Install dependencies
         if: steps.nm-cache.outputs.cache-hit != 'true'
-        # --prefer-offline uses the npm cache restored by setup-node,
-        # --no-audit and --no-fund cut roughly 5-10s of post-install noise.
-        run: npm ci --prefer-offline --no-audit --no-fund
+        # --frozen-lockfile is the CI-safe equivalent of `npm ci`: it
+        # fails instead of silently rewriting bun.lock on drift.
+        run: bun install --frozen-lockfile
 
-      - name: npm test (pretest=compile+lint, then unit tests)
-        run: npm test
+      - name: bun run test (pretest=compile+lint, then unit tests)
+        run: bun run test
 
   permissions-matrix:
     # Only the tests that exercise OS-level filesystem behavior (POSIX chmod
@@ -74,20 +80,23 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Cache node_modules
         id: nm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           # Per-OS cache key — node_modules can carry native binaries that
           # differ between linux / macos / windows.
           path: node_modules
-          key: nm-${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-bun${{ env.BUN_VERSION }}-${{ hashFiles('bun.lock') }}
 
       - name: Install dependencies
         if: steps.nm-cache.outputs.cache-hit != 'true'
-        run: npm ci --prefer-offline --no-audit --no-fund
+        run: bun install --frozen-lockfile
 
       - name: Run permission-sensitive tests
         shell: bash

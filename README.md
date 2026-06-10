@@ -188,11 +188,11 @@ Recommended at install time (the user's responsibility, not bundled):
 ## Contributing
 
 ```bash
-npm install
-npm run compile    # or: npm run watch
-npm test           # 250+ unit tests
-npm run lint
-npm run package    # produces a .vsix for local install
+bun install
+bun run compile    # or: bun run watch
+bun run test       # 250+ unit tests
+bun run lint
+bun run package    # produces a .vsix for local install
 ```
 
 Press `F5` in VS Code to launch an Extension Development Host.
