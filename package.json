@@ -84,9 +84,9 @@
 	"homepage": "https://github.com/naervyx/jaenvtix#readme",
 	"scripts": {
 		"compile": "tsc -p ./",
-		"vscode:prepublish": "npm run compile",
+		"vscode:prepublish": "bun run compile",
 		"watch": "tsc -watch -p ./",
-		"pretest": "npm run compile && npm run lint",
+		"pretest": "bun run compile && bun run lint",
 		"test": "node --import tsx --test \"test/**/*.test.ts\"",
 		"lint": "eslint",
 		"package": "vsce package --allow-missing-repository",
@@ -94,5 +94,8 @@
 	},
 	"dependencies": {
 		"jdk-utils": "^0.6.0"
-	}
+	},
+	"trustedDependencies": [
+		"@vscode/vsce-sign"
+	]
 }

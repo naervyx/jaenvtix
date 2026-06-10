@@ -20,6 +20,8 @@ node_modules/jdk-utils/bin/**
 .gitignore
 .gitattributes
 .yarnrc
+bun.lock
+bunfig.toml
 .eslintcache
 vsc-extension-quickstart.md
 eslint.config.mjs

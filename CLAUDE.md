@@ -25,11 +25,11 @@ Red Hat / Microsoft Java extensions — it feeds them settings, it never replace
 ## Commands
 
 ```bash
-npm test                                          # compile + lint + full suite (pretest hook)
+bun run test                                      # compile + lint + full suite (pretest hook)
 node --import tsx --test test/build/vsCodeSettingsWriter.test.ts   # single test file
-npm run lint                                      # eslint (flat config)
-npm run compile                                   # tsc only
-npm run package                                   # build the .vsix
+bun run lint                                      # eslint (flat config)
+bun run compile                                   # tsc only
+bun run package                                   # build the .vsix
 ```
 
 ## Architecture
