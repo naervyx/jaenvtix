@@ -85,6 +85,8 @@ export function getDefaultStepGroups(
                         vscode.workspace.getConfiguration().get('jaenvtix.preferredJdkVendor'),
                     ),
                 }),
+                isAutoUpdateEnabled: () =>
+                    vscode.workspace.getConfiguration().get('jaenvtix.autoUpdatePatches') !== false,
             }),
             // ProcessDownloads normalizes each version's `jdkHome` to the real
             // Java home (macOS bundles extract as Contents/Home), so project

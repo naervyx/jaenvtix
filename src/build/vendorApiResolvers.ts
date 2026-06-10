@@ -1,6 +1,6 @@
 import {ArchitectureType, determineArchiveType, PlatformType} from '../core/system';
 import {fetchTextContent} from '../util/fetchText';
-import type {JdkDistribution} from './javaUrl';
+import type {JdkDistribution, JdkVendor} from './javaUrl';
 
 /** Vendors whose latest download URL must be resolved through a metadata API. */
 export type ApiJdkVendor = 'liberica' | 'zulu' | 'semeru';
@@ -174,6 +174,79 @@ export async function resolveApiDistribution(
             return await resolveZulu(javaVersion, platform, arch, fetchJson);
         }
         return await resolveSemeru(javaVersion, platform, arch, fetchJson);
+    } catch {
+        return null;
+    }
+}
+
+async function fetchTemurinLatest(major: string, fetchJson: FetchJsonFn): Promise<string | null> {
+    const next = Number.parseInt(major, 10) + 1;
+    const range = encodeURIComponent(`[${major},${next})`);
+    const info = await fetchJson(
+        `https://api.adoptium.net/v3/info/release_versions?release_type=ga&version=${range}&page_size=1&sort_order=DESC`,
+    );
+    const versions = isRecord(info) ? info['versions'] : undefined;
+    const first = Array.isArray(versions) ? versions[0] as unknown : undefined;
+    const openjdkVersion = isRecord(first) ? first['openjdk_version'] : undefined;
+    return typeof openjdkVersion === 'string' && openjdkVersion ? openjdkVersion : null;
+}
+
+async function fetchGithubLatestTag(repo: string, fetchJson: FetchJsonFn): Promise<string | null> {
+    const release = await fetchJson(`https://api.github.com/repos/${repo}/releases/latest`);
+    const tag = isRecord(release) ? release['tag_name'] : undefined;
+    return typeof tag === 'string' && tag ? tag : null;
+}
+
+async function fetchLibericaLatest(major: string, fetchJson: FetchJsonFn): Promise<string | null> {
+    const releases = await fetchJson(
+        `https://api.bell-sw.com/v1/liberica/releases?version-feature=${major}&version-modifier=latest&bundle-type=jdk`,
+    );
+    const first = Array.isArray(releases) ? releases[0] as unknown : undefined;
+    const version = isRecord(first) ? first['version'] : undefined;
+    return typeof version === 'string' && version ? version : null;
+}
+
+async function fetchZuluLatest(major: string, fetchJson: FetchJsonFn): Promise<string | null> {
+    const bundle = await fetchJson(
+        'https://api.azul.com/zulu/download/community/v1.0/bundles/latest/'
+        + `?jdk_version=${major}&bundle_type=jdk&release_status=ga`,
+    );
+    const jdkVersion = isRecord(bundle) ? bundle['jdk_version'] : undefined;
+    if (!Array.isArray(jdkVersion) || jdkVersion.length === 0) {
+        return null;
+    }
+    return jdkVersion.filter((part): part is number => typeof part === 'number').join('.') || null;
+}
+
+/**
+ * Queries the vendor's metadata API for the newest available version of the
+ * given Java major release (e.g. `'21.0.8+9'`).
+ *
+ * Business rules:
+ * - Oracle and Microsoft expose no public "latest version" endpoint → `null`,
+ *   which callers treat exactly like an API failure (skip the update, retry
+ *   after the rate-limit window).
+ * - Any network/schema failure also yields `null` — an update check must
+ *   never block or fail the pipeline.
+ */
+export async function fetchLatestJdkVersion(
+    vendor: JdkVendor,
+    javaVersion: string,
+    deps: ApiResolverDeps = {},
+): Promise<string | null> {
+    const fetchJson = deps.fetchJson ?? defaultFetchJson;
+
+    try {
+        switch (vendor) {
+            case 'temurin': return await fetchTemurinLatest(javaVersion, fetchJson);
+            case 'corretto': return await fetchGithubLatestTag(`corretto/corretto-${javaVersion}`, fetchJson);
+            case 'liberica': return await fetchLibericaLatest(javaVersion, fetchJson);
+            case 'zulu': return await fetchZuluLatest(javaVersion, fetchJson);
+            case 'semeru': return await fetchGithubLatestTag(`ibmruntimes/semeru${javaVersion}-binaries`, fetchJson);
+            case 'oracle':
+            case 'microsoft':
+                return null;
+        }
     } catch {
         return null;
     }

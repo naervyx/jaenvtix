@@ -4,6 +4,7 @@ import {join} from 'node:path';
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {DownloadResult} from '../../file/fileDownload';
 import {hasJdkInstallation, hasMavenInstallation, resolveJdkInstallationHome} from '../../build/directory';
+import {buildVersionInfoFromDisk, writeVersionInfo} from '../../build/versionTracking';
 import {extractTarGz} from '../../file/unpacker/tarGz';
 import {extractZip} from '../../file/unpacker/zip';
 import type {PlatformType} from '../../core/system';
@@ -153,10 +154,21 @@ export class ProcessDownloadsStep implements ConfigurationStep {
             // Point downstream consumers (settings, toolchains, wrappers) at
             // the directory that actually contains bin/java — on macOS that is
             // <slot>/Contents/Home, not the cache slot itself.
+            const slotHome = paths.jdkHome;
             paths.jdkHome = resolvedJdkHome;
 
             if (jdkDownloadPromise) {
                 await ensureBinDirectoryExecutable(resolvedJdkHome, state.platform);
+
+                // Stamp the cache slot with the JDK's exact version + vendor so
+                // future runs can rate-limit and compare security patch updates.
+                // Read from the resolved Java home (the `release` file lives in
+                // Contents/Home on macOS bundles) but key the metadata to the
+                // slot root, where ScheduleDownloadsStep looks it up.
+                const versionInfo = buildVersionInfoFromDisk(resolvedJdkHome);
+                if (versionInfo) {
+                    writeVersionInfo(slotHome, versionInfo);
+                }
             }
 
             // When `state.mavenDownload` is undefined the schedule step
