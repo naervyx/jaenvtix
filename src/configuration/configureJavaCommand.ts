@@ -20,6 +20,8 @@ import {RefreshProjectConfigurationStep} from './steps/refreshProjectConfigurati
 import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
 import {Messages} from '../util/message';
 import {runStep, runSteps} from './stepRunner';
+import {getJdkDistribution} from '../build/javaUrl';
+import {readSupportedJavaVersions} from '../build/redhatRuntimeReader';
 
 /**
  * The configuration pipeline split into two phases:
@@ -71,7 +73,18 @@ export function getDefaultStepGroups(
                     vscode.workspace.getConfiguration().get('jaenvtix.discoverFromToolchainsXml') !== false,
             }),
             new PrepareVersionPathsStep(),
-            new ScheduleDownloadsStep(),
+            new ScheduleDownloadsStep({
+                // Read redhat.java's supported-versions enum at step run time so
+                // new Java LTS releases are recognized without a Jaenvtix release.
+                getJdkDistribution: (version, platform, arch) => getJdkDistribution(
+                    version,
+                    platform,
+                    arch,
+                    readSupportedJavaVersions(
+                        () => vscode.extensions.getExtension('redhat.java')?.packageJSON,
+                    ),
+                ),
+            }),
             // ProcessDownloads normalizes each version's `jdkHome` to the real
             // Java home (macOS bundles extract as Contents/Home), so project
             // contexts must be built after it to copy the corrected path.

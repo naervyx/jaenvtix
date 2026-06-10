@@ -1,7 +1,8 @@
 import {describe, it} from 'node:test';
 import assert from 'node:assert/strict';
 
-import {buildDistribution} from '../../src/build/javaUrl';
+import {buildDistribution, getJdkDistribution} from '../../src/build/javaUrl';
+import type {SupportedJavaVersions} from '../../src/build/redhatRuntimeReader';
 
 describe('buildDistribution — Oracle (Java 21 / 25)', () => {
     it('emits the documented Oracle download URL with macos OS spelling on darwin', () => {
@@ -88,5 +89,29 @@ describe('buildDistribution — invalid combinations', () => {
 
     it('returns null when the architecture is unsupported', () => {
         assert.equal(buildDistribution('temurin', '17', 'linux', 'unsupported'), null);
+    });
+});
+
+describe('getJdkDistribution — Oracle-hosted version gate', () => {
+    it('resolves Java 21 to Oracle directly with the default supported versions', async () => {
+        const distribution = await getJdkDistribution('21', 'linux', 'x64');
+
+        assert.equal(distribution?.name, 'Oracle21');
+        assert.equal(distribution?.url, 'https://download.oracle.com/java/21/latest/jdk-21_linux-x64_bin.tar.gz');
+    });
+
+    it('resolves a future LTS to Oracle once redhat.java declares support for it', async () => {
+        const withJava29: SupportedJavaVersions = {
+            names: ['JavaSE-21', 'JavaSE-25', 'JavaSE-29'],
+            majors: [21, 25, 29],
+            ltsList: [21, 25, 29],
+            latestLts: 29,
+            latestAvailable: 29,
+        };
+
+        const distribution = await getJdkDistribution('29', 'windows', 'x64', withJava29);
+
+        assert.equal(distribution?.name, 'Oracle29');
+        assert.equal(distribution?.url, 'https://download.oracle.com/java/29/latest/jdk-29_windows-x64_bin.zip');
     });
 });
