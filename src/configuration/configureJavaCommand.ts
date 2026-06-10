@@ -22,6 +22,16 @@ import {Messages} from '../util/message';
 import {runStep, runSteps} from './stepRunner';
 import {getJdkDistribution, normalizeVendorPreference} from '../build/javaUrl';
 import {readSupportedJavaVersions} from '../build/redhatRuntimeReader';
+import {downloadFile} from '../file/fileDownload';
+
+/** Clamps `jaenvtix.downloadMaxRetries` to the schema's 0..10 range. */
+function readDownloadMaxRetries(): number {
+    const raw = vscode.workspace.getConfiguration().get('jaenvtix.downloadMaxRetries');
+    if (typeof raw !== 'number' || Number.isNaN(raw)) {
+        return 3;
+    }
+    return Math.min(10, Math.max(0, Math.floor(raw)));
+}
 
 /**
  * The configuration pipeline split into two phases:
@@ -87,6 +97,10 @@ export function getDefaultStepGroups(
                 }),
                 isAutoUpdateEnabled: () =>
                     vscode.workspace.getConfiguration().get('jaenvtix.autoUpdatePatches') !== false,
+                downloadFile: (downloadOptions) => downloadFile({
+                    ...downloadOptions,
+                    maxRetries: readDownloadMaxRetries(),
+                }),
             }),
             // ProcessDownloads normalizes each version's `jdkHome` to the real
             // Java home (macOS bundles extract as Contents/Home), so project

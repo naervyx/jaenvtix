@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import {existsSync, promises as fs} from 'node:fs';
 import {join} from 'node:path';
 
-import {downloadFile} from '../../src/file/fileDownload';
+import {
+    computeBackoffMs,
+    downloadFile,
+    DownloadResult,
+    isTransientDownloadFailure,
+} from '../../src/file/fileDownload';
 import {startTestServer, type TestServer} from '../fixtures/http';
 import {createTempDir, removeTempDir} from '../fixtures/tempDir';
 
@@ -81,10 +86,199 @@ describe('downloadFile', () => {
             extension: 'bin',
             targetDir: tempRoot,
             timeout: 2000,
+            // This regression test is about redirect-chain failure surfacing,
+            // not the retry layer — keep it on the fail-fast path.
+            maxRetries: 0,
         });
 
         assert.equal(result.success, false);
         assert.match(result.error ?? '', /500/);
+    });
+
+    // MP-05: retry with exponential backoff for transient failures.
+
+    it('retries a 503 and succeeds on the next attempt', async () => {
+        let hits = 0;
+        const server = await startTestServer((_req, res) => {
+            hits += 1;
+            if (hits === 1) {
+                res.writeHead(503);
+                res.end();
+                return;
+            }
+            res.writeHead(200);
+            res.end('eventually-fine');
+        });
+        const tempRoot = await createTempDir();
+        registerCleanup(server, tempRoot);
+
+        const result = await downloadFile({
+            url: server.url + '/flaky',
+            fileName: 'flaky',
+            extension: 'bin',
+            targetDir: tempRoot,
+            baseBackoffMs: 1,
+        });
+
+        assert.equal(result.success, true);
+        assert.equal(hits, 2);
+        assert.equal(await fs.readFile(result.filePath, 'utf-8'), 'eventually-fine');
+    });
+
+    it('retries a connection reset and succeeds on the next attempt', async () => {
+        let hits = 0;
+        const server = await startTestServer((req, res) => {
+            hits += 1;
+            if (hits === 1) {
+                req.socket.destroy();
+                return;
+            }
+            res.writeHead(200);
+            res.end('after-reset');
+        });
+        const tempRoot = await createTempDir();
+        registerCleanup(server, tempRoot);
+
+        const result = await downloadFile({
+            url: server.url + '/reset',
+            fileName: 'reset',
+            extension: 'bin',
+            targetDir: tempRoot,
+            baseBackoffMs: 1,
+        });
+
+        assert.equal(result.success, true);
+        assert.equal(hits, 2);
+    });
+
+    it('retries a 429 (rate limit) and succeeds on the next attempt', async () => {
+        let hits = 0;
+        const server = await startTestServer((_req, res) => {
+            hits += 1;
+            res.writeHead(hits === 1 ? 429 : 200);
+            res.end(hits === 1 ? '' : 'ok');
+        });
+        const tempRoot = await createTempDir();
+        registerCleanup(server, tempRoot);
+
+        const result = await downloadFile({
+            url: server.url + '/limited',
+            fileName: 'limited',
+            extension: 'bin',
+            targetDir: tempRoot,
+            baseBackoffMs: 1,
+        });
+
+        assert.equal(result.success, true);
+        assert.equal(hits, 2);
+    });
+
+    it('gives up after maxRetries exhausted, reporting the last failure', async () => {
+        let hits = 0;
+        const server = await startTestServer((_req, res) => {
+            hits += 1;
+            res.writeHead(503);
+            res.end();
+        });
+        const tempRoot = await createTempDir();
+        registerCleanup(server, tempRoot);
+
+        const result = await downloadFile({
+            url: server.url + '/down',
+            fileName: 'down',
+            extension: 'bin',
+            targetDir: tempRoot,
+            maxRetries: 3,
+            baseBackoffMs: 1,
+        });
+
+        assert.equal(result.success, false);
+        assert.equal(result.statusCode, 503);
+        assert.equal(hits, 4, '1 initial attempt + 3 retries');
+    });
+
+    it('does NOT retry a 404 (permanent failure)', async () => {
+        let hits = 0;
+        const server = await startTestServer((_req, res) => {
+            hits += 1;
+            res.writeHead(404);
+            res.end();
+        });
+        const tempRoot = await createTempDir();
+        registerCleanup(server, tempRoot);
+
+        const result = await downloadFile({
+            url: server.url + '/nope',
+            fileName: 'nope',
+            extension: 'bin',
+            targetDir: tempRoot,
+            baseBackoffMs: 1,
+        });
+
+        assert.equal(result.success, false);
+        assert.equal(hits, 1);
+    });
+
+    it('does NOT retry a refused connection', async () => {
+        const server = await startTestServer((_req, res) => { res.end(); });
+        const refusedUrl = server.url + '/refused';
+        await server.close();
+        const tempRoot = await createTempDir();
+        cleanups.push(() => removeTempDir(tempRoot));
+
+        const result = await downloadFile({
+            url: refusedUrl,
+            fileName: 'refused',
+            extension: 'bin',
+            targetDir: tempRoot,
+            baseBackoffMs: 1,
+        });
+
+        assert.equal(result.success, false);
+        assert.equal(result.errorCode, 'ECONNREFUSED');
+    });
+
+    it('maxRetries: 0 keeps the historic fail-fast behaviour for a 503', async () => {
+        let hits = 0;
+        const server = await startTestServer((_req, res) => {
+            hits += 1;
+            res.writeHead(503);
+            res.end();
+        });
+        const tempRoot = await createTempDir();
+        registerCleanup(server, tempRoot);
+
+        const result = await downloadFile({
+            url: server.url + '/failfast',
+            fileName: 'failfast',
+            extension: 'bin',
+            targetDir: tempRoot,
+            maxRetries: 0,
+        });
+
+        assert.equal(result.success, false);
+        assert.equal(hits, 1);
+    });
+
+    it('computes exponential backoff delays (1s, 2s, 4s)', () => {
+        assert.equal(computeBackoffMs(1000, 0), 1000);
+        assert.equal(computeBackoffMs(1000, 1), 2000);
+        assert.equal(computeBackoffMs(1000, 2), 4000);
+    });
+
+    it('classifies failures per the retry table', () => {
+        const failure = (extra: Partial<DownloadResult>): DownloadResult =>
+            ({success: false, filePath: '/x', ...extra});
+
+        assert.equal(isTransientDownloadFailure(failure({errorCode: 'ETIMEDOUT'})), true);
+        assert.equal(isTransientDownloadFailure(failure({errorCode: 'ECONNRESET'})), true);
+        assert.equal(isTransientDownloadFailure(failure({statusCode: 500})), true);
+        assert.equal(isTransientDownloadFailure(failure({statusCode: 429})), true);
+        assert.equal(isTransientDownloadFailure(failure({errorCode: 'ECONNREFUSED'})), false);
+        assert.equal(isTransientDownloadFailure(failure({errorCode: 'ENOTFOUND'})), false);
+        assert.equal(isTransientDownloadFailure(failure({statusCode: 404})), false);
+        assert.equal(isTransientDownloadFailure(failure({})), false);
+        assert.equal(isTransientDownloadFailure({success: true, filePath: '/x'}), false);
     });
 
     it('reports failure on 404 without writing the file', async () => {
