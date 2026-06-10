@@ -4,6 +4,33 @@ All notable changes to this extension are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Spring Boot Tools auto-configuration: `spring-boot.ls.java.home` is pointed at a provisioned
+  Java 21+ JDK when `vmware.vscode-spring-boot` (or the Boot dev pack) is installed (MP-15).
+- `Jaenvtix: Install Recommended Extensions` — opt-in Command Palette command that offers XML,
+  Spring Boot Extension Pack, and Extension Pack for Java in a multi-select QuickPick (MP-08).
+- `~/.m2/toolchains.xml` is now also **read** as a JDK discovery source; entries registered for
+  `maven-toolchains-plugin` are validated and reused instead of re-downloaded (MP-04).
+- Supported Java versions are read from the Red Hat Language Server's own `package.json` at
+  runtime, so new LTS releases are recognized without a Jaenvtix release (MP-16).
+- JDKs installed via Chocolatey (Windows) and Homebrew (macOS / Linuxbrew) are detected (MP-01).
+- New JDK vendors — Microsoft, Liberica (BellSoft), Zulu (Azul), and Semeru (IBM) — selectable
+  through the new `jaenvtix.preferredJdkVendor` setting, with automatic fallback chains (MP-02).
+- Security patch auto-update: cached JDKs are checked against the vendor's metadata API at most
+  once every 24h and refreshed when a newer patch ships (`jaenvtix.autoUpdatePatches`) (MP-17).
+- Downloads retry transient failures (timeout, reset, 5xx, 429) with exponential backoff
+  (`jaenvtix.downloadMaxRetries`) (MP-05).
+- Per-project Maven version isolation: poms pinning a Maven version via
+  `<prerequisites><maven>` or `<properties><maven.version>` get their own
+  `~/.jaenvtix/jdk-N/mvn-<version>/` slot and wrapper (`jaenvtix.isolatedMavenPerProject`) (MP-03).
+- Platform matrix extended to Linux musl (Alpine devcontainers) and native Windows ARM64 (MP-11).
+
+### Changed
+- README repositioned around the provisioner's differentiators; documents every
+  `jaenvtix.*` setting and the new platform matrix (MP-09).
+
 ## [0.0.7] - 2026-06-14
 
 ### Fixed
