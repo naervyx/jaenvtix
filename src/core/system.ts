@@ -89,3 +89,35 @@ export function getPlatform(): PlatformType {
         default: return 'unknown';
     }
 }
+
+/**
+ * Root directory where Chocolatey unpacks tool packages, or `null` off
+ * Windows. Chocolatey sets `ChocolateyToolsLocation` when packages install
+ * to a custom tools dir; the default package layout lives under
+ * `C:\ProgramData\chocolatey\lib`.
+ */
+export function getChocolateyToolsRoot(
+    currentPlatform: PlatformType = getPlatform(),
+    env: NodeJS.ProcessEnv = process.env,
+): string | null {
+    if (currentPlatform !== 'windows') {
+        return null;
+    }
+    return env['ChocolateyToolsLocation'] ?? 'C:\\ProgramData\\chocolatey\\lib';
+}
+
+/**
+ * Homebrew installation prefixes for the platform: `/opt/homebrew` (Apple
+ * Silicon) and `/usr/local` (Intel) on macOS, the Linuxbrew prefix on Linux,
+ * and none on Windows. Callers are expected to skip prefixes that do not
+ * exist on disk.
+ */
+export function getHomebrewPrefixes(currentPlatform: PlatformType = getPlatform()): string[] {
+    if (currentPlatform === 'darwin') {
+        return ['/opt/homebrew', '/usr/local'];
+    }
+    if (currentPlatform === 'linux') {
+        return ['/home/linuxbrew/.linuxbrew'];
+    }
+    return [];
+}

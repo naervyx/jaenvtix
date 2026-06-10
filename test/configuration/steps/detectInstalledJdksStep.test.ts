@@ -95,3 +95,67 @@ describe('DetectInstalledJdksStep — toolchains.xml discovery', () => {
         assert.equal(state.detectedJdks.size, 0);
     });
 });
+
+describe('DetectInstalledJdksStep — package manager discovery', () => {
+    it('fills a missing version from a Chocolatey JDK', async () => {
+        const state = stateRequiring('21');
+        const step = new DetectInstalledJdksStep({
+            findRuntimes: async () => [],
+            readToolchainsJdks: () => [],
+            scanPackageManagerJdks: () => [
+                {jdkHome: 'C:\\ProgramData\\chocolatey\\lib\\openjdk\\tools\\jdk-21', source: 'chocolatey'},
+            ],
+            inspectJdk: async (jdkHome) => jdk(jdkHome, 21),
+        });
+
+        await step.run(state);
+
+        assert.equal(state.detectedJdks.get('21'), 'C:\\ProgramData\\chocolatey\\lib\\openjdk\\tools\\jdk-21');
+    });
+
+    it('does not revalidate a path jdk-utils already found (dedup by homedir)', async () => {
+        const state = stateRequiring('17');
+        const inspected: string[] = [];
+        const step = new DetectInstalledJdksStep({
+            findRuntimes: async () => [jdk('/opt/homebrew/opt/openjdk@17', 17)],
+            readToolchainsJdks: () => [],
+            scanPackageManagerJdks: () => [
+                {jdkHome: '/opt/homebrew/opt/openjdk@17', source: 'homebrew'},
+            ],
+            inspectJdk: async (jdkHome) => { inspected.push(jdkHome); return jdk(jdkHome, 17); },
+        });
+
+        await step.run(state);
+
+        assert.deepEqual(inspected, []);
+        assert.equal(state.detectedJdks.get('17'), '/opt/homebrew/opt/openjdk@17');
+    });
+
+    it('prefers a toolchains.xml entry over a package-manager install for the same version', async () => {
+        const state = stateRequiring('17');
+        const step = new DetectInstalledJdksStep({
+            findRuntimes: async () => [],
+            readToolchainsJdks: () => [{jdkHome: '/toolchains/jdk-17', version: '17'}],
+            scanPackageManagerJdks: () => [{jdkHome: '/brew/jdk-17', source: 'homebrew'}],
+            inspectJdk: async (jdkHome) => jdk(jdkHome, 17),
+        });
+
+        await step.run(state);
+
+        assert.equal(state.detectedJdks.get('17'), '/toolchains/jdk-17');
+    });
+
+    it('skips a package-manager candidate that fails JDK validation', async () => {
+        const state = stateRequiring('21');
+        const step = new DetectInstalledJdksStep({
+            findRuntimes: async () => [],
+            readToolchainsJdks: () => [],
+            scanPackageManagerJdks: () => [{jdkHome: '/brew/broken', source: 'homebrew'}],
+            inspectJdk: async () => undefined,
+        });
+
+        await step.run(state);
+
+        assert.equal(state.detectedJdks.size, 0);
+    });
+});
