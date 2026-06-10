@@ -45,7 +45,7 @@ jobs:
 
       - name: Cache node_modules
         id: nm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           # Cache the resolved node_modules tree. On a cache hit we skip
           # `bun install` entirely — the install step becomes a ~2s cache
@@ -87,7 +87,7 @@ jobs:
 
       - name: Cache node_modules
         id: nm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           # Per-OS cache key — node_modules can carry native binaries that
           # differ between linux / macos / windows.
