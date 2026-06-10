@@ -39,6 +39,26 @@ describe('resolveApiDistribution — Liberica', () => {
 
         assert.equal(distribution, null);
     });
+
+    it('maps musl Linux to the linux-musl os parameter', async () => {
+        const requested: string[] = [];
+        await resolveApiDistribution('liberica', '21', 'linux-musl', 'x64', {
+            fetchJson: async (url) => { requested.push(url); return []; },
+        });
+
+        assert.match(requested[0] ?? '', /os=linux-musl/);
+    });
+});
+
+describe('resolveApiDistribution — musl exclusions', () => {
+    it('Zulu and Semeru self-exclude on musl without calling their APIs', async () => {
+        let called = false;
+        const deps = {fetchJson: async () => { called = true; return {}; }};
+
+        assert.equal(await resolveApiDistribution('zulu', '21', 'linux-musl', 'x64', deps), null);
+        assert.equal(await resolveApiDistribution('semeru', '21', 'linux-musl', 'x64', deps), null);
+        assert.equal(called, false);
+    });
 });
 
 describe('resolveApiDistribution — Zulu', () => {

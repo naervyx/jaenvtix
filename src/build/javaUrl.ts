@@ -64,6 +64,14 @@ function isMicrosoftHostedVersion(javaVersion: string): boolean {
     return major >= 11 && isLtsVersion(major);
 }
 
+/** Adoptium ships native Windows ARM64 binaries only from Java 21 onward. */
+function isTemurinHostedCombo(javaVersion: string, platform: PlatformType, arch: ArchitectureType): boolean {
+    if (platform === 'windows' && arch === 'arm64') {
+        return parseJavaVersionNumber(javaVersion) >= 21;
+    }
+    return true;
+}
+
 const VENDOR_CONFIGS: Readonly<Record<TemplateJdkVendor, VendorConfig>> = {
     oracle: {
         baseUrl: 'https://download.oracle.com/java',
@@ -80,7 +88,7 @@ const VENDOR_CONFIGS: Readonly<Record<TemplateJdkVendor, VendorConfig>> = {
     temurin: {
         baseUrl: 'https://api.adoptium.net/v3/binary/latest',
         buildPath: (v, os, arch) => `/${v}/ga/${os}/${arch}/jdk/hotspot/normal/eclipse`,
-        osNames: {...DEFAULT_OS_NAMES, darwin: 'mac'},
+        osNames: {...DEFAULT_OS_NAMES, darwin: 'mac', 'linux-musl': 'alpine-linux'},
         archNames: DEFAULT_ARCH_NAMES,
     },
     microsoft: {
@@ -144,7 +152,13 @@ const VENDOR_FALLBACK_CHAINS: Readonly<Record<JdkVendor, readonly JdkVendor[]>> 
     semeru: ['semeru', 'temurin', 'corretto'],
 };
 
-const AUTO_CHAIN: readonly JdkVendor[] = ['oracle', 'corretto', 'temurin'];
+/**
+ * `auto` keeps the historic Oracle → Corretto → Temurin order; Microsoft and
+ * Liberica are last resorts only reached when the primary vendors cannot host
+ * the combination (e.g. Java 17 on native Windows ARM64, where Adoptium only
+ * ships 21+, or musl Linux where Corretto has no build).
+ */
+const AUTO_CHAIN: readonly JdkVendor[] = ['oracle', 'corretto', 'temurin', 'microsoft', 'liberica'];
 
 function isTemplateVendor(vendor: JdkVendor): vendor is TemplateJdkVendor {
     return vendor === 'oracle' || vendor === 'corretto' || vendor === 'temurin' || vendor === 'microsoft';
@@ -209,6 +223,9 @@ export async function getJdkDistribution(
             continue;
         }
         if (vendor === 'microsoft' && !isMicrosoftHostedVersion(javaVersion)) {
+            continue;
+        }
+        if (vendor === 'temurin' && !isTemurinHostedCombo(javaVersion, platform, arch)) {
             continue;
         }
 

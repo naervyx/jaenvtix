@@ -5,8 +5,11 @@ import {
     DEFAULT_ARCH_NAMES,
     DEFAULT_OS_NAMES,
     determineArchiveType,
+    getPlatform,
     isArchitectureSupported,
+    isMusl,
     isPlatformSupported,
+    SUPPORTED_PLATFORMS,
 } from '../../src/core/system';
 
 describe('isPlatformSupported', () => {
@@ -70,5 +73,48 @@ describe('DEFAULT_ARCH_NAMES', () => {
 
     it('leaves unsupported unmapped', () => {
         assert.equal(DEFAULT_ARCH_NAMES.unsupported, undefined);
+    });
+});
+
+describe('isMusl', () => {
+    it('detects the musl x64 dynamic linker', () => {
+        assert.equal(isMusl('linux', (p) => p === '/lib/ld-musl-x86_64.so.1'), true);
+    });
+
+    it('detects the musl aarch64 dynamic linker', () => {
+        assert.equal(isMusl('linux', (p) => p === '/lib/ld-musl-aarch64.so.1'), true);
+    });
+
+    it('falls back to /etc/alpine-release when no linker is visible', () => {
+        assert.equal(isMusl('linux', (p) => p === '/etc/alpine-release'), true);
+    });
+
+    it('reports glibc Linux as non-musl', () => {
+        assert.equal(isMusl('linux', () => false), false);
+    });
+
+    it('short-circuits to false off Linux without probing the filesystem', () => {
+        let probed = false;
+        assert.equal(isMusl('win32', () => { probed = true; return true; }), false);
+        assert.equal(probed, false);
+    });
+});
+
+describe('getPlatform — musl split', () => {
+    it('maps musl Linux to linux-musl', () => {
+        assert.equal(getPlatform('linux', () => true), 'linux-musl');
+    });
+
+    it('maps glibc Linux to linux', () => {
+        assert.equal(getPlatform('linux', () => false), 'linux');
+    });
+
+    it('keeps windows/darwin mappings untouched', () => {
+        assert.equal(getPlatform('win32'), 'windows');
+        assert.equal(getPlatform('darwin'), 'darwin');
+    });
+
+    it('linux-musl is a supported platform', () => {
+        assert.equal(SUPPORTED_PLATFORMS.has('linux-musl'), true);
     });
 });
