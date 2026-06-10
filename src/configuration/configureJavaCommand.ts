@@ -14,6 +14,7 @@ import {WriteToolchainsStep} from './steps/writeToolchainsStep';
 import {ConfigureSettingsStep} from './steps/configureSettingsStep';
 import {ConfigureUserRuntimesStep} from './steps/configureUserRuntimesStep';
 import {ApplyUserTuningsStep} from './steps/applyUserTuningsStep';
+import {ConfigureOptionalExtensionsStep} from './steps/configureOptionalExtensionsStep';
 import {ConfigureLaunchStep} from './steps/configureLaunchStep';
 import {RefreshProjectConfigurationStep} from './steps/refreshProjectConfigurationStep';
 import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
@@ -78,6 +79,10 @@ export function getDefaultStepGroups(
             new ConfigureSettingsStep(),
             new ConfigureUserRuntimesStep(),
             new ApplyUserTuningsStep(() => vscode.workspace.getConfiguration()),
+            new ConfigureOptionalExtensionsStep(
+                () => vscode.workspace.getConfiguration(),
+                (extensionId) => vscode.extensions.getExtension(extensionId) !== undefined,
+            ),
             new ConfigureLaunchStep({
                 notifyMalformed: (filePath) => {
                     void vscode.window.showWarningMessage(

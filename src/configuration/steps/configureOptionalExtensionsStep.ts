@@ -1,0 +1,65 @@
+import {detectOptionalExtensionConfig, selectLanguageServerJdkHome} from '../../build/optionalExtensionsConfig';
+import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
+import {log} from '../../util/logger';
+import {Messages} from '../../util/message';
+
+// vscode.ConfigurationTarget.Global = 1; hardcoded so this module never imports
+// `vscode` and stays loadable under plain Node in unit tests.
+const CONFIG_TARGET_GLOBAL = 1;
+
+/**
+ * Minimal surface of `vscode.WorkspaceConfiguration` this step needs. The
+ * orchestrator injects the real configuration; tests inject an in-memory fake.
+ * `inspect` is required (over `get`) to distinguish "user never set this"
+ * from "the owning extension registered a default value".
+ */
+export interface OptionalExtensionsUserConfig {
+    get(key: string): unknown;
+    inspect(key: string): {globalValue?: unknown} | undefined;
+    update(key: string, value: unknown, target: number): Thenable<void>;
+}
+
+/**
+ * Points companion extensions (currently Spring Boot Tools) at a Java 21+
+ * JDK provisioned by the pipeline, via User Settings.
+ *
+ * Business rules:
+ * - Skipped entirely when the user opted out via
+ *   `jaenvtix.configureOptionalExtensions: false`.
+ * - Writes only settings of extensions actually installed; absent extensions
+ *   produce no writes.
+ * - A value the user already set globally is never overwritten — only the
+ *   `globalValue` is checked, because the owning extension's registered
+ *   default would mask "never set" if read through `get`.
+ * - No provisioned Java 21+ JDK → nothing to write (the LS requires 21+).
+ */
+export class ConfigureOptionalExtensionsStep implements ConfigurationStep {
+    readonly name = 'ConfigureOptionalExtensions';
+
+    constructor(
+        private readonly configFactory: () => OptionalExtensionsUserConfig,
+        private readonly isExtensionInstalled: (extensionId: string) => boolean,
+    ) {}
+
+    async run(state: JavaConfigurationState): Promise<ConfigurationStepResult> {
+        const cfg = this.configFactory();
+
+        if (cfg.get('jaenvtix.configureOptionalExtensions') === false) {
+            return StepResult.success();
+        }
+
+        const jdkHome = selectLanguageServerJdkHome(state.versionPaths);
+        const updates = detectOptionalExtensionConfig(jdkHome, this.isExtensionInstalled);
+
+        for (const {settingKey, value, extensionId} of updates) {
+            if (cfg.inspect(settingKey)?.globalValue !== undefined) {
+                continue;
+            }
+
+            await cfg.update(settingKey, value, CONFIG_TARGET_GLOBAL);
+            log(Messages.Log.OPTIONAL_EXTENSION_CONFIGURED(settingKey, extensionId, value));
+        }
+
+        return StepResult.success();
+    }
+}
