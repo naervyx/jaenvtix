@@ -68,7 +68,10 @@ export function getDefaultStepGroups(
 ): StepGroups {
     const preConfirm: ConfigurationStep[] = [
         new ValidateEnvironmentStep(workspaceFolders),
-        new ResolveProjectsStep(),
+        new ResolveProjectsStep({
+            isIsolatedMavenEnabled: () =>
+                vscode.workspace.getConfiguration().get('jaenvtix.isolatedMavenPerProject') !== false,
+        }),
     ];
     if (!options.skipConfirmation) {
         preConfirm.push(new ConfirmConfigurationStep());

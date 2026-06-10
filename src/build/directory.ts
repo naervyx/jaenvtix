@@ -32,14 +32,22 @@ export function buildJdkVersionPath(javaVersion: string): string {
     return join(JAENVTIX_ROOT_PATH, `jdk-${javaVersion}`);
 }
 
-/** Returns the path where Maven is installed for a given Java version (`~/.jaenvtix/jdk-<version>/mvn-custom/`). */
-export function buildMavenInstallationPath(javaVersion: string): string {
-    return join(buildJdkVersionPath(javaVersion), 'mvn-custom');
+/**
+ * Returns the path where Maven is installed for a given Java version.
+ * Without `mavenVersion`: the shared Jaenvtix-latest slot
+ * (`~/.jaenvtix/jdk-<v>/mvn-custom/`, back-compat with existing caches).
+ * With `mavenVersion`: the isolated per-version slot
+ * (`~/.jaenvtix/jdk-<v>/mvn-<mavenVersion>/`) used by projects that pin a
+ * Maven version in their pom.
+ */
+export function buildMavenInstallationPath(javaVersion: string, mavenVersion?: string): string {
+    const subdir = mavenVersion ? `mvn-${mavenVersion}` : 'mvn-custom';
+    return join(buildJdkVersionPath(javaVersion), subdir);
 }
 
 /** Returns the `bin/` directory of the Maven installation for a given Java version. */
-export function buildMavenBinPath(javaVersion: string): string {
-    return join(buildMavenInstallationPath(javaVersion), 'bin');
+export function buildMavenBinPath(javaVersion: string, mavenVersion?: string): string {
+    return join(buildMavenInstallationPath(javaVersion, mavenVersion), 'bin');
 }
 
 /**

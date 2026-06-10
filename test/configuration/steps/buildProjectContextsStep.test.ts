@@ -37,6 +37,50 @@ describe('BuildProjectContextsStep', () => {
         assert.equal(state.projectContexts[0].arch, 'x64');
     });
 
+    it('points a project pinning a Maven version at its isolated mvn-<version> slot', async () => {
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.arch = 'x64';
+        state.workspaceFolders = ['/ws'];
+        state.projectVersionMap.set('21', ['/ws/pinned', '/ws/plain']);
+        state.projectsHasMvnw.set('/ws/pinned', false);
+        state.projectsHasMvnw.set('/ws/plain', false);
+        state.projectMavenVersions.set('/ws/pinned', '3.9.5');
+        state.versionPaths.set('21', {
+            jdkHome: '/home/dev/.jaenvtix/jdk-21',
+            toolHome: '/home/dev/.jaenvtix/jdk-21/mvn-custom',
+            toolBin: '/home/dev/.jaenvtix/jdk-21/mvn-custom/bin',
+        });
+
+        await new BuildProjectContextsStep().run(state);
+
+        const pinned = state.projectContexts.find((context) => context.projectPath === '/ws/pinned');
+        const plain = state.projectContexts.find((context) => context.projectPath === '/ws/plain');
+        assert.match(pinned?.toolHome ?? '', /mvn-3\.9\.5$/);
+        assert.match(pinned?.toolBin ?? '', /mvn-3\.9\.5[\\/]bin$/);
+        assert.equal(plain?.toolHome, '/home/dev/.jaenvtix/jdk-21/mvn-custom');
+    });
+
+    it('ignores a pinned Maven version for a project that ships mvnw', async () => {
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.arch = 'x64';
+        state.workspaceFolders = ['/ws'];
+        state.projectVersionMap.set('21', ['/ws/wrapped']);
+        state.projectsHasMvnw.set('/ws/wrapped', true);
+        state.projectMavenVersions.set('/ws/wrapped', '3.9.5');
+        state.versionPaths.set('21', {
+            jdkHome: '/home/dev/.jaenvtix/jdk-21',
+            toolHome: '/home/dev/.jaenvtix/jdk-21/mvn-custom',
+            toolBin: '/home/dev/.jaenvtix/jdk-21/mvn-custom/bin',
+        });
+
+        await new BuildProjectContextsStep().run(state);
+
+        assert.equal(state.projectContexts[0]?.toolHome, '/home/dev/.jaenvtix/jdk-21/mvn-custom');
+        assert.equal(state.projectContexts[0]?.hasMvnw, true);
+    });
+
     it('falls back to projectPath as workspace when no workspaceFolder contains the project', async () => {
         const state = createInitialState();
         state.platform = 'linux';

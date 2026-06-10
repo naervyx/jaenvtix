@@ -4,6 +4,17 @@ import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, Step
 import {Messages} from '../../util/message';
 import {detectMavenWrapper, findProjectsWithFile} from '../../file/fileSearch';
 import {parseJavaVersionFromPom} from '../../search/javaVersion';
+import {parseMavenVersionFromPom} from '../../search/mavenVersion';
+
+export interface ResolveProjectsDeps {
+    /**
+     * Reads `jaenvtix.isolatedMavenPerProject`; the orchestrator wires the
+     * real configuration. Defaults to enabled (the setting's default). When
+     * off, poms are not inspected for pinned Maven versions and every project
+     * shares the Jaenvtix-latest Maven.
+     */
+    isIsolatedMavenEnabled?: () => boolean;
+}
 
 /**
  * Returns true when `descendant` is strictly nested under `ancestor` (not the
@@ -46,11 +57,16 @@ function findClosestAncestor(descendant: string, candidates: readonly string[]):
  * - A child pom that declares no Java version inherits from the closest ancestor
  *   pom in the same workspace that does declare one. This mirrors how Spring Boot,
  *   Quarkus, and other Maven monorepos structure their parent–child version ownership.
+ * - When isolated Maven is enabled (default), each pom is also inspected for a
+ *   pinned Maven version (`<prerequisites><maven>` / `<properties><maven.version>`)
+ *   so downstream steps can provision one Maven per pinned version.
  * - Returns a warning (no error) when no projects or no Java versions are found,
  *   so the pipeline stops quietly rather than showing a red error message.
  */
 export class ResolveProjectsStep implements ConfigurationStep {
     readonly name = 'ResolveProjects';
+
+    constructor(private readonly deps: ResolveProjectsDeps = {}) {}
 
     async run(state: JavaConfigurationState): Promise<ConfigurationStepResult> {
         if (state.workspaceFolders.length === 0) {
@@ -71,7 +87,9 @@ export class ResolveProjectsStep implements ConfigurationStep {
 
         state.projectVersionMap.clear();
         state.projectsHasMvnw.clear();
+        state.projectMavenVersions.clear();
 
+        const isolatedMaven = this.deps.isIsolatedMavenEnabled?.() !== false;
         const projectVersions = new Map<string, string>();
 
         for (const project of projects) {
@@ -83,6 +101,13 @@ export class ResolveProjectsStep implements ConfigurationStep {
             const javaVersion = parseJavaVersionFromPom(project);
             if (javaVersion) {
                 projectVersions.set(project, javaVersion);
+            }
+
+            if (isolatedMaven) {
+                const mavenVersion = parseMavenVersionFromPom(project);
+                if (mavenVersion) {
+                    state.projectMavenVersions.set(project, mavenVersion);
+                }
             }
         }
 

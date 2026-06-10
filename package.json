@@ -92,6 +92,11 @@
 					"minimum": 0,
 					"maximum": 10,
 					"description": "Maximum number of retries for failed downloads (timeout, 5xx, connection reset). Set 0 to disable retries."
+				},
+				"jaenvtix.isolatedMavenPerProject": {
+					"type": "boolean",
+					"default": true,
+					"description": "When a pom.xml pins a Maven version (<prerequisites><maven> or <properties><maven.version>), provision that exact Maven in an isolated ~/.jaenvtix/jdk-N/mvn-<version>/ slot and point the project at it. Disable to share a single Jaenvtix Maven across all projects."
 				}
 			}
 		}

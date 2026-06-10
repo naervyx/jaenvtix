@@ -38,6 +38,17 @@ describe('path builders — pure logic', () => {
         );
     });
 
+    it('isolates a pinned Maven version in its own mvn-<version> slot', () => {
+        assert.equal(
+            buildMavenInstallationPath('21', '3.9.5'),
+            join(homedir(), '.jaenvtix', 'jdk-21', 'mvn-3.9.5'),
+        );
+        assert.equal(
+            buildMavenBinPath('21', '3.9.5'),
+            join(homedir(), '.jaenvtix', 'jdk-21', 'mvn-3.9.5', 'bin'),
+        );
+    });
+
     it('returns mvn.cmd on windows and mvn on POSIX for the wrapper', () => {
         assert.equal(buildMavenWrapperPath('/tools/maven/bin', 'windows'), join('/tools/maven/bin', 'mvn.cmd'));
         assert.equal(buildMavenWrapperPath('/tools/maven/bin', 'linux'), join('/tools/maven/bin', 'mvn'));

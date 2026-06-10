@@ -19,6 +19,23 @@ interface MavenDownloadInfo {
 
 const MAVEN_DOWNLOAD_PAGE = 'https://maven.apache.org/download.cgi';
 
+/**
+ * Builds the distribution for an exact Maven version pinned by a project's
+ * pom. Apache's archive hosts every release at a deterministic URL, so no
+ * page scraping or probing is needed — a wrong version simply fails the
+ * download, which the pipeline already surfaces.
+ */
+export function buildPinnedMavenDistribution(version: string, platform: PlatformType): MavenDistribution {
+    const extension = determineArchiveType(platform);
+    const majorLine = version.split('.')[0] ?? '3';
+    return {
+        name: `maven-${version}`,
+        url: `https://archive.apache.org/dist/maven/maven-${majorLine}/${version}/binaries/apache-maven-${version}-bin.${extension}`,
+        extension,
+        version,
+    };
+}
+
 export type FetchPageFn = (url: string) => string | Promise<string>;
 export type IsUrlAccessibleFn = (url: string) => Promise<boolean>;
 

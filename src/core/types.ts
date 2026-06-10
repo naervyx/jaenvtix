@@ -83,6 +83,16 @@ export interface JavaConfigurationState {
     /** Java version string → in-flight download promise for the JDK archive. */
     jdkDownloads: Map<string, Promise<DownloadResult>>;
     mavenDownload?: Promise<DownloadResult>;
+    /**
+     * Project absolute path → Maven version pinned in its pom
+     * (`<prerequisites><maven>` or `<properties><maven.version>`). Populated
+     * by `ResolveProjectsStep` (empty when `jaenvtix.isolatedMavenPerProject`
+     * is off). Projects absent from this map use the shared Jaenvtix-latest
+     * Maven (`mvn-custom`).
+     */
+    projectMavenVersions: Map<string, string>;
+    /** Pinned Maven version string → in-flight download promise for its archive. */
+    pinnedMavenDownloads: Map<string, Promise<DownloadResult>>;
 }
 
 /**
@@ -119,6 +129,8 @@ export function createInitialState(): JavaConfigurationState {
         versionPaths: new Map(),
         projectContexts: [],
         jdkDownloads: new Map(),
+        projectMavenVersions: new Map(),
+        pinnedMavenDownloads: new Map(),
     };
 }
 
