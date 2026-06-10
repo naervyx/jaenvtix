@@ -1,7 +1,7 @@
 import {describe, it} from 'node:test';
 import assert from 'node:assert/strict';
 
-import {buildDistribution, getJdkDistribution} from '../../src/build/javaUrl';
+import {buildDistribution, getJdkDistribution, normalizeVendorPreference} from '../../src/build/javaUrl';
 import type {SupportedJavaVersions} from '../../src/build/redhatRuntimeReader';
 
 describe('buildDistribution — Oracle (Java 21 / 25)', () => {
@@ -92,9 +92,11 @@ describe('buildDistribution — invalid combinations', () => {
     });
 });
 
+const allReachable = async () => true;
+
 describe('getJdkDistribution — Oracle-hosted version gate', () => {
     it('resolves Java 21 to Oracle directly with the default supported versions', async () => {
-        const distribution = await getJdkDistribution('21', 'linux', 'x64');
+        const distribution = await getJdkDistribution('21', 'linux', 'x64', {isUrlAccessible: allReachable});
 
         assert.equal(distribution?.name, 'Oracle21');
         assert.equal(distribution?.url, 'https://download.oracle.com/java/21/latest/jdk-21_linux-x64_bin.tar.gz');
@@ -109,9 +111,99 @@ describe('getJdkDistribution — Oracle-hosted version gate', () => {
             latestAvailable: 29,
         };
 
-        const distribution = await getJdkDistribution('29', 'windows', 'x64', withJava29);
+        const distribution = await getJdkDistribution('29', 'windows', 'x64', {
+            supportedVersions: withJava29,
+            isUrlAccessible: allReachable,
+        });
 
         assert.equal(distribution?.name, 'Oracle29');
         assert.equal(distribution?.url, 'https://download.oracle.com/java/29/latest/jdk-29_windows-x64_bin.zip');
+    });
+});
+
+describe('getJdkDistribution — vendor preference chains', () => {
+    const libericaResolver = (url: string) => async (vendor: string) =>
+        vendor === 'liberica' ? {name: 'Liberica21', url, extension: 'tar.gz'} : null;
+
+    it('returns the preferred vendor first when its URL is reachable', async () => {
+        const distribution = await getJdkDistribution('21', 'linux', 'x64', {
+            preferredVendor: 'liberica',
+            isUrlAccessible: allReachable,
+            resolveApiDistribution: libericaResolver('https://download.bell-sw.com/java/21.0.5/bellsoft-jdk21.0.5-linux-amd64.tar.gz'),
+        });
+
+        assert.equal(distribution?.name, 'Liberica21');
+    });
+
+    it('falls back to Temurin when the preferred vendor URL is unreachable', async () => {
+        const libericaUrl = 'https://download.bell-sw.com/java/21.0.5/bellsoft-jdk21.0.5-linux-amd64.tar.gz';
+        const distribution = await getJdkDistribution('21', 'linux', 'x64', {
+            preferredVendor: 'liberica',
+            isUrlAccessible: async (url) => url !== libericaUrl,
+            resolveApiDistribution: libericaResolver(libericaUrl),
+        });
+
+        assert.equal(distribution?.name, 'Temurin21');
+    });
+
+    it('resolves Java 17 to Microsoft when preferred', async () => {
+        const distribution = await getJdkDistribution('17', 'windows', 'x64', {
+            preferredVendor: 'microsoft',
+            isUrlAccessible: allReachable,
+        });
+
+        assert.equal(distribution?.name, 'Microsoft17');
+        assert.equal(distribution?.url, 'https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.zip');
+    });
+
+    it('skips Microsoft for non-LTS versions and falls back to Temurin', async () => {
+        const distribution = await getJdkDistribution('23', 'linux', 'x64', {
+            preferredVendor: 'microsoft',
+            isUrlAccessible: allReachable,
+        });
+
+        assert.equal(distribution?.name, 'Temurin23');
+    });
+
+    it('keeps the historic auto behaviour: Oracle for 21+ LTS', async () => {
+        const distribution = await getJdkDistribution('21', 'darwin', 'arm64', {
+            preferredVendor: 'auto',
+            isUrlAccessible: allReachable,
+        });
+
+        assert.equal(distribution?.name, 'Oracle21');
+    });
+
+    it('resolves Zulu through its API resolver when preferred', async () => {
+        const distribution = await getJdkDistribution('21', 'linux', 'x64', {
+            preferredVendor: 'zulu',
+            isUrlAccessible: allReachable,
+            resolveApiDistribution: async (vendor) =>
+                vendor === 'zulu'
+                    ? {name: 'Zulu21', url: 'https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-linux_x64.tar.gz', extension: 'tar.gz'}
+                    : null,
+        });
+
+        assert.equal(distribution?.name, 'Zulu21');
+    });
+
+    it('returns null when every vendor in the chain is unreachable', async () => {
+        const distribution = await getJdkDistribution('17', 'linux', 'x64', {
+            preferredVendor: 'corretto',
+            isUrlAccessible: async () => false,
+            resolveApiDistribution: async () => null,
+        });
+
+        assert.equal(distribution, null);
+    });
+});
+
+describe('normalizeVendorPreference', () => {
+    it('keeps valid preferences and maps anything unknown to auto', () => {
+        assert.equal(normalizeVendorPreference('liberica'), 'liberica');
+        assert.equal(normalizeVendorPreference('auto'), 'auto');
+        assert.equal(normalizeVendorPreference('libreica-typo'), 'auto');
+        assert.equal(normalizeVendorPreference(undefined), 'auto');
+        assert.equal(normalizeVendorPreference(42), 'auto');
     });
 });
