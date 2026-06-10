@@ -66,7 +66,10 @@ export function getDefaultStepGroups(
         preConfirm,
         postConfirm: [
             new InitializeDirectoriesStep(),
-            new DetectInstalledJdksStep(),
+            new DetectInstalledJdksStep({
+                isToolchainsDiscoveryEnabled: () =>
+                    vscode.workspace.getConfiguration().get('jaenvtix.discoverFromToolchainsXml') !== false,
+            }),
             new PrepareVersionPathsStep(),
             new ScheduleDownloadsStep(),
             // ProcessDownloads normalizes each version's `jdkHome` to the real

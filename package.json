@@ -69,6 +69,11 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Auto-configure detected companion extensions (Spring Boot Tools, etc.) to use the right JDK."
+				},
+				"jaenvtix.discoverFromToolchainsXml": {
+					"type": "boolean",
+					"default": true,
+					"description": "Read ~/.m2/toolchains.xml as a source of JDK discovery. Disable if you don't want Jaenvtix to inspect this file."
 				}
 			}
 		}
