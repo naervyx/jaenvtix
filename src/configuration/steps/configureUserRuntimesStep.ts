@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 
-import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
+import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, JavaRuntime, StepResult} from '../../core/types';
 import {Messages} from '../../util/message';
+import {log} from '../../util/logger';
 import {toJavaRuntimeName} from '../../util/javaVersion';
-import {JavaRuntime, mergeUserRuntimes, validateAndCleanRuntimes} from '../../build/userRuntimesMerge';
+import {mergeUserRuntimes, validateAndCleanRuntimes} from '../../build/userRuntimesMerge';
 
 /**
  * Populates the user-level `java.configuration.runtimes` with every JDK
@@ -45,10 +46,10 @@ export class ConfigureUserRuntimesStep implements ConfigurationStep {
         const {kept, fixed, removed} = validateAndCleanRuntimes(existing, enableFix, process.platform);
 
         for (const {oldPath, entry} of fixed) {
-            console.log(Messages.Log.RUNTIME_PATH_FIXED(oldPath, entry.path));
+            log(Messages.Log.RUNTIME_PATH_FIXED(oldPath, entry.path));
         }
         for (const entry of removed) {
-            console.log(Messages.Log.RUNTIME_REMOVED(entry.name, entry.path));
+            log(Messages.Log.RUNTIME_REMOVED(entry.name, entry.path));
         }
 
         const {merged, updated} = mergeUserRuntimes(kept, candidates);
@@ -59,7 +60,7 @@ export class ConfigureUserRuntimesStep implements ConfigurationStep {
         }
 
         await config.update('runtimes', merged, vscode.ConfigurationTarget.Global);
-        console.log(Messages.Log.USER_RUNTIMES_UPDATED(merged.length));
+        log(Messages.Log.USER_RUNTIMES_UPDATED(merged.length));
         return StepResult.success();
     }
 }

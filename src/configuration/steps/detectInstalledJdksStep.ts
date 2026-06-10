@@ -2,11 +2,7 @@ import {findRuntimes} from 'jdk-utils';
 
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {selectBestJdkForVersion} from '../../build/jdkDetection';
-
-function parseJavaMajor(version: string): number {
-    const parsed = Number.parseInt(version, 10);
-    return Number.isNaN(parsed) ? 0 : parsed;
-}
+import {parseJavaVersionNumber} from '../../util/javaVersion';
 
 /**
  * Scans the user's machine for already-installed JDKs (JAVA_HOME, JDK_HOME,
@@ -37,7 +33,7 @@ export class DetectInstalledJdksStep implements ConfigurationStep {
         });
 
         for (const version of state.projectVersionMap.keys()) {
-            const major = parseJavaMajor(version);
+            const major = parseJavaVersionNumber(version);
             if (!major) {
                 continue;
             }

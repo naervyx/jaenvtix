@@ -74,7 +74,7 @@ export function getDefaultStepGroups(
             new WriteToolchainsStep(),
             new ConfigureSettingsStep(),
             new ConfigureUserRuntimesStep(),
-            new ApplyUserTuningsStep(),
+            new ApplyUserTuningsStep(() => vscode.workspace.getConfiguration()),
             new ConfigureLaunchStep({
                 notifyMalformed: (filePath) => {
                     void vscode.window.showWarningMessage(
@@ -112,14 +112,14 @@ async function runStepsWithProgress(
             }
 
             const message = buildProgressMessage(step);
-            progress.report({ increment: 0, message });
+            progress.report({increment: 0, message});
 
             const result = await runStep(step, state);
             if (!result.success) {
                 return result;
             }
 
-            progress.report({ increment });
+            progress.report({increment});
         }
 
         return StepResult.success();
@@ -139,7 +139,7 @@ async function runStepsWithProgress(
  *   (e.g. the user dismissed the confirm prompt).
  */
 export async function runConfigureJavaCommand(options?: ConfigureJavaOptions): Promise<void> {
-    const { preConfirm, postConfirm } = getDefaultStepGroups(
+    const {preConfirm, postConfirm} = getDefaultStepGroups(
         vscode.workspace.workspaceFolders,
         options,
     );

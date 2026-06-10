@@ -1,7 +1,7 @@
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 import assert from 'node:assert/strict';
 
-import { findCommonRoot, stripRootFromPath } from '../../src/file/fileExtractor';
+import {findCommonRoot, stripRootFromPath} from '../../src/file/fileExtractor';
 
 describe('findCommonRoot', () => {
     it('returns the shared top-level directory when every entry is nested under it', () => {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {promises as fs, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 
-import {updateVsCodeSettings, applyUserJavaTunings} from '../../src/build/settingTag';
+import {updateVsCodeSettings, applyUserJavaTunings} from '../../src/build/vsCodeSettingsWriter';
 import type {PlatformType} from '../../src/core/system';
 import {createTempDir, removeTempDir} from '../fixtures/tempDir';
 

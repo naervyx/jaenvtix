@@ -91,7 +91,7 @@ export function updateVsCodeLaunchConfig(
         const index = configurations.findIndex((entry) => entry.name === desired.name);
         if (index >= 0) {
             const existing = configurations[index];
-            const merged = { ...existing, ...desired };
+            const merged = {...existing, ...desired};
             const changed = Object.entries(desired).some(([key, value]) => !Object.is(existing[key], value));
             if (changed) {
                 configurations[index] = merged;
@@ -110,7 +110,7 @@ export function updateVsCodeLaunchConfig(
         data.configurations = configurations;
         const dirPath = dirname(launchPath);
         if (!existsSync(dirPath)) {
-            mkdirSync(dirPath, { recursive: true });
+            mkdirSync(dirPath, {recursive: true});
         }
 
         writeFileSync(launchPath, JSON.stringify(data, null, 4), 'utf-8');

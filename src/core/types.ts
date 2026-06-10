@@ -3,6 +3,19 @@ import {ArchitectureType, PlatformType} from './system';
 import {MavenDistribution} from '../build/mavenUrl';
 
 /**
+ * Entry shape of VS Code's `java.configuration.runtimes` setting. Shared by
+ * the per-project settings writer, the user-level runtimes merge, and the
+ * steps that build candidate entries.
+ */
+export interface JavaRuntime {
+    name: string;
+    path: string;
+    sources?: string;
+    javadoc?: string;
+    default?: boolean;
+}
+
+/**
  * All resolved information needed to apply VS Code settings for a single
  * Maven project at a specific Java version. One `ProjectContext` is produced
  * per (project × Java version) combination by `BuildProjectContextsStep`.
@@ -116,14 +129,14 @@ export function createInitialState(): JavaConfigurationState {
 export const StepResult = {
     /** Step completed without issues; the pipeline continues. */
     success(): ConfigurationStepResult {
-        return { success: true };
+        return {success: true};
     },
     /** Step completed but with a non-fatal issue; the pipeline is halted with a warning. */
     warning(message: string): ConfigurationStepResult {
-        return { success: false, kind: 'warning', message };
+        return {success: false, kind: 'warning', message};
     },
     /** Step failed; the pipeline is aborted with an error. */
     error(message: string): ConfigurationStepResult {
-        return { success: false, kind: 'error', message };
+        return {success: false, kind: 'error', message};
     },
 };

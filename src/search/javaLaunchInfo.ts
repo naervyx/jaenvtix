@@ -1,6 +1,8 @@
 import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {join} from 'node:path';
 
+import {scanXml} from './xmlScanner';
+
 /**
  * Launch metadata resolved for a Maven project:
  * the fully-qualified main class, the Maven artifact ID (used as the VS Code
@@ -16,53 +18,7 @@ const SPRING_BOOT_ANNOTATION = /@\s*SpringBootApplication\b/;
 const MAIN_METHOD_PATTERN = /\bpublic\s+static\s+void\s+main\s*\(/;
 const PACKAGE_PATTERN = /(?:^|\s)package\s+([A-Za-z0-9_.]+)\s*;/m;
 
-function getLocalName(qualifiedName: string): string {
-    const separatorIndex = qualifiedName.lastIndexOf(':');
-    if (separatorIndex < 0) {return qualifiedName;}
-    return qualifiedName.slice(separatorIndex + 1);
-}
-
-function findTagEndIndex(xml: string, fromIndex: number): number {
-    let openQuote: number | 0 = 0;
-
-    for (let index = fromIndex; index < xml.length; index++) {
-        const code = xml.charCodeAt(index);
-
-        if (openQuote) {
-            if (code === openQuote) {openQuote = 0;}
-            continue;
-        }
-
-        if (code === 34 || code === 39) {
-            openQuote = code;
-            continue;
-        }
-
-        if (code === 62) {return index;}
-    }
-
-    return -1;
-}
-
-function readTagLocalName(xml: string, startIndex: number, endIndex: number): string {
-    if (startIndex >= endIndex) {return '';}
-
-    let index = startIndex;
-
-    while (index < endIndex) {
-        const code = xml.charCodeAt(index);
-        if (code <= 32 || code === 47) {break;}
-        index++;
-    }
-
-    return getLocalName(xml.slice(startIndex, index));
-}
-
-function isSelfClosingTag(xml: string, gtIndex: number): boolean {
-    if (gtIndex <= 0) {return false;}
-    return xml.charCodeAt(gtIndex - 1) === 47;
-}
-
+/** Extracts the value of the `<artifactId>` that is a direct child of `<project>`. */
 function parseArtifactIdFromXml(xml: string): string | null {
     const tagStack: string[] = [];
     let capturedTagName: string | undefined;
@@ -90,85 +46,30 @@ function parseArtifactIdFromXml(xml: string): string | null {
         }
     };
 
-    const handleOpenTag = (tagName: string): void => {
-        tagStack.push(tagName);
+    scanXml(xml, {
+        onOpenTag: (tagName) => {
+            tagStack.push(tagName);
 
-        if (result) {return;}
-        if (tagName !== 'artifactId') {return;}
+            if (result) {return;}
+            if (tagName !== 'artifactId') {return;}
 
-        const parent = tagStack.at(-2);
-        if (parent === 'project') {
-            beginCapture(tagName);
-        }
-    };
-
-    const handleCloseTag = (tagName: string): void => {
-        endCapture(tagName);
-        tagStack.pop();
-    };
-
-    const handleText = (text: string): void => {
-        if (!capturedTagName) {return;}
-        if (tagStack.length !== capturedDepth) {return;}
-        if (tagStack.at(-1) !== capturedTagName) {return;}
-        capturedText += text;
-    };
-
-    let cursor = 0;
-
-    while (cursor < xml.length && !result) {
-        const ltIndex = xml.indexOf('<', cursor);
-        if (ltIndex < 0) {break;}
-
-        if (ltIndex > cursor) {handleText(xml.slice(cursor, ltIndex));}
-        cursor = ltIndex;
-
-        if (xml.startsWith('<!--', cursor)) {
-            const end = xml.indexOf('-->', cursor + 4);
-            cursor = end >= 0 ? end + 3 : xml.length;
-            continue;
-        }
-
-        if (xml.startsWith('<?', cursor)) {
-            const end = xml.indexOf('?>', cursor + 2);
-            cursor = end >= 0 ? end + 2 : xml.length;
-            continue;
-        }
-
-        if (xml.startsWith('<![CDATA[', cursor)) {
-            const end = xml.indexOf(']]>', cursor + 9);
-            if (end < 0) {break;}
-            handleText(xml.slice(cursor + 9, end));
-            cursor = end + 3;
-            continue;
-        }
-
-        if (xml.startsWith('<!', cursor)) {
-            const gtIndex = findTagEndIndex(xml, cursor + 2);
-            cursor = gtIndex >= 0 ? gtIndex + 1 : xml.length;
-            continue;
-        }
-
-        const gtIndex = findTagEndIndex(xml, cursor + 1);
-        if (gtIndex < 0) {break;}
-
-        if (xml.startsWith('</', cursor)) {
-            const closingName = readTagLocalName(xml, cursor + 2, gtIndex);
-            cursor = gtIndex + 1;
-
-            if (!closingName) {continue;}
-            handleCloseTag(closingName);
-            continue;
-        }
-
-        const openingName = readTagLocalName(xml, cursor + 1, gtIndex);
-        const selfClosing = isSelfClosingTag(xml, gtIndex);
-        cursor = gtIndex + 1;
-
-        if (!openingName) {continue;}
-        handleOpenTag(openingName);
-        if (selfClosing) {handleCloseTag(openingName);}
-    }
+            const parent = tagStack.at(-2);
+            if (parent === 'project') {
+                beginCapture(tagName);
+            }
+        },
+        onCloseTag: (tagName) => {
+            endCapture(tagName);
+            tagStack.pop();
+        },
+        onText: (text) => {
+            if (!capturedTagName) {return;}
+            if (tagStack.length !== capturedDepth) {return;}
+            if (tagStack.at(-1) !== capturedTagName) {return;}
+            capturedText += text;
+        },
+        isDone: () => result !== null,
+    });
 
     return result;
 }
@@ -283,7 +184,7 @@ function toQualifiedClassName(packageName: string | null, className: string | nu
 function collectJavaFiles(root: string, files: string[]): void {
     if (!existsSync(root)) {return;}
 
-    const entries = readdirSync(root, { withFileTypes: true });
+    const entries = readdirSync(root, {withFileTypes: true});
     for (const entry of entries) {
         const entryPath = join(root, entry.name);
         if (entry.isDirectory()) {
@@ -302,7 +203,7 @@ function collectJavaFiles(root: string, files: string[]): void {
  * `@SpringBootApplication` take priority; otherwise the first class with a
  * `public static void main` method is returned.
  */
-function findMainClassInSources(projectPath: string): { mainClass: string | null; isSpringBoot: boolean } {
+function findMainClassInSources(projectPath: string): {mainClass: string | null; isSpringBoot: boolean} {
     const sourceRoot = join(projectPath, 'src', 'main', 'java');
     const javaFiles: string[] = [];
     collectJavaFiles(sourceRoot, javaFiles);
@@ -324,7 +225,7 @@ function findMainClassInSources(projectPath: string): { mainClass: string | null
                 ?? findFirstClassName(content);
             const qualified = toQualifiedClassName(packageName, className);
             if (qualified) {
-                return { mainClass: qualified, isSpringBoot: true };
+                return {mainClass: qualified, isSpringBoot: true};
             }
         }
 
@@ -337,7 +238,7 @@ function findMainClassInSources(projectPath: string): { mainClass: string | null
         }
     }
 
-    return { mainClass: mainCandidate, isSpringBoot: false };
+    return {mainClass: mainCandidate, isSpringBoot: false};
 }
 
 /**

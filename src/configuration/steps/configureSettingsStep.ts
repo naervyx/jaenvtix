@@ -1,18 +1,13 @@
-import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
+import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, JavaRuntime, StepResult} from '../../core/types';
 import {
     buildDefaultM2SettingsPath,
     buildJaenvtixMavenScriptPath,
     buildVsCodeSettingPath,
 } from '../../build/directory';
-import {updateVsCodeSettings} from '../../build/settingTag';
+import {updateVsCodeSettings} from '../../build/vsCodeSettingsWriter';
 import {Messages} from '../../util/message';
+import {log} from '../../util/logger';
 import {isJavaVersionAtLeast, TOOLING_JAVA_MIN_VERSION, toJavaRuntimeName} from '../../util/javaVersion';
-
-interface JavaRuntime {
-    name: string;
-    path: string;
-    default?: boolean;
-}
 
 /**
  * Writes or updates the per-project `.vscode/settings.json` for each `ProjectContext`.
@@ -65,7 +60,7 @@ export class ConfigureSettingsStep implements ConfigurationStep {
 
             const updateResult = updateVsCodeSettings(settingsPath, javaMavenPaths);
             if (updateResult.updated) {
-                console.log(Messages.Log.SETTINGS_UPDATED(projectContext.projectPath, updateResult.updatedKeys));
+                log(Messages.Log.SETTINGS_UPDATED(projectContext.projectPath, updateResult.updatedKeys));
             }
         }
 

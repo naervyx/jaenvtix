@@ -1,5 +1,5 @@
-import {execSync} from 'node:child_process';
 import {determineArchiveType, PlatformType} from '../core/system';
+import {fetchTextContent} from '../util/fetchText';
 import {Messages} from '../util/message';
 import {isUrlAccessible} from '../util/urlValidator';
 
@@ -23,18 +23,15 @@ export type FetchPageFn = (url: string) => string | Promise<string>;
 export type IsUrlAccessibleFn = (url: string) => Promise<boolean>;
 
 export interface MavenDistributionDeps {
-    /** Override how the Maven download page HTML is fetched. Defaults to curl. */
+    /** Override how the Maven download page HTML is fetched. Defaults to an async HTTP GET. */
     fetchPage?: FetchPageFn;
     /** Override the URL accessibility probe. Defaults to a HEAD request. */
     isUrlAccessible?: IsUrlAccessibleFn;
 }
 
-function defaultFetchPage(url: string): string {
+async function defaultFetchPage(url: string): Promise<string> {
     try {
-        return execSync(`curl -s -L --max-time 10 "${url}"`, {
-            encoding: 'utf-8',
-            timeout: 15000,
-        });
+        return await fetchTextContent(url, {timeout: 10000});
     } catch {
         throw new Error(Messages.Error.MAVEN_PAGE_FETCH_FAILED(url));
     }
@@ -51,9 +48,9 @@ function parseDownloadLinks(html: string): MavenDownloadInfo | null {
         return null;
     }
 
-    const zipVersions = zipMatches.map((m) => ({ url: m[1], version: m[2] }));
-    const tarGzVersions = tarGzMatches.map((m) => ({ url: m[1], version: m[2] }));
-    const sortByVersion = (a: { version: string }, b: { version: string }) => {
+    const zipVersions = zipMatches.map((m) => ({url: m[1], version: m[2]}));
+    const tarGzVersions = tarGzMatches.map((m) => ({url: m[1], version: m[2]}));
+    const sortByVersion = (a: {version: string}, b: {version: string}) => {
         const partsA = a.version.split('.').map(Number);
         const partsB = b.version.split('.').map(Number);
 

@@ -1,9 +1,9 @@
-import { promises as fs } from 'node:fs';
-import { join, dirname, resolve, relative, isAbsolute, sep } from 'node:path';
+import {promises as fs} from 'node:fs';
+import {join, dirname, resolve, relative, isAbsolute, sep} from 'node:path';
 
 /** Creates `dirPath` and all missing ancestor directories (idempotent). */
 export async function ensureDirectory(dirPath: string): Promise<void> {
-    await fs.mkdir(dirPath, { recursive: true });
+    await fs.mkdir(dirPath, {recursive: true});
 }
 
 /**

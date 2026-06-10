@@ -5,7 +5,11 @@
  */
 export const TOOLING_JAVA_MIN_VERSION = 21;
 
-function parseJavaVersionNumber(version: string): number {
+/**
+ * Parses a Java major version string (e.g. `'17'`) to its numeric value.
+ * Unparseable strings yield `0` so callers can treat them as "no version".
+ */
+export function parseJavaVersionNumber(version: string): number {
     const parsed = Number.parseInt(version, 10);
     return Number.isNaN(parsed) ? 0 : parsed;
 }

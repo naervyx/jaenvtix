@@ -2,14 +2,7 @@ import {existsSync} from 'node:fs';
 import {join} from 'node:path';
 
 import {fixPath} from './runtimePathFix';
-
-export interface JavaRuntime {
-    name: string;
-    path: string;
-    sources?: string;
-    javadoc?: string;
-    default?: boolean;
-}
+import type {JavaRuntime} from '../core/types';
 
 export interface MergeResult {
     merged: JavaRuntime[];

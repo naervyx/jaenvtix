@@ -105,7 +105,7 @@ export function hasMavenInstallation(toolBin: string, platform: PlatformType): b
  * so subsequent steps can write files without checking for directory existence.
  */
 export function initializeBaseDirectories(): void {
-    mkdirSync(MAVEN_LOCAL_REPOSITORY_PATH, { recursive: true });
-    mkdirSync(JAENVTIX_ROOT_PATH, { recursive: true });
-    mkdirSync(JAENVTIX_TEMP_PATH, { recursive: true });
+    mkdirSync(MAVEN_LOCAL_REPOSITORY_PATH, {recursive: true});
+    mkdirSync(JAENVTIX_ROOT_PATH, {recursive: true});
+    mkdirSync(JAENVTIX_TEMP_PATH, {recursive: true});
 }

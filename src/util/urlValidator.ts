@@ -1,5 +1,5 @@
-import { request as httpsRequest } from 'node:https';
-import { request as httpRequest } from 'node:http';
+import {request as httpsRequest} from 'node:https';
+import {request as httpRequest} from 'node:http';
 
 /**
  * Probes `url` with an HTTP `HEAD` request and resolves to `true` if the
