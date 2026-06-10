@@ -28,6 +28,6 @@ export class ConfirmConfigurationStep implements ConfigurationStep {
             return StepResult.success();
         }
 
-        return { success: false };
+        return {success: false};
     }
 }

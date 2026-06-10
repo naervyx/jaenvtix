@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {promises as fs} from 'node:fs';
 import {join} from 'node:path';
 
-import {mergeUserRuntimes, validateAndCleanRuntimes, JavaRuntime} from '../../src/build/userRuntimesMerge';
+import {mergeUserRuntimes, validateAndCleanRuntimes} from '../../src/build/userRuntimesMerge';
+import type {JavaRuntime} from '../../src/core/types';
 import {createTempDir, removeTempDir} from '../fixtures/tempDir';
 
 // Business rule: Jaenvtix populates the user's `java.configuration.runtimes`

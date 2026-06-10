@@ -7,7 +7,7 @@
  */
 export interface DetectedJdk {
     homedir: string;
-    version?: { major?: number };
+    version?: {major?: number};
     /** True iff `<homedir>/bin/javac(.exe)` exists — JREs are excluded. */
     hasJavac?: boolean;
     isJdkHomeEnv?: boolean;

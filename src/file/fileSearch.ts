@@ -1,5 +1,5 @@
-import { existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import {existsSync, readdirSync} from 'node:fs';
+import {join} from 'node:path';
 
 /**
  * Returns all directories under `root` that contain a file named `fileName`.
@@ -17,7 +17,7 @@ export function findProjectsWithFile(root: string, fileName: string): string[] {
         projects.push(root);
     }
 
-    const children = readdirSync(root, { withFileTypes: true });
+    const children = readdirSync(root, {withFileTypes: true});
     for (const child of children) {
         if (child.isDirectory()) {
             const childPath = join(root, child.name);

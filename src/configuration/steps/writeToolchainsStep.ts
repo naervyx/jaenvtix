@@ -3,6 +3,7 @@ import {dirname, join} from 'node:path';
 
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {Messages} from '../../util/message';
+import {log} from '../../util/logger';
 import {buildDefaultM2ToolchainsPath} from '../../build/directory';
 import {mergeToolchainsXml, parseJdkVendor, ToolchainEntry} from '../../build/toolchainsXml';
 import {toMavenToolchainVersion} from '../../util/javaVersion';
@@ -55,7 +56,7 @@ export class WriteToolchainsStep implements ConfigurationStep {
         }
 
         writeFileSync(toolchainsPath, xml, 'utf-8');
-        console.log(Messages.Log.TOOLCHAINS_XML_WRITTEN(toolchainsPath));
+        log(Messages.Log.TOOLCHAINS_XML_WRITTEN(toolchainsPath));
         return StepResult.success();
     }
 }

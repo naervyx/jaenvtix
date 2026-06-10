@@ -1,7 +1,6 @@
-
-import { createReadStream, promises as fs } from 'node:fs';
-import { createGunzip } from 'node:zlib';
-import {buildFullPath, ensureDirectory, findCommonRoot, writeFileWithDirectory} from "../fileExtractor";
+import {createReadStream, promises as fs} from 'node:fs';
+import {createGunzip} from 'node:zlib';
+import {buildFullPath, ensureDirectory, findCommonRoot, writeFileWithDirectory} from '../fileExtractor';
 
 interface TarEntry {
     name: string;
@@ -48,22 +47,132 @@ function parseTarHeader(buffer: Buffer): TarEntry | null {
     const size = parseOctalField(buffer.subarray(124, 136));
     const type = buffer.subarray(156, 157).toString('utf8') || TAR_TYPE_FILE;
 
-    return { name, type, size, mode };
+    return {name, type, size, mode};
 }
 
-async function decompressGzip(filePath: string): Promise<Buffer> {
-    const chunks: Buffer[] = [];
+/**
+ * FIFO byte queue over stream chunks. Lets the TAR reader consume exact byte
+ * counts (header blocks, padded entry content) from arbitrarily-sized gunzip
+ * chunks without concatenating the whole stream into one buffer.
+ */
+class ChunkQueue {
+    private chunks: Buffer[] = [];
+    private totalLength = 0;
+
+    push(chunk: Buffer): void {
+        this.chunks.push(chunk);
+        this.totalLength += chunk.length;
+    }
+
+    /** Removes and returns exactly `count` bytes, or `null` when not enough are buffered yet. */
+    take(count: number): Buffer | null {
+        if (this.totalLength < count) {
+            return null;
+        }
+        if (count === 0) {
+            return Buffer.alloc(0);
+        }
+
+        const parts: Buffer[] = [];
+        let remaining = count;
+
+        while (remaining > 0) {
+            const head = this.chunks[0];
+            if (head.length <= remaining) {
+                parts.push(head);
+                this.chunks.shift();
+                remaining -= head.length;
+            } else {
+                parts.push(head.subarray(0, remaining));
+                this.chunks[0] = head.subarray(remaining);
+                remaining = 0;
+            }
+        }
+
+        this.totalLength -= count;
+        return parts.length === 1 ? parts[0] : Buffer.concat(parts);
+    }
+
+    /** Discards exactly `count` bytes without building a buffer. Returns `false` when not enough are buffered yet. */
+    skip(count: number): boolean {
+        if (this.totalLength < count) {
+            return false;
+        }
+
+        let remaining = count;
+        while (remaining > 0) {
+            const head = this.chunks[0];
+            if (head.length <= remaining) {
+                this.chunks.shift();
+                remaining -= head.length;
+            } else {
+                this.chunks[0] = head.subarray(remaining);
+                remaining = 0;
+            }
+        }
+
+        this.totalLength -= count;
+        return true;
+    }
+}
+
+/**
+ * Streams the gzip-compressed TAR at `sourcePath` and yields one record per
+ * entry. When `includeContent` is `false` the entry payload is discarded
+ * without buffering (used by the name-collection pass).
+ *
+ * Stops at the first all-zero header block (end-of-archive marker). Peak
+ * memory is a single entry's content plus the small chunk backlog — the
+ * decompressed archive is never held in memory as a whole.
+ */
+async function* readTarEntries(
+    sourcePath: string,
+    includeContent: boolean,
+): AsyncGenerator<{header: TarEntry; content: Buffer | null}> {
+    const queue = new ChunkQueue();
     const gunzip = createGunzip();
-    const input = createReadStream(filePath);
+    const input = createReadStream(sourcePath);
+
+    let pendingHeader: TarEntry | null = null;
 
     try {
         input.pipe(gunzip);
 
         for await (const chunk of gunzip) {
-            chunks.push(chunk as Buffer);
-        }
+            queue.push(chunk as Buffer);
 
-        return Buffer.concat(chunks);
+            for (;;) {
+                if (!pendingHeader) {
+                    const headerBlock = queue.take(TAR_BLOCK_SIZE);
+                    if (!headerBlock) {
+                        break;
+                    }
+
+                    const header = parseTarHeader(headerBlock);
+                    if (!header) {
+                        return;
+                    }
+                    pendingHeader = header;
+                }
+
+                const paddedSize = Math.ceil(pendingHeader.size / TAR_BLOCK_SIZE) * TAR_BLOCK_SIZE;
+
+                if (includeContent) {
+                    const padded = queue.take(paddedSize);
+                    if (!padded) {
+                        break;
+                    }
+                    yield {header: pendingHeader, content: padded.subarray(0, pendingHeader.size)};
+                } else {
+                    if (!queue.skip(paddedSize)) {
+                        break;
+                    }
+                    yield {header: pendingHeader, content: null};
+                }
+
+                pendingHeader = null;
+            }
+        }
     } finally {
         if (!input.destroyed) {
             input.destroy();
@@ -74,65 +183,13 @@ async function decompressGzip(filePath: string): Promise<Buffer> {
     }
 }
 
-function collectEntryNames(buffer: Buffer): string[] {
-    const entries: string[] = [];
-    let offset = 0;
-
-    while (offset < buffer.length) {
-        const header = parseTarHeader(buffer.subarray(offset, offset + TAR_BLOCK_SIZE));
-        if (!header) {
-            break;
-        }
-
-        if (isContentEntry(header.type)) {
-            entries.push(header.name);
-        }
-        offset += TAR_BLOCK_SIZE;
-        offset += Math.ceil(header.size / TAR_BLOCK_SIZE) * TAR_BLOCK_SIZE;
-    }
-
-    return entries;
-}
-
-async function extractEntries(buffer: Buffer, destPath: string, root: string | null): Promise<void> {
-    let offset = 0;
-
-    while (offset < buffer.length) {
-        const header = parseTarHeader(buffer.subarray(offset, offset + TAR_BLOCK_SIZE));
-        if (!header) {
-            break;
-        }
-
-        offset += TAR_BLOCK_SIZE;
-        const fullPath = buildFullPath(destPath, header.name, root);
-
-        if (fullPath) {
-            if (header.type === TAR_TYPE_DIR) {
-                await ensureDirectory(fullPath);
-            } else if (header.type === TAR_TYPE_FILE || header.type === '') {
-                const content = buffer.subarray(offset, offset + header.size);
-                await writeFileWithDirectory(fullPath, content);
-
-                if (IS_POSIX && header.mode) {
-                    try {
-                        await fs.chmod(fullPath, header.mode & 0o777);
-                    } catch {
-                        // Best-effort: a failed chmod on one file must not abort extraction.
-                    }
-                }
-            }
-        }
-
-        offset += Math.ceil(header.size / TAR_BLOCK_SIZE) * TAR_BLOCK_SIZE;
-    }
-}
-
 /**
  * Extracts a `.tar.gz` archive at `sourcePath` into `destPath`.
  *
  * Business rules:
- * - Decompresses the gzip layer first, then parses the resulting TAR stream
- *   entirely in memory.
+ * - Two streaming passes over the archive: the first collects entry names to
+ *   detect the common root, the second writes files. Gzip is decompressed
+ *   twice, trading a little CPU for never holding the whole archive in memory.
  * - Skips PAX metadata entries (`g`, `x`, `L`, `K`, `V` type flags) so that
  *   PAX global headers prepended by Amazon Corretto archives do not interfere
  *   with common-root detection.
@@ -143,10 +200,39 @@ async function extractEntries(buffer: Buffer, destPath: string, root: string | n
  *   the rest of the extraction.
  */
 export async function extractTarGz(sourcePath: string, destPath: string): Promise<void> {
-    const buffer = await decompressGzip(sourcePath);
-    const entries = collectEntryNames(buffer);
-    const root = findCommonRoot(entries);
+    const entryNames: string[] = [];
+    for await (const {header} of readTarEntries(sourcePath, false)) {
+        if (isContentEntry(header.type)) {
+            entryNames.push(header.name);
+        }
+    }
 
+    const root = findCommonRoot(entryNames);
     await ensureDirectory(destPath);
-    await extractEntries(buffer, destPath, root);
+
+    for await (const {header, content} of readTarEntries(sourcePath, true)) {
+        const fullPath = buildFullPath(destPath, header.name, root);
+        if (!fullPath) {
+            continue;
+        }
+
+        if (header.type === TAR_TYPE_DIR) {
+            await ensureDirectory(fullPath);
+            continue;
+        }
+
+        if (header.type !== TAR_TYPE_FILE && header.type !== '') {
+            continue;
+        }
+
+        await writeFileWithDirectory(fullPath, content ?? Buffer.alloc(0));
+
+        if (IS_POSIX && header.mode) {
+            try {
+                await fs.chmod(fullPath, header.mode & 0o777);
+            } catch {
+                // Best-effort: a failed chmod on one file must not abort extraction.
+            }
+        }
+    }
 }

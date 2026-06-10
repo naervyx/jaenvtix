@@ -1,11 +1,15 @@
-import {applyUserJavaTunings} from '../../build/settingTag';
+import {applyUserJavaTunings} from '../../build/vsCodeSettingsWriter';
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 
-// vscode.ConfigurationTarget.Global = 1; hardcoded to avoid a top-level vscode import
-// so the module can be loaded in the test environment (no extension host required).
+// vscode.ConfigurationTarget.Global = 1; hardcoded so this module never imports
+// `vscode` and stays loadable under plain Node in unit tests.
 const CONFIG_TARGET_GLOBAL = 1;
 
-interface UserConfig {
+/**
+ * Minimal surface of `vscode.WorkspaceConfiguration` this step needs. The
+ * orchestrator injects the real configuration; tests inject an in-memory fake.
+ */
+export interface UserConfig {
     get(key: string): unknown;
     update(key: string, value: unknown, target: number): Thenable<void>;
 }
@@ -18,12 +22,23 @@ const TUNING_KEYS = [
     'java.test.config',
 ] as const;
 
+/**
+ * Applies sensible Java defaults to User Settings on first run.
+ *
+ * Business rules:
+ * - Skipped entirely when the user opted out via `jaenvtix.applyJavaTunings: false`.
+ * - `setIfUndefined` semantics: a key the user (or a previous run) already set
+ *   is never overwritten — see `applyUserJavaTunings` for the tuning values.
+ * - The `java.test.config` UTF-8 tuning is Windows-only.
+ * - The configuration accessor is injected by the orchestrator
+ *   (`getDefaultStepGroups`) so this module never imports `vscode` and stays
+ *   loadable under plain Node in unit tests.
+ */
 export class ApplyUserTuningsStep implements ConfigurationStep {
     readonly name = 'ApplyUserTunings';
 
     constructor(
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        private readonly configFactory: () => UserConfig = () => (require('vscode') as typeof import('vscode')).workspace.getConfiguration(),
+        private readonly configFactory: () => UserConfig,
         private readonly osPlatform: string = process.platform,
     ) {}
 

@@ -1,5 +1,7 @@
 import {readFileSync} from 'node:fs';
-import { join } from 'node:path';
+import {join} from 'node:path';
+
+import {scanXml} from './xmlScanner';
 
 const TAG = {
     javaVersionProperty: 'java.version',
@@ -35,12 +37,6 @@ const JAVA_VERSION_PROPERTY_TAGS = new Set<string>([
 
 type PluginKind = 'none' | 'compiler' | 'toolchains';
 
-function getLocalName(qualifiedName: string): string {
-    const separatorIndex = qualifiedName.lastIndexOf(':');
-    if (separatorIndex < 0) {return qualifiedName;}
-    return qualifiedName.slice(separatorIndex + 1);
-}
-
 function normalizeJavaVersion(rawInput: string): string | null {
     const trimmed = rawInput.trim();
     if (!trimmed) {return null;}
@@ -52,50 +48,9 @@ function normalizeJavaVersion(rawInput: string): string | null {
     return modernMatch?.[1] ?? null;
 }
 
-function findTagEndIndex(xml: string, fromIndex: number): number {
-    let openQuote: number | 0 = 0;
-
-    for (let index = fromIndex; index < xml.length; index++) {
-        const code = xml.charCodeAt(index);
-
-        if (openQuote) {
-            if (code === openQuote) {openQuote = 0;}
-            continue;
-        }
-
-        if (code === 34 || code === 39) {
-            openQuote = code;
-            continue;
-        }
-
-        if (code === 62) {return index;}
-    }
-
-    return -1;
-}
-
-function readTagLocalName(xml: string, startIndex: number, endIndex: number): string {
-    if (startIndex >= endIndex) {return '';}
-
-    let index = startIndex;
-
-    while (index < endIndex) {
-        const code = xml.charCodeAt(index);
-        if (code <= 32 || code === 47) {break;}
-        index++;
-    }
-
-    return getLocalName(xml.slice(startIndex, index));
-}
-
-function isSelfClosingTag(xml: string, gtIndex: number): boolean {
-    if (gtIndex <= 0) {return false;}
-    return xml.charCodeAt(gtIndex - 1) === 47;
-}
-
 /**
- * Extracts the Java version from a `pom.xml` XML string using a streaming
- * character-level parser (no DOM or SAX dependency).
+ * Extracts the Java version from a `pom.xml` XML string. Tokenization is
+ * delegated to `scanXml`; this function owns the pom-specific state machine.
  *
  * Recognized configuration patterns (in priority order):
  * - `<properties><java.version>` — Spring Boot convention.
@@ -153,44 +108,40 @@ function parseJavaVersionFromXml(xml: string): string | null {
         capturedText = '';
     };
 
-    const endCapture = (closingTagName: string): void => {
-        if (!capturedTagName) {return;}
-        if (capturedTagName !== closingTagName) {return;}
-        if (capturedTagDepth !== tagStack.length) {return;}
-
-        const value = capturedText.trim();
-
-        capturedTagName = undefined;
-        capturedText = '';
-
-        if (!value) {return;}
-
-        if (JAVA_VERSION_PROPERTY_TAGS.has(closingTagName)) {
-            if (setResultIfValid(value)) {return;}
+    /** Stores a `<release>`/`<compilerVersion>` captured inside maven-compiler-plugin. */
+    const tryCommitCompilerValue = (tagName: string, value: string): boolean => {
+        if (tagName === TAG.release) {
+            compilerReleaseValue = value;
+            setResultIfValid(value);
+            return true;
         }
 
-        if (currentPluginKind === 'compiler') {
-            if (closingTagName === TAG.release) {
-                compilerReleaseValue = value;
-                setResultIfValid(value);
-                return;
-            }
-
-            if (closingTagName === TAG.compilerVersion && !compilerReleaseValue) {
-                compilerVersionValue = value;
-                setResultIfValid(value);
-                return;
-            }
+        if (tagName === TAG.compilerVersion && !compilerReleaseValue) {
+            compilerVersionValue = value;
+            setResultIfValid(value);
+            return true;
         }
 
-        if (currentPluginKind === 'toolchains') {
-            if (closingTagName === TAG.version) {
-                toolchainVersionValue = value;
-                setResultIfValid(value);
-                return;
-            }
+        return false;
+    };
+
+    /** Stores a `<jdkToolchain><version>` captured inside a toolchains plugin. */
+    const tryCommitToolchainValue = (tagName: string, value: string): boolean => {
+        if (tagName === TAG.version) {
+            toolchainVersionValue = value;
+            setResultIfValid(value);
+            return true;
         }
 
+        return false;
+    };
+
+    /**
+     * When a plugin-root `<artifactId>` closes, resolve which plugin this block
+     * is and commit any values that were captured before the artifactId appeared
+     * (the `<configuration>` may precede the `<artifactId>` in the pom).
+     */
+    const resolvePluginKindFromArtifactId = (closingTagName: string, value: string): void => {
         const isArtifactIdAtPluginRoot =
             closingTagName === TAG.artifactId && tagStack.length === pluginContainerDepth + 1;
 
@@ -209,35 +160,50 @@ function parseJavaVersionFromXml(xml: string): string | null {
         if (toolchainVersionValue) {setResultIfValid(toolchainVersionValue);}
     };
 
-    const handleOpenTag = (tagName: string): void => {
-        tagStack.push(tagName);
-
-        const depth = tagStack.length;
-        const parentTag = tagStack.at(-2) ?? '';
-        const grandParentTag = tagStack.at(-3) ?? '';
-
-        const isPropertiesChild = parentTag === TAG.properties;
-        if (isPropertiesChild && JAVA_VERSION_PROPERTY_TAGS.has(tagName)) {
-            beginCapture(tagName);
+    const commitCapturedValue = (closingTagName: string, value: string): void => {
+        if (JAVA_VERSION_PROPERTY_TAGS.has(closingTagName) && setResultIfValid(value)) {
             return;
         }
 
-        const isBuildPlugin =
-            tagName === TAG.plugin && parentTag === TAG.plugins && grandParentTag === TAG.build;
-
-        if (isBuildPlugin) {
-            pluginContainerDepth = depth;
-            currentPluginKind = 'none';
-            configurationDepth = 0;
-            jdkToolchainDepth = 0;
-            compilerReleaseValue = undefined;
-            compilerVersionValue = undefined;
-            toolchainVersionValue = undefined;
+        if (currentPluginKind === 'compiler' && tryCommitCompilerValue(closingTagName, value)) {
             return;
         }
 
-        if (!pluginContainerDepth) {return;}
+        if (currentPluginKind === 'toolchains' && tryCommitToolchainValue(closingTagName, value)) {
+            return;
+        }
 
+        resolvePluginKindFromArtifactId(closingTagName, value);
+    };
+
+    const endCapture = (closingTagName: string): void => {
+        if (!capturedTagName) {return;}
+        if (capturedTagName !== closingTagName) {return;}
+        if (capturedTagDepth !== tagStack.length) {return;}
+
+        const value = capturedText.trim();
+
+        capturedTagName = undefined;
+        capturedText = '';
+
+        if (!value) {return;}
+
+        commitCapturedValue(closingTagName, value);
+    };
+
+    /** Resets all plugin-scoped state when a new `<build><plugins><plugin>` opens. */
+    const enterPluginBlock = (depth: number): void => {
+        pluginContainerDepth = depth;
+        currentPluginKind = 'none';
+        configurationDepth = 0;
+        jdkToolchainDepth = 0;
+        compilerReleaseValue = undefined;
+        compilerVersionValue = undefined;
+        toolchainVersionValue = undefined;
+    };
+
+    /** Routes tags opened inside a `<plugin>` block: artifactId, configuration, and their children. */
+    const handlePluginChildTag = (tagName: string, parentTag: string, depth: number): void => {
         if (tagName === TAG.artifactId && depth === pluginContainerDepth + 1) {
             beginCapture(tagName);
             return;
@@ -271,6 +237,48 @@ function parseJavaVersionFromXml(xml: string): string | null {
         }
     };
 
+    const handleOpenTag = (tagName: string): void => {
+        tagStack.push(tagName);
+
+        const depth = tagStack.length;
+        const parentTag = tagStack.at(-2) ?? '';
+        const grandParentTag = tagStack.at(-3) ?? '';
+
+        if (parentTag === TAG.properties && JAVA_VERSION_PROPERTY_TAGS.has(tagName)) {
+            beginCapture(tagName);
+            return;
+        }
+
+        const isBuildPlugin =
+            tagName === TAG.plugin && parentTag === TAG.plugins && grandParentTag === TAG.build;
+
+        if (isBuildPlugin) {
+            enterPluginBlock(depth);
+            return;
+        }
+
+        if (!pluginContainerDepth) {return;}
+
+        handlePluginChildTag(tagName, parentTag, depth);
+    };
+
+    /**
+     * Commits accumulators that are still pending when the `<plugin>` block
+     * closes — covers poms where the `<configuration>` precedes the
+     * `<artifactId>` and no commit happened inline.
+     */
+    const commitPendingPluginValues = (): void => {
+        if (currentPluginKind === 'compiler') {
+            if (compilerReleaseValue && setResultIfValid(compilerReleaseValue)) {return;}
+            if (compilerVersionValue) {setResultIfValid(compilerVersionValue);}
+            return;
+        }
+
+        if (currentPluginKind === 'toolchains' && toolchainVersionValue) {
+            setResultIfValid(toolchainVersionValue);
+        }
+    };
+
     const handleCloseTag = (tagName: string): void => {
         endCapture(tagName);
 
@@ -296,21 +304,7 @@ function parseJavaVersionFromXml(xml: string): string | null {
             return;
         }
 
-        if (currentPluginKind === 'compiler') {
-            if (compilerReleaseValue && setResultIfValid(compilerReleaseValue)) {
-                tagStack.pop();
-                pluginContainerDepth = 0;
-                currentPluginKind = 'none';
-                return;
-            }
-
-            if (compilerVersionValue) {setResultIfValid(compilerVersionValue);}
-        }
-
-        if (currentPluginKind === 'toolchains' && toolchainVersionValue) {
-            setResultIfValid(toolchainVersionValue);
-        }
-
+        commitPendingPluginValues();
         pluginContainerDepth = 0;
         currentPluginKind = 'none';
         tagStack.pop();
@@ -324,62 +318,12 @@ function parseJavaVersionFromXml(xml: string): string | null {
         capturedText += text;
     };
 
-    let cursor = 0;
-
-    while (cursor < xml.length && !detectedJavaVersion) {
-        const ltIndex = xml.indexOf('<', cursor);
-        if (ltIndex < 0) {break;}
-
-        if (ltIndex > cursor) {handleText(xml.slice(cursor, ltIndex));}
-        cursor = ltIndex;
-
-        if (xml.startsWith('<!--', cursor)) {
-            const end = xml.indexOf('-->', cursor + 4);
-            cursor = end >= 0 ? end + 3 : xml.length;
-            continue;
-        }
-
-        if (xml.startsWith('<?', cursor)) {
-            const end = xml.indexOf('?>', cursor + 2);
-            cursor = end >= 0 ? end + 2 : xml.length;
-            continue;
-        }
-
-        if (xml.startsWith('<![CDATA[', cursor)) {
-            const end = xml.indexOf(']]>', cursor + 9);
-            if (end < 0) {break;}
-            handleText(xml.slice(cursor + 9, end));
-            cursor = end + 3;
-            continue;
-        }
-
-        if (xml.startsWith('<!', cursor)) {
-            const gtIndex = findTagEndIndex(xml, cursor + 2);
-            cursor = gtIndex >= 0 ? gtIndex + 1 : xml.length;
-            continue;
-        }
-
-        const gtIndex = findTagEndIndex(xml, cursor + 1);
-        if (gtIndex < 0) {break;}
-
-        if (xml.startsWith('</', cursor)) {
-            const closingName = readTagLocalName(xml, cursor + 2, gtIndex);
-            cursor = gtIndex + 1;
-
-            if (!closingName) {continue;}
-            handleCloseTag(closingName);
-            continue;
-        }
-
-        const openingName = readTagLocalName(xml, cursor + 1, gtIndex);
-        const selfClosing = isSelfClosingTag(xml, gtIndex);
-        cursor = gtIndex + 1;
-
-        if (!openingName) {continue;}
-
-        handleOpenTag(openingName);
-        if (selfClosing) {handleCloseTag(openingName);}
-    }
+    scanXml(xml, {
+        onOpenTag: handleOpenTag,
+        onCloseTag: handleCloseTag,
+        onText: handleText,
+        isDone: () => detectedJavaVersion !== null,
+    });
 
     return detectedJavaVersion;
 }

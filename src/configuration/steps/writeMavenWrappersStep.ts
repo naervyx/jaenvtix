@@ -7,6 +7,7 @@ import {
 } from '../../build/directory';
 import {writeJaenvtixMavenWrapper} from '../../build/mavenWrapperScript';
 import {Messages} from '../../util/message';
+import {log} from '../../util/logger';
 
 /**
  * Writes the Jaenvtix Maven wrapper script (`jaenvtix-mvn` / `jaenvtix-mvn.cmd`)
@@ -54,7 +55,7 @@ export class WriteMavenWrappersStep implements ConfigurationStep {
             });
 
             if (result.updated) {
-                console.log(Messages.Log.MAVEN_WRAPPER_WRITTEN(javaVersion, result.scriptPath));
+                log(Messages.Log.MAVEN_WRAPPER_WRITTEN(javaVersion, result.scriptPath));
             }
         }
 

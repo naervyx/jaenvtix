@@ -7,6 +7,7 @@ import {
     decideAutoConfigAction,
 } from './activation/autoConfigPrompt';
 import {Messages} from './util/message';
+import {setLogSink} from './util/logger';
 
 const CONFIGURE_JAVA_COMMAND = 'jaenvtix.configureJava';
 const RESET_AUTO_CONFIG_PREFERENCE_COMMAND = 'jaenvtix.resetAutoConfigPreference';
@@ -36,6 +37,12 @@ let autoConfigDelivered = false;
  *   Palette even if the activation-time prompt fails.
  */
 export async function activate(context: vscode.ExtensionContext) {
+    // Route Messages.Log lines to a user-visible output channel instead of
+    // the extension-host console (only reachable through developer tools).
+    const outputChannel = vscode.window.createOutputChannel('Jaenvtix');
+    context.subscriptions.push(outputChannel);
+    setLogSink((message) => outputChannel.appendLine(message));
+
     const configureJava = vscode.commands.registerCommand(
         CONFIGURE_JAVA_COMMAND,
         (options?: import('./configuration/configureJavaCommand').ConfigureJavaOptions) =>

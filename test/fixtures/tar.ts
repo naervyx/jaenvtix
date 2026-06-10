@@ -1,4 +1,4 @@
-import { gzipSync } from 'node:zlib';
+import {gzipSync} from 'node:zlib';
 
 export type TarEntryType = 'file' | 'dir' | 'pax-global' | 'pax-extended' | 'gnu-longlink' | 'gnu-longname' | 'symlink';
 

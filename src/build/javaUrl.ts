@@ -31,7 +31,7 @@ const VENDOR_CONFIGS: Readonly<Record<JdkVendor, VendorConfig>> = {
     oracle: {
         baseUrl: 'https://download.oracle.com/java',
         buildPath: (v, os, arch, ext) => `/${v}/latest/jdk-${v}_${os}-${arch}_bin.${ext}`,
-        osNames: { ...DEFAULT_OS_NAMES, darwin: 'macos' },
+        osNames: {...DEFAULT_OS_NAMES, darwin: 'macos'},
         archNames: DEFAULT_ARCH_NAMES,
     },
     corretto: {
@@ -43,7 +43,7 @@ const VENDOR_CONFIGS: Readonly<Record<JdkVendor, VendorConfig>> = {
     temurin: {
         baseUrl: 'https://api.adoptium.net/v3/binary/latest',
         buildPath: (v, os, arch) => `/${v}/ga/${os}/${arch}/jdk/hotspot/normal/eclipse`,
-        osNames: { ...DEFAULT_OS_NAMES, darwin: 'mac' },
+        osNames: {...DEFAULT_OS_NAMES, darwin: 'mac'},
         archNames: DEFAULT_ARCH_NAMES,
     },
 };

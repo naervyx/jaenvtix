@@ -8,7 +8,7 @@ import {getMavenDistribution, MavenDistribution} from '../../build/mavenUrl';
 // runtime import on the `vscode` package, so this step (and its tests) load
 // cleanly under plain Node / tsx outside of the VS Code extension host.
 interface WorkspaceFolderLike {
-    readonly uri: { readonly fsPath: string };
+    readonly uri: {readonly fsPath: string};
 }
 
 export interface ValidateEnvironmentDeps {

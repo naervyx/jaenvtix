@@ -92,5 +92,5 @@ export function writeJaenvtixMavenWrapper(input: MavenWrapperInput): MavenWrappe
         chmodSync(input.scriptPath, 0o755);
     }
 
-    return { updated, scriptPath: input.scriptPath };
+    return {updated, scriptPath: input.scriptPath};
 }

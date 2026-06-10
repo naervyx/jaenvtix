@@ -1,9 +1,9 @@
-import { request as httpsRequest, RequestOptions } from 'node:https';
-import { request as httpRequest, IncomingMessage } from 'node:http';
-import { createWriteStream, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { JAENVTIX_TEMP_PATH } from '../build/directory';
-import { Messages } from '../util/message';
+import {request as httpsRequest, RequestOptions} from 'node:https';
+import {request as httpRequest, IncomingMessage} from 'node:http';
+import {createWriteStream, mkdirSync} from 'node:fs';
+import {dirname, join} from 'node:path';
+import {JAENVTIX_TEMP_PATH} from '../build/directory';
+import {Messages} from '../util/message';
 
 /**
  * Parameters for a single file download. The resulting file is always written
@@ -60,7 +60,7 @@ function isRedirect(statusCode: number): boolean {
  *   the promise, so callers do not need a try/catch.
  */
 export function downloadFile(options: DownloadOptions): Promise<DownloadResult> {
-    const { url, fileName, extension, timeout = 30000, redirectsLeft = 5, targetDir = JAENVTIX_TEMP_PATH } = options;
+    const {url, fileName, extension, timeout = 30000, redirectsLeft = 5, targetDir = JAENVTIX_TEMP_PATH} = options;
     const fullPath = join(targetDir, `${fileName}.${extension}`);
 
     return new Promise((resolve) => {
@@ -68,7 +68,7 @@ export function downloadFile(options: DownloadOptions): Promise<DownloadResult> 
         try {
             urlObj = new URL(url);
         } catch {
-            resolve({ success: false, filePath: fullPath, error: Messages.Error.INVALID_URL });
+            resolve({success: false, filePath: fullPath, error: Messages.Error.INVALID_URL});
             return;
         }
         const requestModule = getRequestModule(urlObj.protocol);
@@ -90,13 +90,13 @@ export function downloadFile(options: DownloadOptions): Promise<DownloadResult> 
 
                 if (!location) {
                     response.resume();
-                    resolve({ success: false, filePath: fullPath, error: Messages.Error.REDIRECT_WITHOUT_LOCATION });
+                    resolve({success: false, filePath: fullPath, error: Messages.Error.REDIRECT_WITHOUT_LOCATION});
                     return;
                 }
 
                 if (redirectsLeft <= 0) {
                     response.resume();
-                    resolve({ success: false, filePath: fullPath, error: Messages.Error.TOO_MANY_REDIRECTS });
+                    resolve({success: false, filePath: fullPath, error: Messages.Error.TOO_MANY_REDIRECTS});
                     return;
                 }
 
@@ -105,7 +105,7 @@ export function downloadFile(options: DownloadOptions): Promise<DownloadResult> 
                     redirectUrl = new URL(location, urlObj);
                 } catch {
                     response.resume();
-                    resolve({ success: false, filePath: fullPath, error: Messages.Error.INVALID_REDIRECT_URL });
+                    resolve({success: false, filePath: fullPath, error: Messages.Error.INVALID_REDIRECT_URL});
                     return;
                 }
 
@@ -115,23 +115,23 @@ export function downloadFile(options: DownloadOptions): Promise<DownloadResult> 
                     redirectsLeft: redirectsLeft - 1,
                 }).then(resolve).catch((err: unknown) => {
                     const message = err instanceof Error ? err.message : String(err);
-                    resolve({ success: false, filePath: fullPath, error: message });
+                    resolve({success: false, filePath: fullPath, error: message});
                 });
                 return;
             }
 
             if (statusCode >= 400) {
                 response.resume();
-                resolve({ success: false, filePath: fullPath, error: Messages.Error.REQUEST_FAILED_STATUS(statusCode) });
+                resolve({success: false, filePath: fullPath, error: Messages.Error.REQUEST_FAILED_STATUS(statusCode)});
                 return;
             }
 
             try {
-                mkdirSync(dirname(fullPath), { recursive: true });
+                mkdirSync(dirname(fullPath), {recursive: true});
             } catch (err) {
                 response.resume();
                 const message = err instanceof Error ? err.message : String(err);
-                resolve({ success: false, filePath: fullPath, error: message });
+                resolve({success: false, filePath: fullPath, error: message});
                 return;
             }
 
@@ -140,21 +140,21 @@ export function downloadFile(options: DownloadOptions): Promise<DownloadResult> 
 
             fileStream.on('finish', () => {
                 fileStream.close();
-                resolve({ success: true, filePath: fullPath });
+                resolve({success: true, filePath: fullPath});
             });
 
             fileStream.on('error', (err) => {
-                resolve({ success: false, filePath: fullPath, error: err.message });
+                resolve({success: false, filePath: fullPath, error: err.message});
             });
         });
 
         req.on('error', (err) => {
-            resolve({ success: false, filePath: fullPath, error: err.message });
+            resolve({success: false, filePath: fullPath, error: err.message});
         });
 
         req.on('timeout', () => {
             req.destroy();
-            resolve({ success: false, filePath: fullPath, error: Messages.Error.REQUEST_TIMEOUT });
+            resolve({success: false, filePath: fullPath, error: Messages.Error.REQUEST_TIMEOUT});
         });
 
         req.end();

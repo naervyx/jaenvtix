@@ -20,7 +20,7 @@ async function removeIfExists(filePath: string): Promise<void> {
     }
 }
 
-function isFailure(result: DownloadResult): result is DownloadResult & { success: false } {
+function isFailure(result: DownloadResult): result is DownloadResult & {success: false} {
     return !result.success;
 }
 
@@ -51,7 +51,7 @@ export async function ensureBinDirectoryExecutable(root: string, platform: Platf
 
     let entries: import('node:fs').Dirent[];
     try {
-        entries = await fs.readdir(binPath, { recursive: true, withFileTypes: true });
+        entries = await fs.readdir(binPath, {recursive: true, withFileTypes: true});
     } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
         if (code === 'ENOENT') {
@@ -68,8 +68,8 @@ export async function ensureBinDirectoryExecutable(root: string, platform: Platf
         // `entry.parentPath` is the absolute directory holding `entry.name`.
         // Falls back to `entry.path` (deprecated alias) for older Node 20 minor
         // versions where `parentPath` is not yet exposed.
-        const parentDir = (entry as { parentPath?: string; path?: string }).parentPath
-            ?? (entry as { path?: string }).path
+        const parentDir = (entry as {parentPath?: string; path?: string}).parentPath
+            ?? (entry as {path?: string}).path
             ?? binPath;
         const filePath = join(parentDir, entry.name);
         try {

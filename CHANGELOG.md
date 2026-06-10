@@ -4,6 +4,32 @@ All notable changes to this extension are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6] - 2026-06-10
+
+### Added
+- Added a "Jaenvtix" output channel: configuration progress and file-write logs are
+  now visible in View → Output instead of being buried in the developer console.
+
+### Changed
+- The Maven download page is now fetched with an asynchronous HTTP client instead of
+  a blocking `curl` subprocess — the editor no longer freezes (up to 15s) during
+  activation, and `curl` is no longer required on the system.
+- Archive extraction no longer loads whole archives into memory: ZIP entries are read
+  on demand via positioned file reads and `.tar.gz` archives are processed in two
+  streaming passes, sharply reducing the memory peak when installing large JDKs.
+
+### Internal
+- Audit-driven, behavior-preserving refactor: shared XML scanner for the `pom.xml`
+  parsers, centralized `JavaRuntime` type, `settingTag.ts` renamed to
+  `vsCodeSettingsWriter.ts` with its writer decomposed into named sections, the last
+  `eslint-disable` removed via dependency injection, stricter TypeScript checks
+  (`noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals`,
+  `noUnusedParameters`), and repo-wide formatting enforced by new `@stylistic` rules.
+
+### Tests
+- Suite grew to 285 tests with new coverage for the asynchronous HTTP text fetcher
+  (redirects, timeouts, error statuses).
+
 ## [0.0.5] - 2026-05-01
 
 ### Added

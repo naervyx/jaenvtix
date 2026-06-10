@@ -1,6 +1,6 @@
-import { promises as fs } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import {promises as fs} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 
 export async function createTempDir(prefix = 'jaenvtix-test-'): Promise<string> {
     return await fs.mkdtemp(join(tmpdir(), prefix));
@@ -13,5 +13,5 @@ export async function writeTempFile(dir: string, name: string, content: Buffer):
 }
 
 export async function removeTempDir(dir: string): Promise<void> {
-    await fs.rm(dir, { recursive: true, force: true });
+    await fs.rm(dir, {recursive: true, force: true});
 }

@@ -5,6 +5,7 @@ import {buildVsCodeLaunchPath} from '../../build/directory';
 import {updateVsCodeLaunchConfig} from '../../build/launchConfig';
 import {resolveJavaLaunchInfo} from '../../search/javaLaunchInfo';
 import {Messages} from '../../util/message';
+import {log} from '../../util/logger';
 
 export interface ConfigureLaunchDeps {
     /**
@@ -38,7 +39,7 @@ export class ConfigureLaunchStep implements ConfigurationStep {
         for (const projectContext of state.projectContexts) {
             const launchInfo = resolveJavaLaunchInfo(projectContext.projectPath);
             if (!launchInfo.mainClass) {
-                console.log(Messages.Log.LAUNCH_SKIPPED(projectContext.projectPath));
+                log(Messages.Log.LAUNCH_SKIPPED(projectContext.projectPath));
                 continue;
             }
 
@@ -51,7 +52,7 @@ export class ConfigureLaunchStep implements ConfigurationStep {
                 request: 'launch',
                 name: configName,
                 mainClass: launchInfo.mainClass,
-                ...(launchInfo.projectName ? { projectName: launchInfo.projectName } : {}),
+                ...(launchInfo.projectName ? {projectName: launchInfo.projectName} : {}),
             };
 
             const launchPath = buildVsCodeLaunchPath(projectContext.projectPath);
@@ -59,7 +60,7 @@ export class ConfigureLaunchStep implements ConfigurationStep {
                 onMalformed: (filePath) => this.deps.notifyMalformed?.(filePath),
             });
             if (updateResult.updated) {
-                console.log(Messages.Log.LAUNCH_UPDATED(projectContext.projectPath, updateResult.updatedNames));
+                log(Messages.Log.LAUNCH_UPDATED(projectContext.projectPath, updateResult.updatedNames));
             }
         }
 
