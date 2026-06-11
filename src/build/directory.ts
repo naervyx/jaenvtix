@@ -82,12 +82,42 @@ export function buildVsCodeLaunchPath(projectPath: string): string {
 }
 
 /**
- * Returns `true` if a JDK installation exists at `jdkHome` by checking for
- * the `java` (or `java.exe` on Windows) binary in `<jdkHome>/bin/`.
+ * Resolves the directory that actually contains `bin/java` for the JDK
+ * installed at `jdkHome`.
+ *
+ * Business rules:
+ * - Plain layout (`<jdkHome>/bin/java[.exe]`) — Windows/Linux archives and
+ *   paths that already point at a Java home — resolves to `jdkHome` itself.
+ * - macOS bundle layout (`<jdkHome>/Contents/Home/bin/java`) — what a macOS
+ *   JDK `.tar.gz` produces when extracted into the Jaenvtix cache slot —
+ *   resolves to `<jdkHome>/Contents/Home`. Only probed on `darwin`; archives
+ *   for other platforms never ship the bundle structure.
+ * - Returns `undefined` when neither location contains the java binary,
+ *   i.e. there is no usable JDK at `jdkHome`.
+ */
+export function resolveJdkInstallationHome(jdkHome: string, platform: PlatformType): string | undefined {
+    const javaBin = platform === 'windows' ? 'java.exe' : 'java';
+
+    if (existsSync(join(jdkHome, 'bin', javaBin))) {
+        return jdkHome;
+    }
+
+    if (platform === 'darwin') {
+        const bundleHome = join(jdkHome, 'Contents', 'Home');
+        if (existsSync(join(bundleHome, 'bin', javaBin))) {
+            return bundleHome;
+        }
+    }
+
+    return undefined;
+}
+
+/**
+ * Returns `true` if a JDK installation exists at `jdkHome` in any layout
+ * recognized by `resolveJdkInstallationHome`.
  */
 export function hasJdkInstallation(jdkHome: string, platform: PlatformType): boolean {
-    const javaBin = platform === 'windows' ? 'java.exe' : 'java';
-    return existsSync(join(jdkHome, 'bin', javaBin));
+    return resolveJdkInstallationHome(jdkHome, platform) !== undefined;
 }
 
 /**

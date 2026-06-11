@@ -50,10 +50,31 @@ export function stripRootFromPath(entryPath: string, root: string | null): strin
     return entryPath.slice(root.length);
 }
 
-/** Writes `content` to `fullPath`, creating any missing ancestor directories first. */
+/**
+ * Writes `content` to `fullPath`, creating any missing ancestor directories first.
+ *
+ * Business rules:
+ * - Overwrites read-only files left by a previous extraction: JDK archives
+ *   ship `legal/**` entries with mode 0444, and the extractors preserve that
+ *   mode on disk. Opening such a file for writing fails with `EACCES` (POSIX)
+ *   or `EPERM` (Windows) even for the file's owner, so on those codes the
+ *   file is made writable and the write retried once. The TAR extractor
+ *   re-applies the archive's mode afterwards, restoring the read-only bit.
+ * - Any other write error — and any failure of the retry itself (e.g. the
+ *   denial comes from directory permissions) — propagates to the caller.
+ */
 export async function writeFileWithDirectory(fullPath: string, content: Buffer): Promise<void> {
     await ensureDirectory(dirname(fullPath));
-    await fs.writeFile(fullPath, content);
+    try {
+        await fs.writeFile(fullPath, content);
+    } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'EACCES' && code !== 'EPERM') {
+            throw error;
+        }
+        await fs.chmod(fullPath, 0o666);
+        await fs.writeFile(fullPath, content);
+    }
 }
 
 /**

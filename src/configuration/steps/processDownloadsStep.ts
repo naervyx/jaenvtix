@@ -3,7 +3,7 @@ import {join} from 'node:path';
 
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {DownloadResult} from '../../file/fileDownload';
-import {hasJdkInstallation, hasMavenInstallation} from '../../build/directory';
+import {hasJdkInstallation, hasMavenInstallation, resolveJdkInstallationHome} from '../../build/directory';
 import {extractTarGz} from '../../file/unpacker/tarGz';
 import {extractZip} from '../../file/unpacker/zip';
 import type {PlatformType} from '../../core/system';
@@ -89,6 +89,11 @@ export async function ensureBinDirectoryExecutable(root: string, platform: Platf
  *   extraction, so a single failure short-circuits without partial extractions.
  * - Each JDK version is extracted only once per `jdkHome` path, even when shared
  *   across multiple projects.
+ * - After extraction, `paths.jdkHome` is normalized to the directory that
+ *   actually contains `bin/java`: macOS archives extract as a bundle
+ *   (`Contents/Home`), so the cache slot path alone would point downstream
+ *   steps (settings, toolchains, wrapper scripts) at an invalid Java home.
+ *   Steps that consume `jdkHome` must therefore run after this one.
  * - Maven is extracted into each version's `toolHome` independently, because Maven
  *   is co-located with the JDK cache slot.
  * - Calls `ensureBinDirectoryExecutable` after each extraction on POSIX systems.
@@ -129,7 +134,6 @@ export class ProcessDownloadsStep implements ConfigurationStep {
                 if (jdkResult.success) {
                     await extractArchive(jdkResult, paths.jdkHome);
                     extractedArchives.add(jdkResult.filePath);
-                    await ensureBinDirectoryExecutable(paths.jdkHome, state.platform);
                 }
             } else if (!hasJdkInstallation(paths.jdkHome, state.platform)) {
                 return StepResult.error(Messages.Error.JDK_NOT_AVAILABLE(javaVersion));
@@ -141,8 +145,18 @@ export class ProcessDownloadsStep implements ConfigurationStep {
                 await ensureBinDirectoryExecutable(paths.toolHome, state.platform);
             }
 
-            if (!hasJdkInstallation(paths.jdkHome, state.platform)) {
+            const resolvedJdkHome = resolveJdkInstallationHome(paths.jdkHome, state.platform);
+            if (!resolvedJdkHome) {
                 return StepResult.error(Messages.Error.JDK_EXTRACTION_FAILED(javaVersion));
+            }
+
+            // Point downstream consumers (settings, toolchains, wrappers) at
+            // the directory that actually contains bin/java — on macOS that is
+            // <slot>/Contents/Home, not the cache slot itself.
+            paths.jdkHome = resolvedJdkHome;
+
+            if (jdkDownloadPromise) {
+                await ensureBinDirectoryExecutable(resolvedJdkHome, state.platform);
             }
 
             // When `state.mavenDownload` is undefined the schedule step

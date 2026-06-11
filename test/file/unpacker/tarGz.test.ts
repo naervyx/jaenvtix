@@ -121,6 +121,37 @@ describe('extractTarGz', () => {
         assert.ok(!existsSync(join(dest, 'escaped.txt')));
     });
 
+    it('REGRESSION: re-extracts a macOS bundle over an installation with read-only legal files', async () => {
+        // Production failure on macOS: the first extraction leaves legal/**
+        // files with mode 0444 (as shipped in the archive); a re-extraction
+        // then failed with EACCES when overwriting them.
+        const tempRoot = await createTempDir();
+        cleanups.push(() => removeTempDir(tempRoot));
+
+        const archive = await writeTempFile(tempRoot, 'jdk-macos.tar.gz', buildTarGzBuffer([
+            {name: 'jdk-11.0.22+7/', type: 'dir'},
+            {name: 'jdk-11.0.22+7/Contents/Home/bin/java', type: 'file', content: 'fake', mode: 0o755},
+            {
+                name: 'jdk-11.0.22+7/Contents/Home/legal/jdk.dynalink/dynalink.md',
+                type: 'file',
+                content: 'license text',
+                mode: 0o444,
+            },
+        ]));
+        const dest = join(tempRoot, 'out');
+
+        await extractTarGz(archive, dest);
+        const legalFile = join(dest, 'Contents', 'Home', 'legal', 'jdk.dynalink', 'dynalink.md');
+        // On Windows the extractor skips chmod, so apply the read-only state
+        // explicitly to exercise the overwrite-retry path on every host OS.
+        await fs.chmod(legalFile, 0o444);
+
+        await extractTarGz(archive, dest);
+
+        assert.equal(await fs.readFile(legalFile, 'utf8'), 'license text');
+        assert.equal(hasJdkInstallation(dest, 'darwin'), true);
+    });
+
     it('applies executable bits on POSIX platforms', {skip: isWindows}, async () => {
         const {dest, cleanup} = await extractFixture([
             {name: 'jdk-17/', type: 'dir'},

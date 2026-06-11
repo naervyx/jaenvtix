@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import {promises as fs} from 'node:fs';
 import {join} from 'node:path';
 
-import {ensureBinDirectoryExecutable} from '../../../src/configuration/steps/processDownloadsStep';
-import {createTempDir, removeTempDir} from '../../fixtures/tempDir';
+import {ensureBinDirectoryExecutable, ProcessDownloadsStep} from '../../../src/configuration/steps/processDownloadsStep';
+import {createInitialState} from '../../../src/core/types';
+import {buildTarGzBuffer} from '../../fixtures/tar';
+import {createTempDir, removeTempDir, writeTempFile} from '../../fixtures/tempDir';
 
 const isWindows = process.platform === 'win32';
 
@@ -67,5 +69,77 @@ describe('ensureBinDirectoryExecutable', () => {
 
         // Best-effort: ensures the implementation swallows per-file failures.
         await ensureBinDirectoryExecutable(root, 'linux');
+    });
+});
+
+describe('ProcessDownloadsStep — macOS bundle jdkHome normalization', () => {
+    const cleanups: (() => Promise<void>)[] = [];
+
+    afterEach(async () => {
+        await Promise.all(cleanups.splice(0).map((fn) => fn()));
+    });
+
+    function buildVersionPaths(slot: string): {jdkHome: string; toolHome: string; toolBin: string} {
+        return {
+            jdkHome: slot,
+            toolHome: join(slot, 'mvn-custom'),
+            toolBin: join(slot, 'mvn-custom', 'bin'),
+        };
+    }
+
+    const macosBundleArchive = buildTarGzBuffer([
+        {name: 'jdk-11.0.22+7/', type: 'dir'},
+        {name: 'jdk-11.0.22+7/Contents/Home/bin/java', type: 'file', content: 'fake', mode: 0o755},
+    ]);
+
+    it('REGRESSION: normalizes jdkHome to Contents/Home after extracting a macOS bundle', async () => {
+        const tempRoot = await createTempDir();
+        cleanups.push(() => removeTempDir(tempRoot));
+        const archive = await writeTempFile(tempRoot, 'jdk-11-macos.tar.gz', macosBundleArchive);
+        const slot = join(tempRoot, 'jdk-11');
+
+        const state = createInitialState();
+        state.platform = 'darwin';
+        state.versionPaths.set('11', buildVersionPaths(slot));
+        state.jdkDownloads.set('11', Promise.resolve({success: true, filePath: archive}));
+
+        const result = await new ProcessDownloadsStep().run(state);
+
+        assert.equal(result.success, true, result.message);
+        assert.equal(state.versionPaths.get('11')?.jdkHome, join(slot, 'Contents', 'Home'));
+    });
+
+    it('REGRESSION: recognizes an already-extracted bundle and does not fail or re-download', async () => {
+        const tempRoot = await createTempDir();
+        cleanups.push(() => removeTempDir(tempRoot));
+        const slot = join(tempRoot, 'jdk-11');
+        await fs.mkdir(join(slot, 'Contents', 'Home', 'bin'), {recursive: true});
+        await fs.writeFile(join(slot, 'Contents', 'Home', 'bin', 'java'), 'fake');
+
+        const state = createInitialState();
+        state.platform = 'darwin';
+        state.versionPaths.set('11', buildVersionPaths(slot));
+
+        const result = await new ProcessDownloadsStep().run(state);
+
+        assert.equal(result.success, true, result.message);
+        assert.equal(state.versionPaths.get('11')?.jdkHome, join(slot, 'Contents', 'Home'));
+    });
+
+    it('keeps jdkHome unchanged for a plain (non-bundle) layout', async () => {
+        const tempRoot = await createTempDir();
+        cleanups.push(() => removeTempDir(tempRoot));
+        const slot = join(tempRoot, 'jdk-17');
+        await fs.mkdir(join(slot, 'bin'), {recursive: true});
+        await fs.writeFile(join(slot, 'bin', 'java'), 'fake');
+
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.versionPaths.set('17', buildVersionPaths(slot));
+
+        const result = await new ProcessDownloadsStep().run(state);
+
+        assert.equal(result.success, true, result.message);
+        assert.equal(state.versionPaths.get('17')?.jdkHome, slot);
     });
 });

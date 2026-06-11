@@ -68,8 +68,11 @@ export function getDefaultStepGroups(
             new DetectInstalledJdksStep(),
             new PrepareVersionPathsStep(),
             new ScheduleDownloadsStep(),
-            new BuildProjectContextsStep(),
+            // ProcessDownloads normalizes each version's `jdkHome` to the real
+            // Java home (macOS bundles extract as Contents/Home), so project
+            // contexts must be built after it to copy the corrected path.
             new ProcessDownloadsStep(),
+            new BuildProjectContextsStep(),
             new WriteMavenWrappersStep(),
             new WriteToolchainsStep(),
             new ConfigureSettingsStep(),
