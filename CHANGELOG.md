@@ -4,6 +4,24 @@ All notable changes to this extension are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.7] - 2026-06-14
+
+### Fixed
+- macOS JDK provisioning, which could fail to install or repeatedly re-download a JDK:
+  - JDKs in the macOS bundle layout (`Contents/Home`) were not recognized as installed,
+    causing a re-download/re-extraction on every run and a spurious "JDK extraction
+    failed" error. Installation detection and every downstream path (settings,
+    `toolchains.xml`, wrapper scripts) now resolve to `Contents/Home`.
+  - `EACCES: permission denied` when re-extracting a JDK over the read-only `legal/**`
+    files left by a previous extraction — those files are now made writable before
+    being overwritten.
+  - Oracle JDK 21 and 25 macOS archives, whose entries are prefixed with `./`, extracted
+    one directory too deep and failed; common-root detection now strips the `./` prefix
+    so the JDK flattens correctly.
+
+### Internal
+- Migrated package management from npm to Bun.
+
 ## [0.0.6] - 2026-06-10
 
 ### Added
