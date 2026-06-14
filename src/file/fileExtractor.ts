@@ -7,10 +7,30 @@ export async function ensureDirectory(dirPath: string): Promise<void> {
 }
 
 /**
+ * Canonicalizes an archive entry name: converts backslashes to forward slashes
+ * and strips a single leading `./`.
+ *
+ * The `./` prefix is a no-op ("current directory") that some tar producers add
+ * to every entry — notably Oracle JDK *macOS* archives, whose entries look like
+ * `./jdk-21.0.11.jdk/Contents/Home/...`. Left in place it defeats common-root
+ * detection: `findCommonRoot` would see `.` as the shared root and strip only
+ * `./`, nesting the JDK one level too deep (`<jdkHome>/jdk-21.0.11.jdk/...`) and
+ * leaving no `bin/java` where the pipeline expects one. Both the root-detection
+ * pass and the per-entry path build must apply the same normalization, or the
+ * detected root and the entry paths disagree.
+ */
+function normalizeEntryName(entryName: string): string {
+    const forwardSlashed = entryName.replace(/\\/g, '/');
+    return forwardSlashed.startsWith('./') ? forwardSlashed.slice(2) : forwardSlashed;
+}
+
+/**
  * Detects the single common root directory that every entry in an archive
  * shares, if one exists.
  *
  * Business rules:
+ * - Entry names are normalized via `normalizeEntryName` first, so a leading
+ *   `./` prefix (Oracle macOS archives) does not mask the real root.
  * - Returns `null` when the list is empty or entries have different top-level
  *   directories (no single root to strip).
  * - Returns `root + '/'` only when every non-root entry is nested under that
@@ -20,7 +40,7 @@ export async function ensureDirectory(dirPath: string): Promise<void> {
  */
 export function findCommonRoot(entryNames: string[]): string | null {
     const normalized = entryNames
-        .map(p => p.replace(/\\/g, '/'))
+        .map(normalizeEntryName)
         .filter(p => p.length > 0);
 
     if (normalized.length === 0) {
@@ -50,10 +70,31 @@ export function stripRootFromPath(entryPath: string, root: string | null): strin
     return entryPath.slice(root.length);
 }
 
-/** Writes `content` to `fullPath`, creating any missing ancestor directories first. */
+/**
+ * Writes `content` to `fullPath`, creating any missing ancestor directories first.
+ *
+ * Business rules:
+ * - Overwrites read-only files left by a previous extraction: JDK archives
+ *   ship `legal/**` entries with mode 0444, and the extractors preserve that
+ *   mode on disk. Opening such a file for writing fails with `EACCES` (POSIX)
+ *   or `EPERM` (Windows) even for the file's owner, so on those codes the
+ *   file is made writable and the write retried once. The TAR extractor
+ *   re-applies the archive's mode afterwards, restoring the read-only bit.
+ * - Any other write error — and any failure of the retry itself (e.g. the
+ *   denial comes from directory permissions) — propagates to the caller.
+ */
 export async function writeFileWithDirectory(fullPath: string, content: Buffer): Promise<void> {
     await ensureDirectory(dirname(fullPath));
-    await fs.writeFile(fullPath, content);
+    try {
+        await fs.writeFile(fullPath, content);
+    } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'EACCES' && code !== 'EPERM') {
+            throw error;
+        }
+        await fs.chmod(fullPath, 0o666);
+        await fs.writeFile(fullPath, content);
+    }
 }
 
 /**
@@ -61,6 +102,9 @@ export async function writeFileWithDirectory(fullPath: string, content: Buffer):
  * the common root prefix when present.
  *
  * Business rules:
+ * - Normalizes the entry name via `normalizeEntryName` (forward slashes, no
+ *   leading `./`) so root stripping matches the root computed by
+ *   `findCommonRoot`, which normalizes the same way.
  * - Returns `null` for directory entries (trailing `/`), empty names, and absolute
  *   entry paths — these are skipped by the caller.
  * - Guards against path traversal attacks: if the resolved path escapes `destPath`
@@ -68,7 +112,7 @@ export async function writeFileWithDirectory(fullPath: string, content: Buffer):
  *   silently skipped rather than written outside the destination directory.
  */
 export function buildFullPath(destPath: string, entryName: string, root: string | null): string | null {
-    const strippedName = stripRootFromPath(entryName, root);
+    const strippedName = stripRootFromPath(normalizeEntryName(entryName), root);
 
     if (!strippedName || strippedName === '/') {
         return null;

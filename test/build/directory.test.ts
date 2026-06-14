@@ -18,6 +18,7 @@ import {
     hasJdkInstallation,
     hasMavenInstallation,
     initializeBaseDirectories,
+    resolveJdkInstallationHome,
 } from '../../src/build/directory';
 import {createTempDir, removeTempDir} from '../fixtures/tempDir';
 
@@ -88,6 +89,50 @@ describe('hasJdkInstallation', () => {
         assert.equal(hasJdkInstallation(jdkHome, 'windows'), false);
         writeFileSync(join(jdkHome, 'bin', 'java.exe'), 'fake');
         assert.equal(hasJdkInstallation(jdkHome, 'windows'), true);
+    });
+
+    it('REGRESSION: detects a macOS bundle layout (Contents/Home/bin/java) on darwin', async () => {
+        const jdkHome = join(tempRoot, 'jdk-bundle');
+        await fs.mkdir(join(jdkHome, 'Contents', 'Home', 'bin'), {recursive: true});
+        writeFileSync(join(jdkHome, 'Contents', 'Home', 'bin', 'java'), 'fake');
+        assert.equal(hasJdkInstallation(jdkHome, 'darwin'), true);
+    });
+});
+
+describe('resolveJdkInstallationHome', () => {
+    let tempRoot: string;
+
+    before(async () => { tempRoot = await createTempDir(); });
+    after(async () => { await removeTempDir(tempRoot); });
+
+    it('resolves a plain layout (<home>/bin/java) to the path itself', async () => {
+        const jdkHome = join(tempRoot, 'jdk-plain');
+        await fs.mkdir(join(jdkHome, 'bin'), {recursive: true});
+        writeFileSync(join(jdkHome, 'bin', 'java'), 'fake');
+        assert.equal(resolveJdkInstallationHome(jdkHome, 'linux'), jdkHome);
+        assert.equal(resolveJdkInstallationHome(jdkHome, 'darwin'), jdkHome);
+    });
+
+    it('resolves a macOS bundle to <home>/Contents/Home on darwin', async () => {
+        const jdkHome = join(tempRoot, 'jdk-bundle');
+        await fs.mkdir(join(jdkHome, 'Contents', 'Home', 'bin'), {recursive: true});
+        writeFileSync(join(jdkHome, 'Contents', 'Home', 'bin', 'java'), 'fake');
+        assert.equal(
+            resolveJdkInstallationHome(jdkHome, 'darwin'),
+            join(jdkHome, 'Contents', 'Home'),
+        );
+    });
+
+    it('does not probe the bundle layout on linux or windows', async () => {
+        const jdkHome = join(tempRoot, 'jdk-bundle-other-os');
+        await fs.mkdir(join(jdkHome, 'Contents', 'Home', 'bin'), {recursive: true});
+        writeFileSync(join(jdkHome, 'Contents', 'Home', 'bin', 'java'), 'fake');
+        assert.equal(resolveJdkInstallationHome(jdkHome, 'linux'), undefined);
+        assert.equal(resolveJdkInstallationHome(jdkHome, 'windows'), undefined);
+    });
+
+    it('returns undefined when no java binary exists in either layout', () => {
+        assert.equal(resolveJdkInstallationHome(join(tempRoot, 'missing'), 'darwin'), undefined);
     });
 });
 

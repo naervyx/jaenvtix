@@ -49,6 +49,10 @@ function resolveWorkspaceRoot(projectPath: string, workspaceFolders: string[]): 
  * Business rules:
  * - Produces one context per (Java version × project) pair, joining
  *   `state.projectVersionMap` with `state.versionPaths`.
+ * - Must run after `ProcessDownloadsStep`: that step normalizes each
+ *   version's `jdkHome` to the directory that actually contains `bin/java`
+ *   (macOS archives extract as a `Contents/Home` bundle), and the contexts
+ *   copy `jdkHome` by value.
  * - The `workspace` field is set to the deepest workspace folder that contains
  *   the project; falls back to `projectPath` itself when no workspace folder
  *   matches (e.g. a manually added folder outside the declared workspace).
