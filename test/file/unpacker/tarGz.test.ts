@@ -121,6 +121,24 @@ describe('extractTarGz', () => {
         assert.ok(!existsSync(join(dest, 'escaped.txt')));
     });
 
+    it('REGRESSION: strips the ./ prefix and bundle root for an Oracle macOS archive', async () => {
+        // Oracle JDK 21/25 macOS tarballs prefix every entry with `./` and use
+        // the `<name>.jdk/Contents/Home` bundle layout. The JDK must land at
+        // <dest>/Contents/Home, not <dest>/jdk-21.0.11.jdk/Contents/Home.
+        const {dest, cleanup} = await extractFixture([
+            {name: './', type: 'dir'},
+            {name: './jdk-21.0.11.jdk/', type: 'dir'},
+            {name: './jdk-21.0.11.jdk/Contents/Home/bin/java', type: 'file', content: 'fake', mode: 0o755},
+            {name: './jdk-21.0.11.jdk/Contents/Home/release', type: 'file', content: 'JAVA_VERSION="21.0.11"'},
+        ]);
+        cleanups.push(cleanup);
+
+        assert.ok(existsSync(join(dest, 'Contents', 'Home', 'bin', 'java')), 'bin/java must exist under Contents/Home');
+        assert.ok(existsSync(join(dest, 'Contents', 'Home', 'release')), 'release must exist under Contents/Home');
+        assert.ok(!existsSync(join(dest, 'jdk-21.0.11.jdk')), 'the .jdk bundle root must be stripped');
+        assert.equal(hasJdkInstallation(dest, 'darwin'), true);
+    });
+
     it('REGRESSION: re-extracts a macOS bundle over an installation with read-only legal files', async () => {
         // Production failure on macOS: the first extraction leaves legal/**
         // files with mode 0444 (as shipped in the archive); a re-extraction

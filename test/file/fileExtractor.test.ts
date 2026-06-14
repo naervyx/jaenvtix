@@ -44,6 +44,19 @@ describe('findCommonRoot', () => {
         ]);
         assert.equal(root, 'jdk-21/');
     });
+
+    it('REGRESSION: strips a leading ./ prefix (Oracle macOS archives) before detecting the root', () => {
+        // Oracle JDK macOS tarballs prefix every entry with `./`. Without
+        // normalization, `.` is mistaken for the shared root and only `./` is
+        // stripped, leaving the JDK nested under <dest>/jdk-21.0.11.jdk/.
+        const root = findCommonRoot([
+            './',
+            './jdk-21.0.11.jdk/',
+            './jdk-21.0.11.jdk/Contents/Home/bin/java',
+            './jdk-21.0.11.jdk/Contents/Home/release',
+        ]);
+        assert.equal(root, 'jdk-21.0.11.jdk/');
+    });
 });
 
 describe('stripRootFromPath', () => {

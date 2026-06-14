@@ -1,6 +1,6 @@
 import {describe, it, afterEach} from 'node:test';
 import assert from 'node:assert/strict';
-import {promises as fs} from 'node:fs';
+import {existsSync, promises as fs} from 'node:fs';
 import {join} from 'node:path';
 
 import {ensureBinDirectoryExecutable, ProcessDownloadsStep} from '../../../src/configuration/steps/processDownloadsStep';
@@ -107,6 +107,33 @@ describe('ProcessDownloadsStep — macOS bundle jdkHome normalization', () => {
 
         assert.equal(result.success, true, result.message);
         assert.equal(state.versionPaths.get('11')?.jdkHome, join(slot, 'Contents', 'Home'));
+    });
+
+    it('REGRESSION: extracts an Oracle macOS archive (./ prefix) and resolves jdkHome to Contents/Home', async () => {
+        // User-reported scenario: Oracle JDK 21 on macOS. Entries are prefixed
+        // with `./`, so without normalization the bundle landed at
+        // <slot>/jdk-21.0.11.jdk/Contents/Home and the step failed with
+        // JDK_EXTRACTION_FAILED.
+        const tempRoot = await createTempDir();
+        cleanups.push(() => removeTempDir(tempRoot));
+        const oracleArchive = buildTarGzBuffer([
+            {name: './', type: 'dir'},
+            {name: './jdk-21.0.11.jdk/', type: 'dir'},
+            {name: './jdk-21.0.11.jdk/Contents/Home/bin/java', type: 'file', content: 'fake', mode: 0o755},
+        ]);
+        const archive = await writeTempFile(tempRoot, 'jdk-21-oracle-macos.tar.gz', oracleArchive);
+        const slot = join(tempRoot, 'jdk-21');
+
+        const state = createInitialState();
+        state.platform = 'darwin';
+        state.versionPaths.set('21', buildVersionPaths(slot));
+        state.jdkDownloads.set('21', Promise.resolve({success: true, filePath: archive}));
+
+        const result = await new ProcessDownloadsStep().run(state);
+
+        assert.equal(result.success, true, result.message);
+        assert.equal(state.versionPaths.get('21')?.jdkHome, join(slot, 'Contents', 'Home'));
+        assert.equal(existsSync(join(slot, 'jdk-21.0.11.jdk')), false);
     });
 
     it('REGRESSION: recognizes an already-extracted bundle and does not fail or re-download', async () => {
