@@ -73,6 +73,7 @@ export const Messages = {
             ConfigureSettings: 'Configure Visual Studio Code settings',
             ConfigureUserRuntimes: 'Register JDKs in Visual Studio Code user settings',
             ApplyUserTunings: 'Apply sensible Java defaults to user settings',
+            ConfigureOptionalExtensions: 'Configure companion extensions',
             ConfigureLaunch: 'Configure Visual Studio Code launch configuration',
             RefreshProjectConfiguration: 'Refresh Java Language Server project configuration',
         } as Record<string, string>,
@@ -94,6 +95,8 @@ export const Messages = {
             `Fixed runtime path: ${oldPath} → ${newPath}`,
         RUNTIME_REMOVED: (name: string, path: string) =>
             `Removed invalid runtime: ${name} (${path})`,
+        OPTIONAL_EXTENSION_CONFIGURED: (settingKey: string, extensionId: string, value: string) =>
+            `Configured ${settingKey} for ${extensionId}: ${value}`,
     },
     Choice: {
         YES: 'Yes',
