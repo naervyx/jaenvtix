@@ -107,6 +107,10 @@ export const Messages = {
             `Removed invalid runtime: ${name} (${path})`,
         OPTIONAL_EXTENSION_CONFIGURED: (settingKey: string, extensionId: string, value: string) =>
             `Configured ${settingKey} for ${extensionId}: ${value}`,
+        TOOLCHAINS_JDK_DETECTED: (jdkHome: string, version?: string) =>
+            `Detected JDK from toolchains.xml: ${jdkHome}${version ? ` (version ${version})` : ''}`,
+        TOOLCHAINS_READ_FAILED: (detail: string) =>
+            `Failed to read ~/.m2/toolchains.xml: ${detail}`,
     },
     Choice: {
         YES: 'Yes',
