@@ -19,6 +19,9 @@ export const Messages = {
         CONFIGURATION_COMPLETED: 'Java and Maven environment configuration completed successfully!',
         AUTO_CONFIG_PREFERENCE_RESET:
       'Jaenvtix auto-configuration preference reset. Reload the window (or open another workspace) to see the prompt again.',
+        ALL_SELECTED_EXTENSIONS_INSTALLED: 'All selected extensions are already installed.',
+        EXTENSIONS_INSTALLED: (count: number) =>
+            `${count} extension${count === 1 ? '' : 's'} installed. Reload the window to activate ${count === 1 ? 'it' : 'them'}.`,
     },
     Warning: {
         NOT_FOUND_WORKSPACE: 'No workspaces open. Nothing to do.',
@@ -54,9 +57,16 @@ export const Messages = {
         LAUNCH_PARSE_FAILED: 'Failed to parse the launch file. A new launch file will be created.',
         MAVEN_PAGE_FETCH_FAILED: (url: string) => `Failed to fetch the Maven download page: ${url}.`,
         UNSUPPORTED_ZIP_COMPRESSION: (method: number) => `Unsupported compression method: ${method}.`,
+        EXTENSION_INSTALL_FAILED: (name: string, detail: string) => `Failed to install ${name}: ${detail}`,
+    },
+    Picker: {
+        RECOMMENDED_TITLE: 'Jaenvtix — Recommended Java Extensions',
+        RECOMMENDED_PLACEHOLDER: 'Select extensions to install (already installed ones are ignored)',
+        ALREADY_INSTALLED: '(already installed)',
     },
     Progress: {
         TITLE: 'Java and Maven configuration',
+        INSTALL_EXTENSIONS_TITLE: 'Jaenvtix: Installing recommended extensions',
         DEFAULT: 'Running configuration step',
         STEPS: {
             ValidateEnvironment: 'Validate environment',
@@ -102,5 +112,6 @@ export const Messages = {
         YES: 'Yes',
         ALWAYS: 'Always',
         NO: 'No',
+        RELOAD_NOW: 'Reload Now',
     },
 } as const;

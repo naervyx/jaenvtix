@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import {runConfigureJavaCommand} from './configuration/configureJavaCommand';
+import {runInstallRecommendedExtensionsCommand} from './commands/installRecommendedExtensions';
 import {
     AUTO_CONFIG_ALWAYS_KEY,
     AUTO_CONFIG_DISMISSED_KEY,
@@ -11,6 +12,7 @@ import {setLogSink} from './util/logger';
 
 const CONFIGURE_JAVA_COMMAND = 'jaenvtix.configureJava';
 const RESET_AUTO_CONFIG_PREFERENCE_COMMAND = 'jaenvtix.resetAutoConfigPreference';
+const INSTALL_RECOMMENDED_EXTENSIONS_COMMAND = 'jaenvtix.installRecommendedExtensions';
 
 /**
  * Module-level guard so the auto-config prompt fires AT MOST ONCE per
@@ -65,6 +67,25 @@ export async function activate(context: vscode.ExtensionContext) {
         },
     );
     context.subscriptions.push(resetAutoConfig);
+
+    const installRecommendedExtensions = vscode.commands.registerCommand(
+        INSTALL_RECOMMENDED_EXTENSIONS_COMMAND,
+        () => runInstallRecommendedExtensionsCommand({
+            isExtensionInstalled: (extensionId) => vscode.extensions.getExtension(extensionId) !== undefined,
+            showQuickPick: (items, options) => vscode.window.showQuickPick(items, options),
+            withProgress: (title, task) => vscode.window.withProgress(
+                {location: vscode.ProgressLocation.Notification, title, cancellable: false},
+                (progress) => task((message) => progress.report({message})),
+            ),
+            installExtension: (extensionId) =>
+                vscode.commands.executeCommand('workbench.extensions.installExtension', extensionId),
+            showInformationMessage: (message, ...actions) =>
+                vscode.window.showInformationMessage(message, ...actions),
+            showErrorMessage: (message) => void vscode.window.showErrorMessage(message),
+            reloadWindow: () => vscode.commands.executeCommand('workbench.action.reloadWindow'),
+        }),
+    );
+    context.subscriptions.push(installRecommendedExtensions);
 
     void offerAutoConfigIfNeeded(context);
 }

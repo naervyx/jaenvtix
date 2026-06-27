@@ -45,6 +45,11 @@
 				"command": "jaenvtix.resetAutoConfigPreference",
 				"title": "Reset Auto-Configuration Preference",
 				"category": "Jaenvtix"
+			},
+			{
+				"command": "jaenvtix.installRecommendedExtensions",
+				"title": "Install Recommended Extensions",
+				"category": "Jaenvtix"
 			}
 		],
 		"configuration": {
