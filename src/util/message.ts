@@ -113,6 +113,8 @@ export const Messages = {
             `Failed to read ~/.m2/toolchains.xml: ${detail}`,
         PACKAGE_MANAGER_JDK_DETECTED: (source: string, jdkHome: string) =>
             `Detected JDK from ${source}: ${jdkHome}`,
+        JDK_PATCH_UPDATE: (javaVersion: string, current: string, latest: string) =>
+            `Java ${javaVersion}: newer patch available (${current} → ${latest}); refreshing the cached JDK.`,
     },
     Choice: {
         YES: 'Yes',

@@ -4,6 +4,7 @@ import {promises as fs} from 'node:fs';
 import {join} from 'node:path';
 
 import {ScheduleDownloadsStep} from '../../../src/configuration/steps/scheduleDownloadsStep';
+import {readVersionInfo, writeVersionInfo} from '../../../src/build/versionTracking';
 import {createInitialState} from '../../../src/core/types';
 import type {DownloadOptions, DownloadResult} from '../../../src/file/fileDownload';
 import type {JdkDistribution} from '../../../src/build/javaUrl';
@@ -176,6 +177,140 @@ describe('ScheduleDownloadsStep', () => {
 
         assert.ok(state.mavenDownload, 'expected Maven download to be scheduled');
         assert.equal(calls.filter((c) => c.fileName === 'maven-3.9.6').length, 1);
+    });
+
+    // MP-17: security patch auto-update for Jaenvtix-cached JDKs.
+
+    async function makeCachedJdk(cleanupsList: (() => Promise<void>)[]): Promise<{jdkHome: string; toolHome: string; toolBin: string}> {
+        const root = await createTempDir();
+        cleanupsList.push(() => removeTempDir(root));
+        const jdkHome = join(root, 'jdk-21');
+        const toolHome = join(jdkHome, 'mvn-custom');
+        const toolBin = join(toolHome, 'bin');
+        await fs.mkdir(join(jdkHome, 'bin'), {recursive: true});
+        await fs.writeFile(join(jdkHome, 'bin', process.platform === 'win32' ? 'java.exe' : 'java'), '');
+        await fs.mkdir(toolBin, {recursive: true});
+        await fs.writeFile(join(toolBin, process.platform === 'win32' ? 'mvn.cmd' : 'mvn'), '');
+        return {jdkHome, toolHome, toolBin};
+    }
+
+    function cachedState(paths: {jdkHome: string; toolHome: string; toolBin: string}) {
+        const state = createInitialState();
+        state.platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'darwin' : 'linux';
+        state.arch = 'x64';
+        state.mavenDistribution = maven;
+        state.versionPaths.set('21', paths);
+        return state;
+    }
+
+    it('skips the update check entirely within the 24h window', async () => {
+        const paths = await makeCachedJdk(cleanups);
+        writeVersionInfo(paths.jdkHome, {fullVersion: '21.0.5+11', checkedAt: Date.now(), vendor: 'temurin'});
+
+        let fetched = false;
+        const step = new ScheduleDownloadsStep({
+            getJdkDistribution: async (version) => jdk(version),
+            downloadFile: async () => ({success: true, filePath: '/x'}),
+            fetchLatestJdkVersion: async () => { fetched = true; return '21.0.9'; },
+        });
+
+        await step.run(cachedState(paths));
+
+        assert.equal(fetched, false);
+        assert.equal(readVersionInfo(paths.jdkHome)?.fullVersion, '21.0.5+11');
+    });
+
+    it('touches checkedAt without redownloading when the cached JDK is already latest', async () => {
+        const paths = await makeCachedJdk(cleanups);
+        writeVersionInfo(paths.jdkHome, {fullVersion: '21.0.5+11', checkedAt: 1, vendor: 'temurin'});
+
+        const calls: DownloadOptions[] = [];
+        const step = new ScheduleDownloadsStep({
+            getJdkDistribution: async (version) => jdk(version),
+            downloadFile: async (opts) => { calls.push(opts); return {success: true, filePath: '/x'}; },
+            fetchLatestJdkVersion: async () => '21.0.5+11',
+        });
+
+        await step.run(cachedState(paths));
+
+        assert.equal(calls.length, 0);
+        const info = readVersionInfo(paths.jdkHome);
+        assert.equal(info?.fullVersion, '21.0.5+11');
+        assert.ok((info?.checkedAt ?? 0) > 1, 'checkedAt should be re-stamped');
+    });
+
+    it('deletes the stale slot and schedules a fresh download when a newer patch exists', async () => {
+        const paths = await makeCachedJdk(cleanups);
+        writeVersionInfo(paths.jdkHome, {fullVersion: '21.0.5+11', checkedAt: 1, vendor: 'temurin'});
+
+        const calls: DownloadOptions[] = [];
+        const state = cachedState(paths);
+        const step = new ScheduleDownloadsStep({
+            getJdkDistribution: async (version) => jdk(version),
+            downloadFile: async (opts) => { calls.push(opts); return {success: true, filePath: '/x'}; },
+            fetchLatestJdkVersion: async () => '21.0.8+9',
+        });
+
+        await step.run(state);
+
+        assert.equal(state.jdkDownloads.has('21'), true);
+        assert.ok(calls.some((c) => c.fileName === 'jdk-21'), 'expected a fresh JDK download');
+        assert.equal(readVersionInfo(paths.jdkHome), null, 'slot (and its metadata) should be gone');
+    });
+
+    it('keeps the old behaviour when jaenvtix.autoUpdatePatches is false', async () => {
+        const paths = await makeCachedJdk(cleanups);
+        writeVersionInfo(paths.jdkHome, {fullVersion: '21.0.5+11', checkedAt: 1, vendor: 'temurin'});
+
+        let fetched = false;
+        const step = new ScheduleDownloadsStep({
+            getJdkDistribution: async (version) => jdk(version),
+            downloadFile: async () => ({success: true, filePath: '/x'}),
+            isAutoUpdateEnabled: () => false,
+            fetchLatestJdkVersion: async () => { fetched = true; return '21.0.9'; },
+        });
+
+        const state = cachedState(paths);
+        await step.run(state);
+
+        assert.equal(fetched, false);
+        assert.equal(state.jdkDownloads.has('21'), false);
+    });
+
+    it('never touches a detected system JDK, even when stale', async () => {
+        const paths = await makeCachedJdk(cleanups);
+        writeVersionInfo(paths.jdkHome, {fullVersion: '21.0.5+11', checkedAt: 1, vendor: 'temurin'});
+
+        let fetched = false;
+        const state = cachedState(paths);
+        state.detectedJdks.set('21', paths.jdkHome);
+        const step = new ScheduleDownloadsStep({
+            getJdkDistribution: async (version) => jdk(version),
+            downloadFile: async () => ({success: true, filePath: '/x'}),
+            fetchLatestJdkVersion: async () => { fetched = true; return '21.0.9'; },
+        });
+
+        await step.run(state);
+
+        assert.equal(fetched, false);
+        assert.equal(state.jdkDownloads.has('21'), false);
+    });
+
+    it('only re-stamps checkedAt when the latest-version lookup fails', async () => {
+        const paths = await makeCachedJdk(cleanups);
+        writeVersionInfo(paths.jdkHome, {fullVersion: '21.0.5+11', checkedAt: 1, vendor: 'oracle'});
+
+        const state = cachedState(paths);
+        const step = new ScheduleDownloadsStep({
+            getJdkDistribution: async (version) => jdk(version),
+            downloadFile: async () => ({success: true, filePath: '/x'}),
+            fetchLatestJdkVersion: async () => null,
+        });
+
+        await step.run(state);
+
+        assert.equal(state.jdkDownloads.has('21'), false);
+        assert.ok((readVersionInfo(paths.jdkHome)?.checkedAt ?? 0) > 1);
     });
 
     it('does NOT re-schedule a JDK download already present in jdkDownloads', async () => {

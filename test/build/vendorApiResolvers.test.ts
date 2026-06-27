@@ -1,7 +1,7 @@
 import {describe, it} from 'node:test';
 import assert from 'node:assert/strict';
 
-import {resolveApiDistribution} from '../../src/build/vendorApiResolvers';
+import {fetchLatestJdkVersion, resolveApiDistribution} from '../../src/build/vendorApiResolvers';
 
 describe('resolveApiDistribution — Liberica', () => {
     it('queries the BellSoft API with the platform mapping and returns the first downloadUrl', async () => {
@@ -99,6 +99,67 @@ describe('resolveApiDistribution — Semeru', () => {
         });
 
         assert.equal(distribution, null);
+    });
+});
+
+describe('fetchLatestJdkVersion', () => {
+    it('reads the latest Temurin GA version from the Adoptium info API', async () => {
+        const requested: string[] = [];
+        const latest = await fetchLatestJdkVersion('temurin', '21', {
+            fetchJson: async (url) => {
+                requested.push(url);
+                return {versions: [{openjdk_version: '21.0.8+9'}]};
+            },
+        });
+
+        assert.equal(latest, '21.0.8+9');
+        assert.match(requested[0] ?? '', /api\.adoptium\.net\/v3\/info\/release_versions/);
+        assert.match(requested[0] ?? '', /version=%5B21%2C22\)/);
+    });
+
+    it('reads the latest Corretto version from the GitHub release tag', async () => {
+        const latest = await fetchLatestJdkVersion('corretto', '17', {
+            fetchJson: async (url) => {
+                assert.match(url, /repos\/corretto\/corretto-17\/releases\/latest/);
+                return {tag_name: '17.0.13.11.1'};
+            },
+        });
+
+        assert.equal(latest, '17.0.13.11.1');
+    });
+
+    it('joins the Zulu jdk_version segments', async () => {
+        const latest = await fetchLatestJdkVersion('zulu', '21', {
+            fetchJson: async () => ({jdk_version: [21, 0, 8]}),
+        });
+
+        assert.equal(latest, '21.0.8');
+    });
+
+    it('reads the latest Liberica version field', async () => {
+        const latest = await fetchLatestJdkVersion('liberica', '21', {
+            fetchJson: async () => [{version: '21.0.8+12'}],
+        });
+
+        assert.equal(latest, '21.0.8+12');
+    });
+
+    it('returns null for Oracle and Microsoft (no public latest endpoint)', async () => {
+        let called = false;
+        const deps = {fetchJson: async () => { called = true; return {}; }};
+
+        assert.equal(await fetchLatestJdkVersion('oracle', '21', deps), null);
+        assert.equal(await fetchLatestJdkVersion('microsoft', '21', deps), null);
+        assert.equal(called, false);
+    });
+
+    it('returns null when the API throws or the schema is unexpected', async () => {
+        assert.equal(await fetchLatestJdkVersion('temurin', '21', {
+            fetchJson: async () => { throw new Error('offline'); },
+        }), null);
+        assert.equal(await fetchLatestJdkVersion('corretto', '21', {
+            fetchJson: async () => ({unexpected: true}),
+        }), null);
     });
 });
 
