@@ -1,5 +1,7 @@
 import {ArchitectureType, DEFAULT_ARCH_NAMES, DEFAULT_OS_NAMES, determineArchiveType, PlatformType} from '../core/system';
 import {isUrlAccessible} from '../util/urlValidator';
+import {FALLBACK_SUPPORTED_JAVA_VERSIONS, isLtsVersion, SupportedJavaVersions} from './redhatRuntimeReader';
+import {parseJavaVersionNumber} from '../util/javaVersion';
 
 /** A resolved JDK download: the vendor-specific download URL, file name, and archive extension. */
 export interface JdkDistribution {
@@ -18,14 +20,23 @@ interface VendorConfig {
 /**
  * JDK vendors supported by Jaenvtix.
  *
- * - `'oracle'`: Oracle JDK — only for versions listed in `ORACLE_VERSIONS` (LTS releases
- *   with a publicly available binary).
+ * - `'oracle'`: Oracle JDK — only for Oracle-hosted versions (LTS releases 21+
+ *   that the Red Hat Language Server already recognizes — see `isOracleHostedVersion`).
  * - `'corretto'`: Amazon Corretto — tried first for non-Oracle versions.
  * - `'temurin'`: Eclipse Temurin (Adoptium) — fallback when Corretto URL is not accessible.
  */
 export type JdkVendor = 'oracle' | 'temurin' | 'corretto';
 
-const ORACLE_VERSIONS = new Set(['21', '25']);
+/**
+ * Oracle hosts `https://download.oracle.com/java/{v}/latest/` binaries for
+ * LTS releases starting at 21. The version must also be known to the Red Hat
+ * Language Server (`supported.majors`): that confirms the release actually
+ * exists, since the Oracle URL is returned without an accessibility probe.
+ */
+function isOracleHostedVersion(javaVersion: string, supported: SupportedJavaVersions): boolean {
+    const major = parseJavaVersionNumber(javaVersion);
+    return major >= 21 && isLtsVersion(major) && supported.majors.includes(major);
+}
 
 const VENDOR_CONFIGS: Readonly<Record<JdkVendor, VendorConfig>> = {
     oracle: {
@@ -91,8 +102,11 @@ export function buildDistribution(
  * and architecture, probing URLs for accessibility before returning.
  *
  * Business rules:
- * - For versions listed in `ORACLE_VERSIONS` (currently LTS releases with public
- *   Oracle binaries), Oracle JDK is returned directly without an accessibility probe.
+ * - For Oracle-hosted versions (LTS 21+ recognized by the Red Hat Language
+ *   Server, per `supportedVersions`), Oracle JDK is returned directly without
+ *   an accessibility probe. `supportedVersions` defaults to the static list
+ *   mirroring Jaenvtix 0.0.6; the orchestrator passes the dynamic one read
+ *   from redhat.java so new LTS releases work without a Jaenvtix release.
  * - For all other versions, Amazon Corretto is tried first; if its URL is
  *   inaccessible, Eclipse Temurin is the fallback.
  * - Returns `null` when no accessible distribution can be found for the combination.
@@ -101,8 +115,9 @@ export async function getJdkDistribution(
     javaVersion: string,
     platform: PlatformType,
     arch: ArchitectureType,
+    supportedVersions: SupportedJavaVersions = FALLBACK_SUPPORTED_JAVA_VERSIONS,
 ): Promise<JdkDistribution | null> {
-    if (ORACLE_VERSIONS.has(javaVersion)) {
+    if (isOracleHostedVersion(javaVersion, supportedVersions)) {
         return buildDistribution('oracle', javaVersion, platform, arch);
     }
 
