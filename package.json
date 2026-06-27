@@ -74,6 +74,12 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Read ~/.m2/toolchains.xml as a source of JDK discovery. Disable if you don't want Jaenvtix to inspect this file."
+				},
+				"jaenvtix.preferredJdkVendor": {
+					"type": "string",
+					"enum": ["auto", "oracle", "temurin", "corretto", "liberica", "microsoft", "zulu", "semeru"],
+					"default": "auto",
+					"description": "Preferred vendor to download JDK from. 'auto' uses the default logic (Oracle for 21+ LTS, Corretto then Temurin as fallback). If the chosen vendor URL is unreachable, Jaenvtix falls back to the next available vendor automatically."
 				}
 			}
 		}

@@ -2,6 +2,7 @@ import {ArchitectureType, DEFAULT_ARCH_NAMES, DEFAULT_OS_NAMES, determineArchive
 import {isUrlAccessible} from '../util/urlValidator';
 import {FALLBACK_SUPPORTED_JAVA_VERSIONS, isLtsVersion, SupportedJavaVersions} from './redhatRuntimeReader';
 import {parseJavaVersionNumber} from '../util/javaVersion';
+import {ApiJdkVendor, resolveApiDistribution} from './vendorApiResolvers';
 
 /** A resolved JDK download: the vendor-specific download URL, file name, and archive extension. */
 export interface JdkDistribution {
@@ -20,25 +21,50 @@ interface VendorConfig {
 /**
  * JDK vendors supported by Jaenvtix.
  *
+ * Template vendors (URL built locally):
  * - `'oracle'`: Oracle JDK — only for Oracle-hosted versions (LTS releases 21+
  *   that the Red Hat Language Server already recognizes — see `isOracleHostedVersion`).
- * - `'corretto'`: Amazon Corretto — tried first for non-Oracle versions.
- * - `'temurin'`: Eclipse Temurin (Adoptium) — fallback when Corretto URL is not accessible.
+ * - `'corretto'`: Amazon Corretto.
+ * - `'temurin'`: Eclipse Temurin (Adoptium).
+ * - `'microsoft'`: Microsoft Build of OpenJDK — LTS releases only.
+ *
+ * API vendors (URL resolved through a metadata API — see `vendorApiResolvers`):
+ * - `'liberica'`: BellSoft Liberica.
+ * - `'zulu'`: Azul Zulu.
+ * - `'semeru'`: IBM Semeru (OpenJ9).
  */
-export type JdkVendor = 'oracle' | 'temurin' | 'corretto';
+export type JdkVendor = 'oracle' | 'temurin' | 'corretto' | 'microsoft' | 'liberica' | 'zulu' | 'semeru';
+
+export type TemplateJdkVendor = 'oracle' | 'temurin' | 'corretto' | 'microsoft';
+
+/** Value of `jaenvtix.preferredJdkVendor`: a concrete vendor or `'auto'`. */
+export type JdkVendorPreference = JdkVendor | 'auto';
+
+const ALL_VENDOR_PREFERENCES: readonly JdkVendorPreference[] =
+    ['auto', 'oracle', 'temurin', 'corretto', 'microsoft', 'liberica', 'zulu', 'semeru'];
+
+/** Maps a raw setting value to a valid preference; anything unknown means `'auto'`. */
+export function normalizeVendorPreference(value: unknown): JdkVendorPreference {
+    return ALL_VENDOR_PREFERENCES.find((preference) => preference === value) ?? 'auto';
+}
 
 /**
  * Oracle hosts `https://download.oracle.com/java/{v}/latest/` binaries for
  * LTS releases starting at 21. The version must also be known to the Red Hat
- * Language Server (`supported.majors`): that confirms the release actually
- * exists, since the Oracle URL is returned without an accessibility probe.
+ * Language Server (`supported.majors`): that confirms the release actually exists.
  */
 function isOracleHostedVersion(javaVersion: string, supported: SupportedJavaVersions): boolean {
     const major = parseJavaVersionNumber(javaVersion);
     return major >= 21 && isLtsVersion(major) && supported.majors.includes(major);
 }
 
-const VENDOR_CONFIGS: Readonly<Record<JdkVendor, VendorConfig>> = {
+/** Microsoft publishes its OpenJDK build for LTS releases only (11, 17, 21, ...). */
+function isMicrosoftHostedVersion(javaVersion: string): boolean {
+    const major = parseJavaVersionNumber(javaVersion);
+    return major >= 11 && isLtsVersion(major);
+}
+
+const VENDOR_CONFIGS: Readonly<Record<TemplateJdkVendor, VendorConfig>> = {
     oracle: {
         baseUrl: 'https://download.oracle.com/java',
         buildPath: (v, os, arch, ext) => `/${v}/latest/jdk-${v}_${os}-${arch}_bin.${ext}`,
@@ -57,6 +83,12 @@ const VENDOR_CONFIGS: Readonly<Record<JdkVendor, VendorConfig>> = {
         osNames: {...DEFAULT_OS_NAMES, darwin: 'mac'},
         archNames: DEFAULT_ARCH_NAMES,
     },
+    microsoft: {
+        baseUrl: 'https://aka.ms/download-jdk',
+        buildPath: (v, os, arch, ext) => `/microsoft-jdk-${v}-${os}-${arch}.${ext}`,
+        osNames: {...DEFAULT_OS_NAMES, darwin: 'macos'},
+        archNames: DEFAULT_ARCH_NAMES,
+    },
 };
 
 function capitalize(str: string): string {
@@ -73,7 +105,7 @@ function capitalize(str: string): string {
  * - Does NOT probe the URL for accessibility — the caller is responsible for that.
  */
 export function buildDistribution(
-    vendor: JdkVendor,
+    vendor: TemplateJdkVendor,
     javaVersion: string,
     platform: PlatformType,
     arch: ArchitectureType,
@@ -98,37 +130,95 @@ export function buildDistribution(
 }
 
 /**
+ * Vendor order attempted per preference. The preferred vendor goes first;
+ * the rest is its documented fallback chain. `auto` preserves the historic
+ * behaviour: Oracle (when hosted), then Corretto, then Temurin.
+ */
+const VENDOR_FALLBACK_CHAINS: Readonly<Record<JdkVendor, readonly JdkVendor[]>> = {
+    oracle: ['oracle', 'corretto', 'temurin'],
+    temurin: ['temurin', 'corretto', 'liberica'],
+    corretto: ['corretto', 'temurin', 'liberica'],
+    liberica: ['liberica', 'temurin', 'corretto'],
+    microsoft: ['microsoft', 'temurin', 'corretto'],
+    zulu: ['zulu', 'temurin', 'corretto'],
+    semeru: ['semeru', 'temurin', 'corretto'],
+};
+
+const AUTO_CHAIN: readonly JdkVendor[] = ['oracle', 'corretto', 'temurin'];
+
+function isTemplateVendor(vendor: JdkVendor): vendor is TemplateJdkVendor {
+    return vendor === 'oracle' || vendor === 'corretto' || vendor === 'temurin' || vendor === 'microsoft';
+}
+
+export type ResolveApiDistributionFn = (
+    vendor: ApiJdkVendor,
+    javaVersion: string,
+    platform: PlatformType,
+    arch: ArchitectureType,
+) => Promise<JdkDistribution | null>;
+
+export interface JdkResolutionOptions {
+    /**
+     * Versions the Red Hat Language Server recognizes; gates Oracle hosting.
+     * Defaults to the static list mirroring Jaenvtix 0.0.6; the orchestrator
+     * passes the dynamic one read from redhat.java so new LTS releases work
+     * without a Jaenvtix release.
+     */
+    supportedVersions?: SupportedJavaVersions;
+    /** Vendor preference from `jaenvtix.preferredJdkVendor`. Defaults to `'auto'`. */
+    preferredVendor?: JdkVendorPreference;
+    /** Override the URL accessibility probe (tests). Defaults to a HEAD request. */
+    isUrlAccessible?: (url: string) => Promise<boolean>;
+    /** Override the API-based vendor resolver (tests). Defaults to the live one. */
+    resolveApiDistribution?: ResolveApiDistributionFn;
+}
+
+/**
  * Resolves the best available JDK distribution for the given version, platform,
- * and architecture, probing URLs for accessibility before returning.
+ * and architecture, walking the preferred vendor's fallback chain.
  *
  * Business rules:
- * - For Oracle-hosted versions (LTS 21+ recognized by the Red Hat Language
- *   Server, per `supportedVersions`), Oracle JDK is returned directly without
- *   an accessibility probe. `supportedVersions` defaults to the static list
- *   mirroring Jaenvtix 0.0.6; the orchestrator passes the dynamic one read
- *   from redhat.java so new LTS releases work without a Jaenvtix release.
- * - For all other versions, Amazon Corretto is tried first; if its URL is
- *   inaccessible, Eclipse Temurin is the fallback.
+ * - The chain starts at `preferredVendor` and falls back per
+ *   `VENDOR_FALLBACK_CHAINS`; `'auto'` keeps the historic Oracle → Corretto →
+ *   Temurin order.
+ * - Vendors that cannot host the version are skipped without a network call:
+ *   Oracle requires an LTS 21+ recognized by redhat.java, Microsoft requires
+ *   an LTS 11+.
+ * - Every candidate URL is probed for accessibility; the first reachable one
+ *   wins, so an unreachable preferred vendor falls back automatically.
+ * - API-based vendors (Liberica, Zulu, Semeru) that fail to resolve are
+ *   skipped the same way.
  * - Returns `null` when no accessible distribution can be found for the combination.
  */
 export async function getJdkDistribution(
     javaVersion: string,
     platform: PlatformType,
     arch: ArchitectureType,
-    supportedVersions: SupportedJavaVersions = FALLBACK_SUPPORTED_JAVA_VERSIONS,
+    options: JdkResolutionOptions = {},
 ): Promise<JdkDistribution | null> {
-    if (isOracleHostedVersion(javaVersion, supportedVersions)) {
-        return buildDistribution('oracle', javaVersion, platform, arch);
-    }
+    const supported = options.supportedVersions ?? FALLBACK_SUPPORTED_JAVA_VERSIONS;
+    const preference = options.preferredVendor ?? 'auto';
+    const probe = options.isUrlAccessible ?? isUrlAccessible;
+    const resolveApi = options.resolveApiDistribution
+        ?? ((vendor, version, os, cpu) => resolveApiDistribution(vendor, version, os, cpu));
 
-    const corretto = buildDistribution('corretto', javaVersion, platform, arch);
-    if (corretto && await isUrlAccessible(corretto.url)) {
-        return corretto;
-    }
+    const chain = preference === 'auto' ? AUTO_CHAIN : VENDOR_FALLBACK_CHAINS[preference];
 
-    const temurin = buildDistribution('temurin', javaVersion, platform, arch);
-    if (temurin && await isUrlAccessible(temurin.url)) {
-        return temurin;
+    for (const vendor of chain) {
+        if (vendor === 'oracle' && !isOracleHostedVersion(javaVersion, supported)) {
+            continue;
+        }
+        if (vendor === 'microsoft' && !isMicrosoftHostedVersion(javaVersion)) {
+            continue;
+        }
+
+        const distribution = isTemplateVendor(vendor)
+            ? buildDistribution(vendor, javaVersion, platform, arch)
+            : await resolveApi(vendor, javaVersion, platform, arch);
+
+        if (distribution && await probe(distribution.url)) {
+            return distribution;
+        }
     }
 
     return null;

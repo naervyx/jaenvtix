@@ -20,7 +20,7 @@ import {RefreshProjectConfigurationStep} from './steps/refreshProjectConfigurati
 import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
 import {Messages} from '../util/message';
 import {runStep, runSteps} from './stepRunner';
-import {getJdkDistribution} from '../build/javaUrl';
+import {getJdkDistribution, normalizeVendorPreference} from '../build/javaUrl';
 import {readSupportedJavaVersions} from '../build/redhatRuntimeReader';
 
 /**
@@ -74,16 +74,17 @@ export function getDefaultStepGroups(
             }),
             new PrepareVersionPathsStep(),
             new ScheduleDownloadsStep({
-                // Read redhat.java's supported-versions enum at step run time so
-                // new Java LTS releases are recognized without a Jaenvtix release.
-                getJdkDistribution: (version, platform, arch) => getJdkDistribution(
-                    version,
-                    platform,
-                    arch,
-                    readSupportedJavaVersions(
+                // Read redhat.java's supported-versions enum and the vendor
+                // preference at step run time so new Java LTS releases and
+                // setting changes are honoured without a Jaenvtix release/reload.
+                getJdkDistribution: (version, platform, arch) => getJdkDistribution(version, platform, arch, {
+                    supportedVersions: readSupportedJavaVersions(
                         () => vscode.extensions.getExtension('redhat.java')?.packageJSON,
                     ),
-                ),
+                    preferredVendor: normalizeVendorPreference(
+                        vscode.workspace.getConfiguration().get('jaenvtix.preferredJdkVendor'),
+                    ),
+                }),
             }),
             // ProcessDownloads normalizes each version's `jdkHome` to the real
             // Java home (macOS bundles extract as Contents/Home), so project
