@@ -115,6 +115,8 @@ export const Messages = {
             `Detected JDK from ${source}: ${jdkHome}`,
         JDK_PATCH_UPDATE: (javaVersion: string, current: string, latest: string) =>
             `Java ${javaVersion}: newer patch available (${current} → ${latest}); refreshing the cached JDK.`,
+        DOWNLOAD_RETRY: (attempt: number, max: number, url: string, detail: string) =>
+            `Retrying download (${attempt}/${max}) after transient failure (${detail}): ${url}`,
     },
     Choice: {
         YES: 'Yes',

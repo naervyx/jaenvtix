@@ -85,6 +85,13 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Periodically check (every 24h) whether a newer patch of a Jaenvtix-cached JDK is available and re-download it to pick up security fixes. Never touches JDKs installed outside the Jaenvtix cache."
+				},
+				"jaenvtix.downloadMaxRetries": {
+					"type": "integer",
+					"default": 3,
+					"minimum": 0,
+					"maximum": 10,
+					"description": "Maximum number of retries for failed downloads (timeout, 5xx, connection reset). Set 0 to disable retries."
 				}
 			}
 		}
