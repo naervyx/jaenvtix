@@ -305,7 +305,9 @@ suffixes automatically.
 ## Jaenvtix configuration settings
 
 All settings live under the `jaenvtix.*` namespace. All have sensible defaults; nothing is
-required.
+required. On first configuration Jaenvtix also seeds these keys (with their defaults) into the
+workspace `.vscode/settings.json`, so you can change one inline without hunting for it — VS Code
+shows the accepted values as you edit (autocomplete / hover).
 
 | Setting | Default | What it does |
 | --- | --- | --- |

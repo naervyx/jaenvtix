@@ -90,6 +90,16 @@
 				"jaenvtix.preferredJdkVendor": {
 					"type": "string",
 					"enum": ["auto", "oracle", "temurin", "corretto", "liberica", "microsoft", "zulu", "semeru"],
+					"enumDescriptions": [
+						"Default logic: Oracle for LTS 21+, then Corretto, then Temurin.",
+						"Oracle JDK (LTS 21+ only; falls back otherwise).",
+						"Eclipse Temurin (Adoptium).",
+						"Amazon Corretto.",
+						"BellSoft Liberica.",
+						"Microsoft Build of OpenJDK (LTS releases only).",
+						"Azul Zulu.",
+						"IBM Semeru (OpenJ9)."
+					],
 					"default": "auto",
 					"description": "Preferred vendor to download JDK from. 'auto' uses the default logic (Oracle for 21+ LTS, Corretto then Temurin as fallback). If the chosen vendor URL is unreachable, Jaenvtix falls back to the next available vendor automatically."
 				},

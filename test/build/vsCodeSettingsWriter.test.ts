@@ -4,6 +4,7 @@ import {promises as fs, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 
 import {updateVsCodeSettings, applyUserJavaTunings} from '../../src/build/vsCodeSettingsWriter';
+import {JAENVTIX_DEFAULT_SETTINGS} from '../../src/build/jaenvtixDefaultSettings';
 import type {PlatformType} from '../../src/core/system';
 import {createTempDir, removeTempDir} from '../fixtures/tempDir';
 
@@ -392,6 +393,75 @@ describe('updateVsCodeSettings — mvnw vs Jaenvtix wrapper', () => {
 
         assert.equal(result.updated, true);
         assert.equal('maven.terminal.customEnv' in settings, false);
+    });
+});
+
+describe('updateVsCodeSettings — jaenvtix.* defaults seeding', () => {
+    const cleanups: (() => Promise<void>)[] = [];
+
+    afterEach(async () => {
+        await Promise.all(cleanups.splice(0).map((fn) => fn()));
+    });
+
+    it('seeds every jaenvtix.* setting with its default when enabled', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {documentJaenvtixSettings: true});
+        const settings = await readSettings(settingsPath);
+
+        for (const setting of JAENVTIX_DEFAULT_SETTINGS) {
+            assert.deepEqual(settings[setting.key], setting.default, `${setting.key} should default to ${String(setting.default)}`);
+        }
+    });
+
+    it('writes plain JSON (no comments) so the file stays natively parseable', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {documentJaenvtixSettings: true});
+        const raw = await fs.readFile(settingsPath, 'utf-8');
+
+        assert.equal(raw.includes('//'), false);
+        assert.doesNotThrow(() => JSON.parse(raw));
+    });
+
+    it('does NOT write the block when the option is omitted', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const raw = await fs.readFile(settingsPath, 'utf-8');
+
+        assert.equal(raw.includes('jaenvtix.'), false);
+    });
+
+    it('preserves a jaenvtix value the user already set (setIfUndefined)', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {'jaenvtix.preferredJdkVendor': 'liberica'},
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {documentJaenvtixSettings: true});
+        const settings = await readSettings(settingsPath);
+
+        assert.equal(settings['jaenvtix.preferredJdkVendor'], 'liberica');
+        // The other settings are still seeded with defaults.
+        assert.equal(settings['jaenvtix.autoUpdatePatches'], true);
+    });
+
+    it('is idempotent: a second pass with the block already present is a no-op', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {documentJaenvtixSettings: true});
+        const second = updateVsCodeSettings(settingsPath, paths, {documentJaenvtixSettings: true});
+
+        assert.equal(second.updated, false);
+        const settings = await readSettings(settingsPath);
+        assert.equal(settings['java.jdt.ls.java.home'], '/home/dev/.jaenvtix/jdk-17');
+        assert.equal(settings['jaenvtix.isolatedMavenPerProject'], true);
     });
 });
 

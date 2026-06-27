@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `~/.jaenvtix/jdk-N/mvn-<version>/` slot and wrapper (`jaenvtix.isolatedMavenPerProject`) (MP-03).
 - Platform matrix extended to Linux musl (Alpine devcontainers) and native Windows ARM64 (MP-11).
 
+- The `jaenvtix.*` settings are seeded with their defaults into the workspace
+  `.vscode/settings.json` on first configuration so they are discoverable and editable inline;
+  their accepted values are documented natively via `enumDescriptions` (settings.json autocomplete).
+
 ### Changed
 - README repositioned around the provisioner's differentiators; documents every
   `jaenvtix.*` setting and the new platform matrix (MP-09).
