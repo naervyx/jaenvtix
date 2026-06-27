@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-06-27
+
 ### Added
 - Spring Boot Tools auto-configuration: `spring-boot.ls.java.home` is pointed at a provisioned
   Java 21+ JDK when `vmware.vscode-spring-boot` (or the Boot dev pack) is installed (MP-15).
