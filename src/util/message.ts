@@ -111,6 +111,8 @@ export const Messages = {
             `Detected JDK from toolchains.xml: ${jdkHome}${version ? ` (version ${version})` : ''}`,
         TOOLCHAINS_READ_FAILED: (detail: string) =>
             `Failed to read ~/.m2/toolchains.xml: ${detail}`,
+        PACKAGE_MANAGER_JDK_DETECTED: (source: string, jdkHome: string) =>
+            `Detected JDK from ${source}: ${jdkHome}`,
     },
     Choice: {
         YES: 'Yes',
