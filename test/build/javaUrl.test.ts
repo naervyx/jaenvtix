@@ -198,6 +198,64 @@ describe('getJdkDistribution — vendor preference chains', () => {
     });
 });
 
+describe('getJdkDistribution — Linux musl (Alpine) and native Windows ARM64', () => {
+    it('serves musl Linux from Temurin alpine-linux builds in auto mode', async () => {
+        const distribution = await getJdkDistribution('17', 'linux-musl', 'x64', {
+            preferredVendor: 'auto',
+            isUrlAccessible: allReachable,
+        });
+
+        assert.equal(distribution?.name, 'Temurin17');
+        assert.equal(
+            distribution?.url,
+            'https://api.adoptium.net/v3/binary/latest/17/ga/alpine-linux/x64/jdk/hotspot/normal/eclipse',
+        );
+    });
+
+    it('skips Corretto on musl (no build) and falls through to Temurin', async () => {
+        const distribution = await getJdkDistribution('17', 'linux-musl', 'x64', {
+            preferredVendor: 'corretto',
+            isUrlAccessible: allReachable,
+        });
+
+        assert.equal(distribution?.name, 'Temurin17');
+    });
+
+    it('builds the Adoptium windows/aarch64 URL for Java 21 on native Windows ARM64', async () => {
+        const distribution = await getJdkDistribution('21', 'windows', 'arm64', {
+            preferredVendor: 'temurin',
+            isUrlAccessible: allReachable,
+        });
+
+        assert.equal(distribution?.name, 'Temurin21');
+        assert.equal(
+            distribution?.url,
+            'https://api.adoptium.net/v3/binary/latest/21/ga/windows/aarch64/jdk/hotspot/normal/eclipse',
+        );
+    });
+
+    it('skips Temurin for Java < 21 on Windows ARM64 (Adoptium ships 21+ only)', async () => {
+        const distribution = await getJdkDistribution('17', 'windows', 'arm64', {
+            preferredVendor: 'temurin',
+            isUrlAccessible: allReachable,
+        });
+
+        assert.notEqual(distribution?.name, 'Temurin17');
+        assert.equal(distribution?.name, 'Corretto17');
+    });
+
+    it('auto mode reaches Microsoft for Java 17 on Windows ARM64 when the primaries fail', async () => {
+        const distribution = await getJdkDistribution('17', 'windows', 'arm64', {
+            preferredVendor: 'auto',
+            // Corretto has no native win-arm64 build in practice — simulate its 404.
+            isUrlAccessible: async (url) => !url.includes('corretto'),
+        });
+
+        assert.equal(distribution?.name, 'Microsoft17');
+        assert.equal(distribution?.url, 'https://aka.ms/download-jdk/microsoft-jdk-17-windows-aarch64.zip');
+    });
+});
+
 describe('normalizeVendorPreference', () => {
     it('keeps valid preferences and maps anything unknown to auto', () => {
         assert.equal(normalizeVendorPreference('liberica'), 'liberica');

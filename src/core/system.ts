@@ -1,14 +1,17 @@
+import {existsSync} from 'node:fs';
 import {arch, platform} from 'node:os';
 
 /**
  * Normalized platform identifier used throughout Jaenvtix.
  *
  * - `'windows'`: mapped from Node.js `'win32'`.
- * - `'linux'`: mapped from Node.js `'linux'`.
+ * - `'linux'`: mapped from Node.js `'linux'` (glibc).
+ * - `'linux-musl'`: Linux with the musl libc (Alpine and derivatives) —
+ *   needs JDK builds linked against musl (Adoptium `alpine-linux`, Liberica).
  * - `'darwin'`: mapped from Node.js `'darwin'` (macOS).
  * - `'unknown'`: any other platform; treated as unsupported.
  */
-export type PlatformType = 'windows' | 'linux' | 'darwin' | 'unknown';
+export type PlatformType = 'windows' | 'linux' | 'linux-musl' | 'darwin' | 'unknown';
 
 /**
  * Normalized CPU architecture identifier used throughout Jaenvtix.
@@ -20,7 +23,7 @@ export type PlatformType = 'windows' | 'linux' | 'darwin' | 'unknown';
 export type ArchitectureType = 'x64' | 'arm64' | 'unsupported';
 
 /** Platforms for which Jaenvtix can resolve and install JDK/Maven distributions. */
-export const SUPPORTED_PLATFORMS = new Set<PlatformType>(['windows', 'linux', 'darwin']);
+export const SUPPORTED_PLATFORMS = new Set<PlatformType>(['windows', 'linux', 'linux-musl', 'darwin']);
 
 /** CPU architectures for which JDK distributions are available. */
 export const SUPPORTED_ARCHITECTURES = new Set<ArchitectureType>(['x64', 'arm64']);
@@ -32,6 +35,9 @@ export const SUPPORTED_ARCHITECTURES = new Set<ArchitectureType>(['x64', 'arm64'
 export const DEFAULT_OS_NAMES: Readonly<Record<PlatformType, string | undefined>> = {
     windows: 'windows',
     linux: 'linux',
+    // No default URL segment: most vendors ship no musl build, so they
+    // self-exclude unless they override this key (e.g. Temurin's alpine-linux).
+    'linux-musl': undefined,
     darwin: 'macos',
     unknown: undefined,
 };
@@ -76,15 +82,36 @@ export function getArchitecture(): ArchitectureType {
 }
 
 /**
+ * Detects the musl libc (Alpine and derivatives) on Linux by probing for the
+ * musl dynamic linker, with `/etc/alpine-release` as a fallback marker.
+ * Always `false` off Linux (no filesystem probe is made).
+ */
+export function isMusl(
+    osPlatform: string = platform(),
+    fileExists: (path: string) => boolean = existsSync,
+): boolean {
+    if (osPlatform !== 'linux') {
+        return false;
+    }
+    return fileExists('/lib/ld-musl-x86_64.so.1')
+        || fileExists('/lib/ld-musl-aarch64.so.1')
+        || fileExists('/etc/alpine-release');
+}
+
+/**
  * Reads `os.platform()` and maps it to the normalized `PlatformType`.
  * Node.js reports Windows as `'win32'`; this function normalizes it to `'windows'`.
- * Returns `'unknown'` for any platform Jaenvtix does not handle.
+ * Linux is split into glibc (`'linux'`) and musl (`'linux-musl'`) because JDK
+ * binaries are libc-specific. Returns `'unknown'` for any platform Jaenvtix
+ * does not handle.
  */
-export function getPlatform(): PlatformType {
-    const platformType = platform();
-    switch (platformType) {
+export function getPlatform(
+    osPlatform: string = platform(),
+    muslDetector: () => boolean = () => isMusl(osPlatform),
+): PlatformType {
+    switch (osPlatform) {
         case 'win32': return 'windows';
-        case 'linux': return 'linux';
+        case 'linux': return muslDetector() ? 'linux-musl' : 'linux';
         case 'darwin': return 'darwin';
         default: return 'unknown';
     }

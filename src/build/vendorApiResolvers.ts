@@ -23,6 +23,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const LIBERICA_OS_NAMES: Readonly<Record<PlatformType, string | undefined>> = {
     windows: 'windows',
     linux: 'linux',
+    'linux-musl': 'linux-musl',
     darwin: 'macos',
     unknown: undefined,
 };
@@ -61,7 +62,14 @@ async function resolveLiberica(
     return {name: `Liberica${javaVersion}`, url: downloadUrl, extension};
 }
 
-const ZULU_OS_NAMES = LIBERICA_OS_NAMES;
+/** Azul's community bundle API has no musl variant — musl self-excludes. */
+const ZULU_OS_NAMES: Readonly<Record<PlatformType, string | undefined>> = {
+    windows: 'windows',
+    linux: 'linux',
+    'linux-musl': undefined,
+    darwin: 'macos',
+    unknown: undefined,
+};
 
 /** Azul models 64-bit ARM as `arch=arm` + `hw_bitness=64`; x64 as `arch=x86` + `hw_bitness=64`. */
 const ZULU_ARCH_NAMES = LIBERICA_ARCH_NAMES;
@@ -92,9 +100,11 @@ async function resolveZulu(
     return {name: `Zulu${javaVersion}`, url: downloadUrl, extension};
 }
 
+/** IBM Semeru ships no musl build — musl self-excludes. */
 const SEMERU_OS_NAMES: Readonly<Record<PlatformType, string | undefined>> = {
     windows: 'windows',
     linux: 'linux',
+    'linux-musl': undefined,
     darwin: 'mac',
     unknown: undefined,
 };
