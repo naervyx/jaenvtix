@@ -4,6 +4,7 @@ import {cpus} from 'node:os';
 import {Messages} from '../util/message';
 import type {JavaRuntime} from '../core/types';
 import type {PlatformType} from '../core/system';
+import {JAENVTIX_DEFAULT_SETTINGS} from './jaenvtixDefaultSettings';
 
 type TerminalEnv = Record<string, string>;
 
@@ -69,6 +70,16 @@ interface JavaMavenPaths {
 interface UpdateResult {
     updated: boolean;
     updatedKeys: string[];
+}
+
+/** Options controlling optional, non-Java/Maven writes in `updateVsCodeSettings`. */
+export interface UpdateVsCodeSettingsOptions {
+    /**
+     * Seed the `jaenvtix.*` settings with their defaults. Passed only for the
+     * workspace-root project so they land in the single file the extension
+     * reads its own config from, not in every module.
+     */
+    documentJaenvtixSettings?: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, string> {
@@ -256,6 +267,27 @@ function readSettingsData(settingsPath: string): VsCodeSettings {
 }
 
 /**
+ * Seeds the `jaenvtix.*` settings into `data` with their defaults so a freshly
+ * configured `settings.json` shows every knob — the user can flip one without
+ * having to know it exists. Accepted values are documented natively via
+ * `enumDescriptions` in `package.json` (settings.json autocomplete / hover).
+ *
+ * Business rules:
+ * - `setIfUndefined` semantics: a value the user already set (here or
+ *   inherited) is preserved; only absent keys get the default.
+ * - Newly added keys are marked updated so the file is persisted (and logged)
+ *   on first configuration; once present, re-runs are no-ops.
+ */
+function applyJaenvtixDefaultSettings(data: VsCodeSettings, result: UpdateResult): void {
+    for (const setting of JAENVTIX_DEFAULT_SETTINGS) {
+        if (data[setting.key] === undefined) {
+            data[setting.key] = setting.default;
+            markUpdated(result, setting.key);
+        }
+    }
+}
+
+/**
  * Applies the scalar managed keys: sets each defined value when it differs,
  * removes the key entirely when the desired value is `undefined` (e.g. the
  * `maven.executable.*` keys for an mvnw-driven project).
@@ -407,13 +439,18 @@ function persistSettings(settingsPath: string, data: VsCodeSettings): void {
  * - Terminal env (`terminal.integrated.env.linux/windows/osx`) is merged
  *   non-destructively: existing user-defined keys are preserved; managed keys
  *   (`JAVA_HOME`, `MAVEN_HOME`, `M2_HOME`, `PATH`/`Path`) are updated.
+ * - When `options.documentJaenvtixSettings` is set, the `jaenvtix.*` settings
+ *   are seeded with their defaults (the caller passes this only for the
+ *   workspace-root project, where the extension actually reads its own
+ *   configuration). Accepted values are documented via `enumDescriptions`.
  * - Recovers from malformed JSON by resetting to an empty settings object.
  * - Creates `.vscode/` if it does not exist.
  * - Returns `updated: false` when nothing changed (safe to re-run).
  */
 export function updateVsCodeSettings(
     settingsPath: string,
-    paths: JavaMavenPaths
+    paths: JavaMavenPaths,
+    options: UpdateVsCodeSettingsOptions = {}
 ): UpdateResult {
     const result: UpdateResult = {
         updated: false,
@@ -432,6 +469,10 @@ export function updateVsCodeSettings(
     applyProjectRuntimes(data, paths.runtimes, result);
     applyTerminalEnv(data, paths, result);
     applyMavenCustomEnv(data, paths, respectMvnw, result);
+
+    if (options.documentJaenvtixSettings) {
+        applyJaenvtixDefaultSettings(data, result);
+    }
 
     if (result.updated) {
         persistSettings(settingsPath, data);

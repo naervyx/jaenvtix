@@ -1,7 +1,7 @@
 {
 	"name": "jaenvtix",
 	"displayName": "Jaenvtix",
-	"description": "Automatic Java and Maven configuration for VS Code and Cursor. Detects pom.xml, downloads the matching JDK and Maven, and wires per-project workspace settings.",
+	"description": "Maven monorepo provisioner for VS Code: per-project Java/Maven, multi-vendor JDK, multi-module inheritance, security auto-updates, consent-based.",
 	"publisher": "naervyx",
 	"version": "0.0.7",
 	"license": "EPL-2.0",
@@ -23,7 +23,19 @@
 		"environment",
 		"pom.xml",
 		"spring boot",
-		"workspace"
+		"workspace",
+		"monorepo",
+		"multi-module",
+		"mvnw",
+		"multi-vendor",
+		"liberica",
+		"zulu",
+		"microsoft-jdk",
+		"auto-update",
+		"security",
+		"alpine",
+		"windows-arm",
+		"non-destructive"
 	],
 	"icon": "icon/logo.png",
 	"galleryBanner": {
@@ -78,6 +90,16 @@
 				"jaenvtix.preferredJdkVendor": {
 					"type": "string",
 					"enum": ["auto", "oracle", "temurin", "corretto", "liberica", "microsoft", "zulu", "semeru"],
+					"enumDescriptions": [
+						"Default logic: Oracle for LTS 21+, then Corretto, then Temurin.",
+						"Oracle JDK (LTS 21+ only; falls back otherwise).",
+						"Eclipse Temurin (Adoptium).",
+						"Amazon Corretto.",
+						"BellSoft Liberica.",
+						"Microsoft Build of OpenJDK (LTS releases only).",
+						"Azul Zulu.",
+						"IBM Semeru (OpenJ9)."
+					],
 					"default": "auto",
 					"description": "Preferred vendor to download JDK from. 'auto' uses the default logic (Oracle for 21+ LTS, Corretto then Temurin as fallback). If the chosen vendor URL is unreachable, Jaenvtix falls back to the next available vendor automatically."
 				},
