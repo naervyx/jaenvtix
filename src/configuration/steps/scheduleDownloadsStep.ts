@@ -2,7 +2,9 @@ import {promises as fs} from 'node:fs';
 
 import {ArchitectureType, PlatformType} from '../../core/system';
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
-import {hasJdkInstallation, hasMavenInstallation} from '../../build/directory';
+import {buildMavenBinPath, hasJdkInstallation, hasMavenInstallation} from '../../build/directory';
+import {buildPinnedMavenDistribution} from '../../build/mavenUrl';
+import {collectPinnedMavenRequirements} from '../mavenRequirements';
 import {downloadFile, DownloadOptions, DownloadResult} from '../../file/fileDownload';
 import {Messages} from '../../util/message';
 import {getJdkDistribution} from '../../build/javaUrl';
@@ -42,9 +44,13 @@ export interface ScheduleDownloadsDeps {
  *   does not already contain a valid JDK installation. Already-installed JDKs
  *   detected in `DetectInstalledJdksStep` are skipped too (they live outside
  *   the Jaenvtix cache but are checked via `hasJdkInstallation`).
- * - Maven is NOT downloaded when every project in the workspace ships its own
- *   `mvnw`. In that case `state.mavenDownload` remains undefined and subsequent
- *   steps skip Maven-related work accordingly.
+ * - The shared (latest) Maven is NOT downloaded when every project in the
+ *   workspace ships its own `mvnw` or pins a Maven version. In that case
+ *   `state.mavenDownload` remains undefined and subsequent steps skip the
+ *   shared-Maven work accordingly.
+ * - Projects pinning a Maven version get an isolated download per pinned
+ *   version (`state.pinnedMavenDownloads`), extracted later into
+ *   `~/.jaenvtix/jdk-<v>/mvn-<mavenVersion>/`.
  * - Returns a warning (not an error) when a JDK distribution cannot be resolved,
  *   because the user may still be able to configure the project manually.
  * - Security patch refresh: before reusing a cached Jaenvtix JDK, a
@@ -65,14 +71,18 @@ export class ScheduleDownloadsStep implements ConfigurationStep {
             return StepResult.error(Messages.Error.MISSING_PLATFORM_ARCH_MAVEN);
         }
 
-        // When every project ships its own `mvnw`, the Jaenvtix Maven is
-        // never invoked. Avoid downloading and extracting it in that case —
-        // the wrapper script generation step also short-circuits, and the
-        // settings step already leaves `maven.executable.path` unset.
+        // When every project either ships its own `mvnw` or pins a Maven
+        // version (provisioned into its own isolated slot below), the shared
+        // Jaenvtix-latest Maven is never invoked. Avoid downloading and
+        // extracting it in that case — the wrapper script generation step
+        // also short-circuits, and the settings step already leaves
+        // `maven.executable.path` unset for mvnw projects.
         const projectsWithVersion = [...state.projectVersionMap.values()].flat();
-        const everyProjectHasMvnw =
+        const everyProjectCovered =
             projectsWithVersion.length > 0 &&
-            projectsWithVersion.every((project) => state.projectsHasMvnw.get(project) === true);
+            projectsWithVersion.every((project) =>
+                state.projectsHasMvnw.get(project) === true ||
+                state.projectMavenVersions.has(project));
 
         let needsMavenDownload = false;
 
@@ -99,13 +109,33 @@ export class ScheduleDownloadsStep implements ConfigurationStep {
                 state.jdkDownloads.set(javaVersion, jdkDownloadPromise);
             }
 
-            if (everyProjectHasMvnw) {
+            if (everyProjectCovered) {
                 continue;
             }
 
             const hasToolHome = hasMavenInstallation(paths.toolBin, state.platform);
             if (!hasToolHome) {
                 needsMavenDownload = true;
+            }
+        }
+
+        // Isolated Maven slots: one download per pinned version (the archive
+        // is version-specific, not platform-slot-specific, so two projects
+        // pinning the same version share a single download).
+        for (const [javaVersion, mavenVersions] of collectPinnedMavenRequirements(state)) {
+            for (const mavenVersion of mavenVersions) {
+                if (state.pinnedMavenDownloads.has(mavenVersion)) {
+                    continue;
+                }
+                if (hasMavenInstallation(buildMavenBinPath(javaVersion, mavenVersion), state.platform)) {
+                    continue;
+                }
+                const distribution = buildPinnedMavenDistribution(mavenVersion, state.platform);
+                state.pinnedMavenDownloads.set(mavenVersion, startDownload({
+                    url: distribution.url,
+                    fileName: distribution.name,
+                    extension: distribution.extension,
+                }));
             }
         }
 

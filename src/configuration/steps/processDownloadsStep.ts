@@ -3,8 +3,15 @@ import {join} from 'node:path';
 
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {DownloadResult} from '../../file/fileDownload';
-import {hasJdkInstallation, hasMavenInstallation, resolveJdkInstallationHome} from '../../build/directory';
+import {
+    buildMavenBinPath,
+    buildMavenInstallationPath,
+    hasJdkInstallation,
+    hasMavenInstallation,
+    resolveJdkInstallationHome,
+} from '../../build/directory';
 import {buildVersionInfoFromDisk, writeVersionInfo} from '../../build/versionTracking';
+import {collectPinnedMavenRequirements} from '../mavenRequirements';
 import {extractTarGz} from '../../file/unpacker/tarGz';
 import {extractZip} from '../../file/unpacker/zip';
 import type {PlatformType} from '../../core/system';
@@ -112,6 +119,7 @@ export class ProcessDownloadsStep implements ConfigurationStep {
 
         const allDownloads: Promise<DownloadResult>[] = [
             ...state.jdkDownloads.values(),
+            ...state.pinnedMavenDownloads.values(),
             ...(state.mavenDownload ? [state.mavenDownload] : []),
         ];
 
@@ -124,6 +132,7 @@ export class ProcessDownloadsStep implements ConfigurationStep {
         }
 
         const mavenResult = state.mavenDownload ? await state.mavenDownload : undefined;
+        const pinnedRequirements = collectPinnedMavenRequirements(state);
 
         const extractedArchives = new Set<string>();
 
@@ -144,6 +153,28 @@ export class ProcessDownloadsStep implements ConfigurationStep {
                 await extractArchive(mavenResult, paths.toolHome);
                 extractedArchives.add(mavenResult.filePath);
                 await ensureBinDirectoryExecutable(paths.toolHome, state.platform);
+            }
+
+            // Isolated Maven slots for projects that pin a version. The same
+            // archive may be extracted into several Java-version slots; temp
+            // cleanup only happens after the whole loop, so reuse is safe.
+            for (const mavenVersion of pinnedRequirements.get(javaVersion) ?? []) {
+                const pinnedHome = buildMavenInstallationPath(javaVersion, mavenVersion);
+                const pinnedBin = buildMavenBinPath(javaVersion, mavenVersion);
+                const pinnedDownload = state.pinnedMavenDownloads.get(mavenVersion);
+
+                if (pinnedDownload && !hasMavenInstallation(pinnedBin, state.platform)) {
+                    const pinnedResult = await pinnedDownload;
+                    if (pinnedResult.success) {
+                        await extractArchive(pinnedResult, pinnedHome);
+                        extractedArchives.add(pinnedResult.filePath);
+                        await ensureBinDirectoryExecutable(pinnedHome, state.platform);
+                    }
+                }
+
+                if (!hasMavenInstallation(pinnedBin, state.platform)) {
+                    return StepResult.error(Messages.Error.MAVEN_EXTRACTION_FAILED(javaVersion));
+                }
             }
 
             const resolvedJdkHome = resolveJdkInstallationHome(paths.jdkHome, state.platform);

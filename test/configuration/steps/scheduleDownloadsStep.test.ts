@@ -313,6 +313,96 @@ describe('ScheduleDownloadsStep', () => {
         assert.ok((readVersionInfo(paths.jdkHome)?.checkedAt ?? 0) > 1);
     });
 
+    // MP-03: isolated Maven slots for projects pinning a Maven version.
+
+    it('schedules one pinned Maven download per version, deduplicated across projects', async () => {
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.arch = 'x64';
+        state.mavenDistribution = maven;
+        state.versionPaths.set('21', {
+            jdkHome: '/nonexistent/jdk-21',
+            toolHome: '/nonexistent/jdk-21/mvn-custom',
+            toolBin: '/nonexistent/jdk-21/mvn-custom/bin',
+        });
+        state.projectVersionMap.set('21', ['/ws/legacy', '/ws/new-a', '/ws/new-b']);
+        state.projectsHasMvnw.set('/ws/legacy', false);
+        state.projectsHasMvnw.set('/ws/new-a', false);
+        state.projectsHasMvnw.set('/ws/new-b', false);
+        state.projectMavenVersions.set('/ws/legacy', '3.6.3');
+        state.projectMavenVersions.set('/ws/new-a', '3.9.5');
+        state.projectMavenVersions.set('/ws/new-b', '3.9.5');
+
+        const calls: DownloadOptions[] = [];
+        const step = new ScheduleDownloadsStep({
+            getJdkDistribution: async (version) => jdk(version),
+            downloadFile: async (opts) => { calls.push(opts); return {success: true, filePath: '/x'}; },
+        });
+
+        await step.run(state);
+
+        assert.deepEqual([...state.pinnedMavenDownloads.keys()].sort(), ['3.6.3', '3.9.5']);
+        assert.equal(calls.filter((c) => c.fileName === 'maven-3.6.3').length, 1);
+        assert.equal(calls.filter((c) => c.fileName === 'maven-3.9.5').length, 1);
+        assert.ok(
+            calls.find((c) => c.fileName === 'maven-3.9.5')?.url.includes(
+                'archive.apache.org/dist/maven/maven-3/3.9.5/binaries/apache-maven-3.9.5-bin.tar.gz'),
+        );
+        // Every project is covered by a pinned version → no shared Maven download.
+        assert.equal(state.mavenDownload, undefined);
+    });
+
+    it('still downloads the shared Maven when some project has neither mvnw nor a pinned version', async () => {
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.arch = 'x64';
+        state.mavenDistribution = maven;
+        state.versionPaths.set('21', {
+            jdkHome: '/nonexistent/jdk-21',
+            toolHome: '/nonexistent/jdk-21/mvn-custom',
+            toolBin: '/nonexistent/jdk-21/mvn-custom/bin',
+        });
+        state.projectVersionMap.set('21', ['/ws/pinned', '/ws/plain']);
+        state.projectsHasMvnw.set('/ws/pinned', false);
+        state.projectsHasMvnw.set('/ws/plain', false);
+        state.projectMavenVersions.set('/ws/pinned', '3.9.5');
+
+        const step = new ScheduleDownloadsStep({
+            getJdkDistribution: async (version) => jdk(version),
+            downloadFile: async () => ({success: true, filePath: '/x'}),
+        });
+
+        await step.run(state);
+
+        assert.ok(state.mavenDownload, 'shared Maven still needed by /ws/plain');
+        assert.equal(state.pinnedMavenDownloads.has('3.9.5'), true);
+    });
+
+    it('does not schedule a pinned Maven for an mvnw project', async () => {
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.arch = 'x64';
+        state.mavenDistribution = maven;
+        state.versionPaths.set('21', {
+            jdkHome: '/nonexistent/jdk-21',
+            toolHome: '/nonexistent/jdk-21/mvn-custom',
+            toolBin: '/nonexistent/jdk-21/mvn-custom/bin',
+        });
+        state.projectVersionMap.set('21', ['/ws/wrapped']);
+        state.projectsHasMvnw.set('/ws/wrapped', true);
+        state.projectMavenVersions.set('/ws/wrapped', '3.9.5');
+
+        const step = new ScheduleDownloadsStep({
+            getJdkDistribution: async (version) => jdk(version),
+            downloadFile: async () => ({success: true, filePath: '/x'}),
+        });
+
+        await step.run(state);
+
+        assert.equal(state.pinnedMavenDownloads.size, 0);
+        assert.equal(state.mavenDownload, undefined);
+    });
+
     it('does NOT re-schedule a JDK download already present in jdkDownloads', async () => {
         const state = createInitialState();
         state.platform = 'linux';

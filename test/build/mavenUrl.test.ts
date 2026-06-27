@@ -1,7 +1,7 @@
 import {describe, it} from 'node:test';
 import assert from 'node:assert/strict';
 
-import {getMavenDistribution} from '../../src/build/mavenUrl';
+import {buildPinnedMavenDistribution, getMavenDistribution} from '../../src/build/mavenUrl';
 
 function htmlWith(versions: string[]): string {
     const links = versions
@@ -12,6 +12,26 @@ function htmlWith(versions: string[]): string {
         .join('\n');
     return `<html><body>${links}</body></html>`;
 }
+
+describe('buildPinnedMavenDistribution', () => {
+    it('builds the deterministic Apache archive URL for a pinned version', () => {
+        const dist = buildPinnedMavenDistribution('3.9.5', 'linux');
+
+        assert.deepEqual(dist, {
+            name: 'maven-3.9.5',
+            url: 'https://archive.apache.org/dist/maven/maven-3/3.9.5/binaries/apache-maven-3.9.5-bin.tar.gz',
+            extension: 'tar.gz',
+            version: '3.9.5',
+        });
+    });
+
+    it('uses a zip archive on windows and the maven-4 line for 4.x versions', () => {
+        const dist = buildPinnedMavenDistribution('4.0.0', 'windows');
+
+        assert.equal(dist.url, 'https://archive.apache.org/dist/maven/maven-4/4.0.0/binaries/apache-maven-4.0.0-bin.zip');
+        assert.equal(dist.extension, 'zip');
+    });
+});
 
 describe('getMavenDistribution', () => {
     it('picks the latest version and returns a tar.gz for linux', async () => {

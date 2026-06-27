@@ -3,6 +3,7 @@ import {isAbsolute, relative} from 'node:path';
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {Messages} from '../../util/message';
 import {detectMavenWrapper} from '../../file/fileSearch';
+import {buildMavenBinPath, buildMavenInstallationPath} from '../../build/directory';
 
 /**
  * Returns the mvnw status for `project` from the cache populated by
@@ -58,6 +59,10 @@ function resolveWorkspaceRoot(projectPath: string, workspaceFolders: string[]): 
  *   matches (e.g. a manually added folder outside the declared workspace).
  * - `hasMvnw` is read from the `ResolveProjectsStep` cache; a live fallback
  *   probe is used defensively if the cache entry is missing.
+ * - A project that pins a Maven version (and does not ship `mvnw`) gets its
+ *   `toolHome`/`toolBin` pointed at the isolated `mvn-<version>` slot instead
+ *   of the shared `mvn-custom` — this is what makes the per-project Maven
+ *   isolation reach `settings.json` and the terminal env.
  */
 export class BuildProjectContextsStep implements ConfigurationStep {
     readonly name = 'BuildProjectContexts';
@@ -75,6 +80,8 @@ export class BuildProjectContextsStep implements ConfigurationStep {
 
             for (const project of projects) {
                 const workspace = resolveWorkspaceRoot(project, state.workspaceFolders) ?? project;
+                const hasMvnw = resolveHasMvnw(state, project);
+                const pinnedMaven = hasMvnw ? undefined : state.projectMavenVersions.get(project);
                 state.projectContexts.push({
                     workspace,
                     projectPath: project,
@@ -82,9 +89,9 @@ export class BuildProjectContextsStep implements ConfigurationStep {
                     arch: state.arch,
                     javaVersion,
                     jdkHome: paths.jdkHome,
-                    toolHome: paths.toolHome,
-                    toolBin: paths.toolBin,
-                    hasMvnw: resolveHasMvnw(state, project),
+                    toolHome: pinnedMaven ? buildMavenInstallationPath(javaVersion, pinnedMaven) : paths.toolHome,
+                    toolBin: pinnedMaven ? buildMavenBinPath(javaVersion, pinnedMaven) : paths.toolBin,
+                    hasMvnw,
                 });
             }
         }

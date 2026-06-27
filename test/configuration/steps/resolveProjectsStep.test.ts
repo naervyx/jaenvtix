@@ -52,6 +52,35 @@ describe('ResolveProjectsStep', () => {
         assert.match(result.message ?? '', /java version/i);
     });
 
+    it('records the Maven version pinned by each pom (isolated Maven on by default)', async () => {
+        const root = await workspaceWith([
+            {path: 'legacy/pom.xml', content: '<project><properties><java.version>21</java.version></properties><prerequisites><maven>3.6.3</maven></prerequisites></project>'},
+            {path: 'modern/pom.xml', content: '<project><properties><java.version>21</java.version><maven.version>3.9.5</maven.version></properties></project>'},
+            {path: 'plain/pom.xml', content: '<project><properties><java.version>17</java.version></properties></project>'},
+        ]);
+        const state = createInitialState();
+        state.workspaceFolders = [root];
+
+        const result = await new ResolveProjectsStep().run(state);
+
+        assert.equal(result.success, true);
+        assert.equal(state.projectMavenVersions.get(join(root, 'legacy')), '3.6.3');
+        assert.equal(state.projectMavenVersions.get(join(root, 'modern')), '3.9.5');
+        assert.equal(state.projectMavenVersions.has(join(root, 'plain')), false);
+    });
+
+    it('skips pom inspection when jaenvtix.isolatedMavenPerProject is false', async () => {
+        const root = await workspaceWith([
+            {path: 'pom.xml', content: '<project><properties><java.version>21</java.version></properties><prerequisites><maven>3.6.3</maven></prerequisites></project>'},
+        ]);
+        const state = createInitialState();
+        state.workspaceFolders = [root];
+
+        await new ResolveProjectsStep({isIsolatedMavenEnabled: () => false}).run(state);
+
+        assert.equal(state.projectMavenVersions.size, 0);
+    });
+
     it('groups projects by detected Java version', async () => {
         const root = await workspaceWith([
             {path: 'service-a/pom.xml', content: '<project><properties><java.version>17</java.version></properties></project>'},
