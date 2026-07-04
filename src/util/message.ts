@@ -36,6 +36,8 @@ export const Messages = {
             `Failed to remove temporary archive ${filePath}: ${detail}`,
         LAUNCH_JSON_MALFORMED: (filePath: string) =>
             `Existing launch.json at ${filePath} could not be parsed and was reset. Previous launch configurations were dropped.`,
+        PROJECT_VERIFICATION_MISMATCH: (count: number) =>
+            `Jaenvtix verification: ${count} project${count === 1 ? '' : 's'} resolved to a different Java level than provisioned. See the "Jaenvtix" output channel for details.`,
     },
     Error: {
         STEP_FAILED: (stepLabel: string, detail: string) => `${stepLabel} failed: ${detail}`,
@@ -86,6 +88,7 @@ export const Messages = {
             ConfigureOptionalExtensions: 'Configure companion extensions',
             ConfigureLaunch: 'Configure Visual Studio Code launch configuration',
             RefreshProjectConfiguration: 'Refresh Java Language Server project configuration',
+            VerifyConfiguration: 'Verify resolved project configuration',
         } as Record<string, string>,
     },
     Log: {
@@ -117,6 +120,16 @@ export const Messages = {
             `Java ${javaVersion}: newer patch available (${current} → ${latest}); refreshing the cached JDK.`,
         DOWNLOAD_RETRY: (attempt: number, max: number, url: string, detail: string) =>
             `Retrying download (${attempt}/${max}) after transient failure (${detail}): ${url}`,
+        REFRESH_SKIPPED_REDHAT_MISSING:
+            'Language Server refresh skipped: Red Hat Java extension (redhat.java) is not installed.',
+        SERVER_READY_UNCONFIRMED:
+            'Java Language Server did not confirm readiness in time; refreshing projects best-effort.',
+        VERIFY_PROJECT_OK: (projectPath: string, expectedMajor: number) =>
+            `Project ${projectPath}: Language Server resolved Java ${expectedMajor} as expected.`,
+        VERIFY_PROJECT_MISMATCH: (projectPath: string, expectedMajor: number, actualCompliance: string) =>
+            `Project ${projectPath}: expected Java ${expectedMajor} but Language Server resolved compliance ${actualCompliance}.`,
+        VERIFY_PROJECT_SKIPPED: (projectPath: string) =>
+            `Project ${projectPath}: verification skipped (project settings unavailable).`,
     },
     Choice: {
         YES: 'Yes',

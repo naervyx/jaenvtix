@@ -17,12 +17,57 @@ import {ApplyUserTuningsStep} from './steps/applyUserTuningsStep';
 import {ConfigureOptionalExtensionsStep} from './steps/configureOptionalExtensionsStep';
 import {ConfigureLaunchStep} from './steps/configureLaunchStep';
 import {RefreshProjectConfigurationStep} from './steps/refreshProjectConfigurationStep';
+import {VerifyConfigurationStep} from './steps/verifyConfigurationStep';
 import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
 import {Messages} from '../util/message';
 import {runStep, runSteps} from './stepRunner';
 import {getJdkDistribution, normalizeVendorPreference} from '../build/javaUrl';
 import {readSupportedJavaVersions} from '../build/redhatRuntimeReader';
 import {downloadFile} from '../file/fileDownload';
+
+const REDHAT_JAVA_EXTENSION_ID = 'redhat.java';
+const JAVA_PROJECT_CONFIGURATION_UPDATE = 'java.projectConfiguration.update';
+
+/**
+ * Activates the redhat.java extension (when installed) and resolves its
+ * public API exports. Returns `undefined` when the extension is not
+ * installed — the distinction lets steps skip Language-Server-dependent
+ * work instead of issuing commands that can only fail.
+ */
+async function activateRedhatJavaApi(): Promise<unknown> {
+    const extension = vscode.extensions.getExtension(REDHAT_JAVA_EXTENSION_ID);
+    if (!extension) {
+        return undefined;
+    }
+
+    return extension.activate();
+}
+
+/**
+ * Reads JDT project settings (e.g. compiler compliance) through the
+ * redhat.java extension API. Returns `undefined` when the API or its
+ * `getProjectSettings` method is unavailable (extension missing, LightWeight
+ * mode, or an API version that predates the method).
+ */
+async function readRedhatProjectSettings(
+    projectPath: string,
+    settingKeys: string[],
+): Promise<Record<string, unknown> | undefined> {
+    const api = await activateRedhatJavaApi() as {getProjectSettings?: unknown} | undefined;
+    if (!api || typeof api.getProjectSettings !== 'function') {
+        return undefined;
+    }
+
+    const getProjectSettings = api.getProjectSettings as
+        (resourceUri: string, keys: string[]) => Promise<unknown>;
+    const result = await getProjectSettings(vscode.Uri.file(projectPath).toString(), settingKeys);
+
+    if (result && typeof result === 'object' && !Array.isArray(result)) {
+        return result as Record<string, unknown>;
+    }
+
+    return undefined;
+}
 
 /** Clamps `jaenvtix.downloadMaxRetries` to the schema's 0..10 range. */
 function readDownloadMaxRetries(): number {
@@ -126,7 +171,21 @@ export function getDefaultStepGroups(
                     );
                 },
             }),
-            new RefreshProjectConfigurationStep(),
+            new RefreshProjectConfigurationStep({
+                resolveRedhatApi: activateRedhatJavaApi,
+                refreshProject: async (pomPath) => {
+                    await vscode.commands.executeCommand(
+                        JAVA_PROJECT_CONFIGURATION_UPDATE,
+                        vscode.Uri.file(pomPath),
+                    );
+                },
+            }),
+            new VerifyConfigurationStep({
+                readProjectSettings: readRedhatProjectSettings,
+                notifyMismatch: (message) => {
+                    void vscode.window.showWarningMessage(message);
+                },
+            }),
         ],
     };
 }
