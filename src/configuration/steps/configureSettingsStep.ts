@@ -76,11 +76,18 @@ export class ConfigureSettingsStep implements ConfigurationStep {
             // every nested module would duplicate noise that is never read.
             const documentJaenvtixSettings = projectContext.projectPath === projectContext.workspace;
 
+            // Hierarchical Maven view helps only when there are modules to
+            // nest; seeded in the workspace-root file, the one vscode-maven
+            // reads when that folder is opened.
+            const isMultiModuleWorkspace = state.projectContexts
+                .filter((ctx) => ctx.workspace === projectContext.workspace).length > 1;
+
             const updateResult = updateVsCodeSettings(settingsPath, javaMavenPaths, {
                 documentJaenvtixSettings,
                 // ConfigureLaunchStep runs earlier in the pipeline and records
                 // the Spring Boot detection on each context.
                 seedMavenFavorites: {isSpringBoot: projectContext.isSpringBoot === true},
+                seedMavenHierarchicalView: documentJaenvtixSettings && isMultiModuleWorkspace,
             });
             if (updateResult.updated) {
                 log(Messages.Log.SETTINGS_UPDATED(projectContext.projectPath, updateResult.updatedKeys));

@@ -549,6 +549,47 @@ describe('updateVsCodeSettings — maven.terminal.favorites seeding', () => {
     });
 });
 
+describe('updateVsCodeSettings — maven.view seeding', () => {
+    const cleanups: (() => Promise<void>)[] = [];
+
+    afterEach(async () => {
+        await Promise.all(cleanups.splice(0).map((fn) => fn()));
+    });
+
+    it('seeds maven.view: hierarchical when requested', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {seedMavenHierarchicalView: true});
+        const settings = await readSettings(settingsPath);
+
+        assert.equal(settings['maven.view'], 'hierarchical');
+    });
+
+    it('never overwrites a maven.view the user already set', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {'maven.view': 'flat'},
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {seedMavenHierarchicalView: true});
+        const settings = await readSettings(settingsPath);
+
+        assert.equal(settings['maven.view'], 'flat');
+    });
+
+    it('does not write maven.view when the option is absent', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+
+        assert.equal('maven.view' in settings, false);
+    });
+});
+
 describe('applyUserJavaTunings', () => {
     it('writes 4 settings on Linux (no java.test.config)', () => {
         const result = applyUserJavaTunings({}, 'linux');

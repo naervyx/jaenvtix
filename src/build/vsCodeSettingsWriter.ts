@@ -88,6 +88,13 @@ export interface UpdateVsCodeSettingsOptions {
      * soon as it exists.
      */
     seedMavenFavorites?: {isSpringBoot: boolean};
+    /**
+     * Seed `maven.view: "hierarchical"` so vscode-maven's explorer mirrors
+     * the module tree (the IntelliJ Maven panel layout). Passed only for the
+     * workspace-root settings of multi-module workspaces — in a single-module
+     * workspace the flat default is equivalent and the key would be noise.
+     */
+    seedMavenHierarchicalView?: boolean;
 }
 
 interface MavenFavoriteEntry {
@@ -549,6 +556,11 @@ export function updateVsCodeSettings(
 
     if (options.seedMavenFavorites) {
         applyMavenFavorites(data, options.seedMavenFavorites.isSpringBoot, result);
+    }
+
+    if (options.seedMavenHierarchicalView && data['maven.view'] === undefined) {
+        data['maven.view'] = 'hierarchical';
+        markUpdated(result, 'maven.view');
     }
 
     if (options.documentJaenvtixSettings) {

@@ -206,6 +206,54 @@ describe('ConfigureSettingsStep', () => {
         assert.equal(settings['maven.executable.preferMavenWrapper'], false);
     });
 
+    // Business rule: maven.view: hierarchical is seeded only in the
+    // workspace-root settings of a multi-module workspace.
+
+    it('seeds maven.view: hierarchical at the root of a multi-module workspace', async () => {
+        const root = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [
+            {
+                workspace: root, projectPath: root, platform: 'linux', arch: 'x64',
+                javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+            },
+            {
+                workspace: root, projectPath: join(root, 'module-a'), platform: 'linux', arch: 'x64',
+                javaVersion: '17', jdkHome: '/j17', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+            },
+        ];
+
+        await new ConfigureSettingsStep().run(state);
+
+        const rootSettings = JSON.parse(
+            await fs.readFile(join(root, '.vscode', 'settings.json'), 'utf-8'),
+        );
+        assert.equal(rootSettings['maven.view'], 'hierarchical');
+
+        const moduleSettings = JSON.parse(
+            await fs.readFile(join(root, 'module-a', '.vscode', 'settings.json'), 'utf-8'),
+        );
+        assert.equal('maven.view' in moduleSettings, false);
+    });
+
+    it('does not seed maven.view for a single-module workspace', async () => {
+        const root = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [{
+            workspace: root, projectPath: root, platform: 'linux', arch: 'x64',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+        }];
+
+        await new ConfigureSettingsStep().run(state);
+
+        const settings = JSON.parse(
+            await fs.readFile(join(root, '.vscode', 'settings.json'), 'utf-8'),
+        );
+        assert.equal('maven.view' in settings, false);
+    });
+
     // Business rule: terminal env settings only apply to NEW terminals, so the
     // state flag drives a "reopen terminals" hint shown by the command entry point.
 
