@@ -37,6 +37,14 @@ export interface ProjectContext {
      * mvnw (preserving the team's pinned Maven version).
      */
     hasMvnw: boolean;
+    /**
+     * True when the project is a Spring Boot application (Spring Boot
+     * `<start-class>` in the pom or a `@SpringBootApplication` class in the
+     * sources). Populated by `ConfigureLaunchStep`, which already resolves
+     * this while looking for the main class; downstream steps use it to seed
+     * Spring-specific conveniences (e.g. a `spring-boot:run` Maven favorite).
+     */
+    isSpringBoot?: boolean;
 }
 
 /**
@@ -133,6 +141,12 @@ export interface JavaConfigurationState {
      * entry point uses this flag to tell the user to reopen open terminals.
      */
     terminalEnvUpdated: boolean;
+    /**
+     * True when at least one project context was identified as a Spring Boot
+     * application. Populated by `ConfigureLaunchStep`; used by workspace-level
+     * steps (e.g. conditional Spring extension recommendations).
+     */
+    springBootProjectDetected: boolean;
 }
 
 /**
@@ -176,6 +190,7 @@ export function createInitialState(): JavaConfigurationState {
         verificationBacklog: [],
         mismatchNotified: false,
         terminalEnvUpdated: false,
+        springBootProjectDetected: false,
     };
 }
 

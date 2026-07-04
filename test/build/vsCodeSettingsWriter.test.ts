@@ -492,6 +492,63 @@ describe('updateVsCodeSettings — jaenvtix.* defaults seeding', () => {
     });
 });
 
+describe('updateVsCodeSettings — maven.terminal.favorites seeding', () => {
+    const cleanups: (() => Promise<void>)[] = [];
+
+    afterEach(async () => {
+        await Promise.all(cleanups.splice(0).map((fn) => fn()));
+    });
+
+    it('seeds the skip-tests install favorite for a plain Java project', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {seedMavenFavorites: {isSpringBoot: false}});
+        const settings = await readSettings(settingsPath);
+
+        assert.deepEqual(settings['maven.terminal.favorites'], [
+            {alias: 'Jaenvtix: Install (skip tests)', command: 'clean install -DskipTests'},
+        ]);
+    });
+
+    it('adds spring-boot:run for a Spring Boot application', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {seedMavenFavorites: {isSpringBoot: true}});
+        const settings = await readSettings(settingsPath);
+
+        assert.deepEqual(settings['maven.terminal.favorites'], [
+            {alias: 'Jaenvtix: Install (skip tests)', command: 'clean install -DskipTests'},
+            {alias: 'Jaenvtix: Spring Boot Run', command: 'spring-boot:run'},
+        ]);
+    });
+
+    it('never touches an existing favorites key (user owns it after creation)', async () => {
+        const userFavorites = [{alias: 'mine', command: 'clean verify'}];
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {'maven.terminal.favorites': userFavorites},
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {seedMavenFavorites: {isSpringBoot: true}});
+        const settings = await readSettings(settingsPath);
+
+        assert.deepEqual(settings['maven.terminal.favorites'], userFavorites);
+    });
+
+    it('does not seed favorites when the option is absent', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+
+        assert.equal('maven.terminal.favorites' in settings, false);
+    });
+});
+
 describe('applyUserJavaTunings', () => {
     it('writes 4 settings on Linux (no java.test.config)', () => {
         const result = applyUserJavaTunings({}, 'linux');

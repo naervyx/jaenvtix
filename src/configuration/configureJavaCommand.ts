@@ -189,13 +189,10 @@ export function getDefaultStepGroups(
             new BuildProjectContextsStep(),
             new WriteMavenWrappersStep(),
             new WriteToolchainsStep(),
-            new ConfigureSettingsStep(),
-            new ConfigureUserRuntimesStep(),
-            new ApplyUserTuningsStep(() => vscode.workspace.getConfiguration()),
-            new ConfigureOptionalExtensionsStep(
-                () => vscode.workspace.getConfiguration(),
-                (extensionId) => vscode.extensions.getExtension(extensionId) !== undefined,
-            ),
+            // ConfigureLaunch runs BEFORE ConfigureSettings on purpose: it
+            // resolves each project's main class and records the Spring Boot
+            // detection on the contexts, which ConfigureSettings then uses to
+            // seed Spring-specific Maven favorites.
             new ConfigureLaunchStep({
                 notifyMalformed: (filePath) => {
                     void vscode.window.showWarningMessage(
@@ -203,6 +200,13 @@ export function getDefaultStepGroups(
                     );
                 },
             }),
+            new ConfigureSettingsStep(),
+            new ConfigureUserRuntimesStep(),
+            new ApplyUserTuningsStep(() => vscode.workspace.getConfiguration()),
+            new ConfigureOptionalExtensionsStep(
+                () => vscode.workspace.getConfiguration(),
+                (extensionId) => vscode.extensions.getExtension(extensionId) !== undefined,
+            ),
             new RecommendExtensionsStep(),
             new AwaitLanguageServerStep({
                 resolveRedhatApi: activateRedhatJavaApi,

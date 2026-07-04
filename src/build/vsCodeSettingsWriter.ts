@@ -81,6 +81,51 @@ export interface UpdateVsCodeSettingsOptions {
      * reads its own config from, not in every module.
      */
     documentJaenvtixSettings?: boolean;
+    /**
+     * Seed `maven.terminal.favorites` with common goals (the IntelliJ
+     * "run configuration" equivalent in vscode-maven's explorer). Seeded
+     * once and never managed afterwards — the key belongs to the user as
+     * soon as it exists.
+     */
+    seedMavenFavorites?: {isSpringBoot: boolean};
+}
+
+interface MavenFavoriteEntry {
+    alias: string;
+    command: string;
+}
+
+/**
+ * Seeds `maven.terminal.favorites` for vscode-maven's Favorites menu.
+ *
+ * Business rules:
+ * - Strict `setIfUndefined`: if the key exists (user-authored or seeded by a
+ *   previous run) it is left untouched, whatever its content.
+ * - Every project gets the skip-tests install; Spring Boot applications
+ *   additionally get `spring-boot:run`.
+ * - Aliases are prefixed with "Jaenvtix:" so the user can tell seeded
+ *   favorites from their own.
+ */
+function applyMavenFavorites(
+    data: VsCodeSettings,
+    isSpringBoot: boolean,
+    result: UpdateResult,
+): void {
+    const favoritesKey = 'maven.terminal.favorites';
+
+    if (data[favoritesKey] !== undefined) {
+        return;
+    }
+
+    const favorites: MavenFavoriteEntry[] = [
+        {alias: 'Jaenvtix: Install (skip tests)', command: 'clean install -DskipTests'},
+    ];
+    if (isSpringBoot) {
+        favorites.push({alias: 'Jaenvtix: Spring Boot Run', command: 'spring-boot:run'});
+    }
+
+    data[favoritesKey] = favorites;
+    markUpdated(result, favoritesKey);
 }
 
 function isRecord(value: unknown): value is Record<string, string> {
@@ -501,6 +546,10 @@ export function updateVsCodeSettings(
     applyProjectRuntimes(data, paths.runtimes, result);
     applyTerminalEnv(data, paths, result);
     applyMavenCustomEnv(data, paths, respectMvnw, result);
+
+    if (options.seedMavenFavorites) {
+        applyMavenFavorites(data, options.seedMavenFavorites.isSpringBoot, result);
+    }
 
     if (options.documentJaenvtixSettings) {
         applyJaenvtixDefaultSettings(data, result);

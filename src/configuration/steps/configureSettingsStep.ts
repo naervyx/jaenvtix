@@ -76,7 +76,12 @@ export class ConfigureSettingsStep implements ConfigurationStep {
             // every nested module would duplicate noise that is never read.
             const documentJaenvtixSettings = projectContext.projectPath === projectContext.workspace;
 
-            const updateResult = updateVsCodeSettings(settingsPath, javaMavenPaths, {documentJaenvtixSettings});
+            const updateResult = updateVsCodeSettings(settingsPath, javaMavenPaths, {
+                documentJaenvtixSettings,
+                // ConfigureLaunchStep runs earlier in the pipeline and records
+                // the Spring Boot detection on each context.
+                seedMavenFavorites: {isSpringBoot: projectContext.isSpringBoot === true},
+            });
             if (updateResult.updated) {
                 log(Messages.Log.SETTINGS_UPDATED(projectContext.projectPath, updateResult.updatedKeys));
                 // Gate for the Language Server refresh/verification: only
