@@ -1,5 +1,5 @@
 import type {VersionPath} from '../core/types';
-import {parseJavaVersionNumber, TOOLING_JAVA_MIN_VERSION} from '../util/javaVersion';
+import {parseJavaVersionNumber} from '../util/javaVersion';
 import {isLtsVersion} from './redhatRuntimeReader';
 
 /**
@@ -14,6 +14,19 @@ const SPRING_BOOT_EXTENSION_IDS = [
 
 /** Marketplace ID of the Spring Initializr extension. */
 const SPRING_INITIALIZR_EXTENSION_ID = 'vscjava.vscode-spring-initializr';
+
+/**
+ * Minimum Java version able to run the Spring Boot Language Server.
+ *
+ * Deliberately a separate constant from `TOOLING_JAVA_MIN_VERSION` (jdt.ls):
+ * the two language servers evolve their JDK floors independently — Spring
+ * Tools already ships Java-25-only features (CDS) while jdt.ls sits at 21.
+ * A dynamic reader (like `redhatRuntimeReader`) was considered and declined:
+ * the vmware.vscode-spring-boot manifest exposes no machine-readable JDK
+ * requirement to read. The upstream-schema CI watch flags manifest changes,
+ * so this constant is revisited when upstream publishes one.
+ */
+const SPRING_BOOT_LS_MIN_JAVA_VERSION = 21;
 
 /**
  * Lowest Java version worth offering as the Spring Initializr default:
@@ -42,16 +55,16 @@ export interface OptionalExtensionInputs {
 }
 
 /**
- * Picks the JDK home that should run companion language servers
- * (e.g. Spring Boot LS), which require Java 21+ like jdt.ls.
+ * Picks the JDK home that should run the Spring Boot Language Server.
  *
  * Business rules:
  * - Only versions provisioned by the pipeline qualify: `versionPaths` already
  *   prefers a detected system JDK and falls back to the Jaenvtix cache slot.
  * - The highest qualifying major version wins, so a monorepo with Java 17 + 21
  *   projects points the LS at the 21 JDK.
- * - Returns `undefined` when no provisioned version satisfies the minimum —
- *   the LS cannot run on an older JDK, so writing a path would break it.
+ * - Returns `undefined` when no provisioned version satisfies
+ *   `SPRING_BOOT_LS_MIN_JAVA_VERSION` — the LS cannot run on an older JDK,
+ *   so writing a path would break it.
  */
 export function selectLanguageServerJdkHome(
     versionPaths: ReadonlyMap<string, VersionPath>,
@@ -61,7 +74,7 @@ export function selectLanguageServerJdkHome(
 
     for (const [version, paths] of versionPaths) {
         const major = parseJavaVersionNumber(version);
-        if (major >= TOOLING_JAVA_MIN_VERSION && major > bestMajor) {
+        if (major >= SPRING_BOOT_LS_MIN_JAVA_VERSION && major > bestMajor) {
             bestMajor = major;
             bestHome = paths.jdkHome;
         }
