@@ -10,6 +10,18 @@ import {log} from '../../util/logger';
 import {isJavaVersionAtLeast, TOOLING_JAVA_MIN_VERSION, toJavaRuntimeName} from '../../util/javaVersion';
 
 /**
+ * Settings that VS Code applies only to terminals opened AFTER the change.
+ * Touching any of them flips `state.terminalEnvUpdated` so the command entry
+ * point can tell the user to reopen terminals that are already open.
+ */
+const TERMINAL_ENV_KEYS = new Set([
+    'terminal.integrated.env.windows',
+    'terminal.integrated.env.linux',
+    'terminal.integrated.env.osx',
+    'maven.terminal.customEnv',
+]);
+
+/**
  * Writes or updates the per-project `.vscode/settings.json` for each `ProjectContext`.
  *
  * Business rules:
@@ -74,6 +86,9 @@ export class ConfigureSettingsStep implements ConfigurationStep {
                 // only a Language Server restart applies it.
                 if (updateResult.updatedKeys.includes('java.jdt.ls.java.home')) {
                     state.jdtLsJavaHomeChanged = true;
+                }
+                if (updateResult.updatedKeys.some((key) => TERMINAL_ENV_KEYS.has(key))) {
+                    state.terminalEnvUpdated = true;
                 }
             }
         }

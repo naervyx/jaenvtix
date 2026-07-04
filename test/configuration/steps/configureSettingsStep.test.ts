@@ -205,4 +205,39 @@ describe('ConfigureSettingsStep', () => {
         assert.match(executablePath, /jaenvtix-mvn/);
         assert.equal(settings['maven.executable.preferMavenWrapper'], false);
     });
+
+    // Business rule: terminal env settings only apply to NEW terminals, so the
+    // state flag drives a "reopen terminals" hint shown by the command entry point.
+
+    it('flags terminalEnvUpdated when terminal env keys are written', async () => {
+        const project = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [{
+            workspace: project, projectPath: project, platform: 'linux', arch: 'x64',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+        }];
+
+        await new ConfigureSettingsStep().run(state);
+        assert.equal(state.terminalEnvUpdated, true);
+    });
+
+    it('does not flag terminalEnvUpdated on a no-op second run', async () => {
+        const project = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [{
+            workspace: project, projectPath: project, platform: 'linux', arch: 'x64',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+        }];
+
+        await new ConfigureSettingsStep().run(state);
+
+        const secondRunState = createInitialState();
+        secondRunState.platform = 'linux';
+        secondRunState.projectContexts = state.projectContexts;
+        await new ConfigureSettingsStep().run(secondRunState);
+
+        assert.equal(secondRunState.terminalEnvUpdated, false);
+    });
 });

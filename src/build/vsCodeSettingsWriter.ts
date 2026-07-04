@@ -21,7 +21,7 @@ interface VsCodeSettings {
     'maven.terminal.customEnv'?: MavenTerminalEnvEntry[];
     'java.compile.nullAnalysis.mode'?: string;
     'java.configuration.updateBuildConfiguration'?: string;
-    'java.configuration.maven.userSettings'?: string;
+    'java.import.maven.userSettings'?: string;
     'java.configuration.runtimes'?: JavaRuntime[];
     'terminal.integrated.env.windows'?: TerminalEnv;
     'terminal.integrated.env.linux'?: TerminalEnv;
@@ -36,8 +36,9 @@ interface VsCodeSettings {
 interface JavaMavenPaths {
     /**
      * Absolute path to the JDK used by jdt.ls (`java.jdt.ls.java.home`).
-     * Omitted for Java 21+ projects because jdt.ls ships its own JDK and
-     * the key should not be written (avoids overriding the bundled tooling JDK).
+     * Set only for Java 21+ projects, whose provisioned JDK can run jdt.ls
+     * directly. Omitted for Java < 21 projects — the Language Server keeps
+     * its own tooling JDK and the project is mapped via `runtimes` instead.
      */
     javaHomePath?: string;
     /**
@@ -234,7 +235,10 @@ export function applyUserJavaTunings(
     setIfUndefined(result, 'java.dependency.packagePresentation', 'hierarchical');
     setIfUndefined(result, 'java.sources.organizeImports.staticStarThreshold', 1);
     if (osPlatform === 'win32') {
-        setIfUndefined(result, 'java.test.config', [{vmArgs: ['-Dfile.encoding=UTF-8']}]);
+        // Named so the entry stays identifiable next to user-created configs
+        // and referenceable via `java.test.defaultConfig` (which Jaenvtix
+        // deliberately never sets — that choice belongs to the user).
+        setIfUndefined(result, 'java.test.config', [{name: 'Jaenvtix UTF-8', vmArgs: ['-Dfile.encoding=UTF-8']}]);
     }
     return result;
 }
@@ -305,7 +309,7 @@ function applyManagedSettings(
         'maven.executable.path': paths.mavenExecutablePath,
         'java.compile.nullAnalysis.mode': 'automatic',
         'java.configuration.updateBuildConfiguration': 'automatic',
-        'java.configuration.maven.userSettings': paths.userSettingsPath,
+        'java.import.maven.userSettings': paths.userSettingsPath,
     };
 
     for (const [key, value] of Object.entries(requiredSettings)) {
@@ -321,6 +325,31 @@ function applyManagedSettings(
             data[key] = value;
             markUpdated(result, key);
         }
+    }
+
+    migrateDeprecatedMavenUserSettings(data, paths.userSettingsPath, result);
+}
+
+/**
+ * Removes the deprecated `java.configuration.maven.userSettings` key that
+ * older Jaenvtix versions wrote (vscode-java replaced it with
+ * `java.import.maven.userSettings`).
+ *
+ * Business rules:
+ * - Removed only when its value equals the path Jaenvtix manages — that is
+ *   the fingerprint of "we wrote this". A different value means the user set
+ *   it themselves, and user-authored settings are never touched.
+ */
+function migrateDeprecatedMavenUserSettings(
+    data: VsCodeSettings,
+    managedUserSettingsPath: string,
+    result: UpdateResult,
+): void {
+    const deprecatedKey = 'java.configuration.maven.userSettings';
+
+    if (data[deprecatedKey] === managedUserSettingsPath) {
+        delete data[deprecatedKey];
+        markUpdated(result, deprecatedKey);
     }
 }
 
@@ -427,9 +456,12 @@ function persistSettings(settingsPath: string, data: VsCodeSettings): void {
  *
  * Business rules:
  * - Always writes: `java.jdt.ls.lombokSupport.enabled`, `java.compile.nullAnalysis.mode`,
- *   `java.configuration.updateBuildConfiguration`, `java.configuration.maven.userSettings`.
- * - Writes `java.jdt.ls.java.home` only for Java < 21; omits (and removes) it for
- *   Java 21+ where jdt.ls manages its own tooling JDK.
+ *   `java.configuration.updateBuildConfiguration`, `java.import.maven.userSettings`
+ *   (migrating away from the deprecated `java.configuration.maven.userSettings`
+ *   when Jaenvtix itself wrote it).
+ * - Writes `java.jdt.ls.java.home` only for Java 21+ (the project JDK runs jdt.ls);
+ *   omits (and removes) it for Java < 21, which are mapped via
+ *   `java.configuration.runtimes` while jdt.ls keeps its own tooling JDK.
  * - When the project does NOT ship `mvnw`: writes `maven.executable.path` and sets
  *   `maven.executable.preferMavenWrapper: false` to prevent vscode-maven from
  *   searching for a non-existent wrapper. Also writes `maven.terminal.customEnv`.

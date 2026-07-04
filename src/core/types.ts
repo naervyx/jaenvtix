@@ -126,6 +126,13 @@ export interface JavaConfigurationState {
      * "JDK changed — restart?" toast is suppressed to avoid a double ask.
      */
     mismatchNotified: boolean;
+    /**
+     * Set by `ConfigureSettingsStep` when a terminal-environment setting
+     * (`terminal.integrated.env.*` or `maven.terminal.customEnv`) actually
+     * changed. VS Code only applies these to NEW terminals, so the command
+     * entry point uses this flag to tell the user to reopen open terminals.
+     */
+    terminalEnvUpdated: boolean;
 }
 
 /**
@@ -168,6 +175,7 @@ export function createInitialState(): JavaConfigurationState {
         jdtLsJavaHomeChanged: false,
         verificationBacklog: [],
         mismatchNotified: false,
+        terminalEnvUpdated: false,
     };
 }
 

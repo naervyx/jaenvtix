@@ -16,6 +16,7 @@ import {ConfigureUserRuntimesStep} from './steps/configureUserRuntimesStep';
 import {ApplyUserTuningsStep} from './steps/applyUserTuningsStep';
 import {ConfigureOptionalExtensionsStep} from './steps/configureOptionalExtensionsStep';
 import {ConfigureLaunchStep} from './steps/configureLaunchStep';
+import {RecommendExtensionsStep} from './steps/recommendExtensionsStep';
 import {AwaitLanguageServerStep} from './steps/awaitLanguageServerStep';
 import {RefreshProjectConfigurationStep} from './steps/refreshProjectConfigurationStep';
 import {VerifyConfigurationStep} from './steps/verifyConfigurationStep';
@@ -202,6 +203,7 @@ export function getDefaultStepGroups(
                     );
                 },
             }),
+            new RecommendExtensionsStep(),
             new AwaitLanguageServerStep({
                 resolveRedhatApi: activateRedhatJavaApi,
                 getMismatchBacklog: () => deps.mismatchMemento.get(),
@@ -335,6 +337,12 @@ export async function runConfigureJavaCommand(
     }
 
     vscode.window.showInformationMessage(Messages.Info.CONFIGURATION_COMPLETED);
+
+    // terminal.integrated.env.* and maven.terminal.customEnv only apply to
+    // terminals opened after the change — tell the user when it matters.
+    if (state.terminalEnvUpdated && vscode.window.terminals.length > 0) {
+        vscode.window.showInformationMessage(Messages.Info.REOPEN_TERMINALS);
+    }
 
     offerLanguageServerRestartIfNeeded(state);
     armServerReadyContinuation(state, deps);

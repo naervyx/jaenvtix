@@ -28,6 +28,8 @@ export const Messages = {
             `Jaenvtix: "${folder}" is still compiling at Java ${actualCompliance}, but its pom requests Java ${expectedMajor}. The Java Language Server (Red Hat) applies the new JDK after a restart.`,
         PROJECT_VERIFICATION_MISMATCH_MANY: (count: number) =>
             `Jaenvtix: ${count} projects are still compiling at a different Java level than their poms request. The Java Language Server (Red Hat) applies the new JDK after a restart. See the "Jaenvtix" output channel for details.`,
+        REOPEN_TERMINALS:
+            'Jaenvtix updated the terminal environment (JAVA_HOME/PATH). Close and reopen existing terminals to pick up the new values.',
     },
     Warning: {
         NOT_FOUND_WORKSPACE: 'No workspaces open. Nothing to do.',
@@ -91,6 +93,7 @@ export const Messages = {
             ApplyUserTunings: 'Apply sensible Java defaults to user settings',
             ConfigureOptionalExtensions: 'Configure companion extensions',
             ConfigureLaunch: 'Configure Visual Studio Code launch configuration',
+            RecommendExtensions: 'Write workspace extension recommendations',
             AwaitLanguageServer: 'Waiting for the Java Language Server to finish loading…',
             RefreshProjectConfiguration: 'Refresh Java Language Server project configuration',
             VerifyConfiguration: 'Verify resolved project configuration',
@@ -147,6 +150,8 @@ export const Messages = {
             `Project ${projectPath}: expected Java ${expectedMajor} but Language Server resolved compliance ${actualCompliance}.`,
         VERIFY_PROJECT_SKIPPED: (projectPath: string) =>
             `Project ${projectPath}: verification skipped (project settings unavailable).`,
+        EXTENSIONS_JSON_UPDATED: (workspace: string, added: string[]) =>
+            `Workspace ${workspace}: .vscode/extensions.json recommendations updated - ${added.join(', ')}`,
     },
     Choice: {
         YES: 'Yes',

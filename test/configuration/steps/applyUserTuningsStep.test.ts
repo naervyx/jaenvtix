@@ -37,7 +37,7 @@ describe('ApplyUserTuningsStep', () => {
         const step = new ApplyUserTuningsStep(factory, 'win32');
         await step.run(createInitialState());
 
-        assert.deepEqual(store['java.test.config'], [{vmArgs: ['-Dfile.encoding=UTF-8']}]);
+        assert.deepEqual(store['java.test.config'], [{name: 'Jaenvtix UTF-8', vmArgs: ['-Dfile.encoding=UTF-8']}]);
     });
 
     it('does not overwrite a key the user has already set', async () => {
