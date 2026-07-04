@@ -56,4 +56,38 @@ describe('RecommendExtensionsStep', () => {
         const result = await new RecommendExtensionsStep().run(createInitialState());
         assert.equal(result.success, true);
     });
+
+    it('appends the Spring Boot Dashboard when a Spring Boot app was detected', async () => {
+        const workspace = await createTempDir();
+        cleanups.push(() => removeTempDir(workspace));
+
+        const state = createInitialState();
+        state.projectContexts.push(buildContext(workspace, workspace));
+        state.springBootProjectDetected = true;
+
+        await new RecommendExtensionsStep().run(state);
+
+        const rootFile = JSON.parse(
+            await fs.readFile(join(workspace, '.vscode', 'extensions.json'), 'utf-8'),
+        ) as {recommendations: string[]};
+        assert.deepEqual(rootFile.recommendations, [
+            ...RECOMMENDED_EXTENSIONS.map((e) => e.id),
+            'vscjava.vscode-spring-boot-dashboard',
+        ]);
+    });
+
+    it('omits the Spring Boot Dashboard for a plain Java workspace', async () => {
+        const workspace = await createTempDir();
+        cleanups.push(() => removeTempDir(workspace));
+
+        const state = createInitialState();
+        state.projectContexts.push(buildContext(workspace, workspace));
+
+        await new RecommendExtensionsStep().run(state);
+
+        const rootFile = JSON.parse(
+            await fs.readFile(join(workspace, '.vscode', 'extensions.json'), 'utf-8'),
+        ) as {recommendations: string[]};
+        assert.equal(rootFile.recommendations.includes('vscjava.vscode-spring-boot-dashboard'), false);
+    });
 });
