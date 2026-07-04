@@ -5,6 +5,7 @@ import {Messages} from '../util/message';
 import type {JavaRuntime} from '../core/types';
 import type {PlatformType} from '../core/system';
 import {JAENVTIX_DEFAULT_SETTINGS} from './jaenvtixDefaultSettings';
+import {validateRuntime} from './userRuntimesMerge';
 
 type TerminalEnv = Record<string, string>;
 
@@ -282,7 +283,12 @@ export function applyUserJavaTunings(
     osPlatform: string = process.platform,
 ): VsCodeSettings {
     const result = {...data};
-    setIfUndefined(result, 'java.debug.settings.hotCodeReplace', 'auto');
+    // Hot Code Replace "auto" only acts after an automatic build; when the
+    // user disabled java.autobuild.enabled, seeding it would be a silent
+    // no-op that misleads anyone reading their settings.
+    if (result['java.autobuild.enabled'] !== false) {
+        setIfUndefined(result, 'java.debug.settings.hotCodeReplace', 'auto');
+    }
     setIfUndefined(result, 'java.maxConcurrentBuilds', Math.max(1, cpus().length - 1));
     setIfUndefined(result, 'java.dependency.packagePresentation', 'hierarchical');
     setIfUndefined(result, 'java.sources.organizeImports.staticStarThreshold', 1);
@@ -344,9 +350,16 @@ function applyJaenvtixDefaultSettings(data: VsCodeSettings, result: UpdateResult
 }
 
 /**
- * Applies the scalar managed keys: sets each defined value when it differs,
- * removes the key entirely when the desired value is `undefined` (e.g. the
- * `maven.executable.*` keys for an mvnw-driven project).
+ * Applies the scalar managed keys in two tiers:
+ *
+ * - Managed paths (jdt.ls JDK, Maven executable, user settings.xml) MUST
+ *   track the provisioned toolchain: set when defined, removed when the
+ *   desired value is `undefined` (e.g. `maven.executable.*` for an
+ *   mvnw-driven project).
+ * - Opinionated defaults (`nullAnalysis.mode`, `updateBuildConfiguration`)
+ *   are seeded only when absent: once present the value belongs to the user,
+ *   and forcing it back would revert a deliberate choice (e.g. switching
+ *   `updateBuildConfiguration` to `interactive`) on every re-run.
  */
 function applyManagedSettings(
     data: VsCodeSettings,
@@ -354,17 +367,14 @@ function applyManagedSettings(
     respectMvnw: boolean,
     result: UpdateResult,
 ): void {
-    const requiredSettings: Record<string, unknown> = {
+    const managedSettings: Record<string, unknown> = {
         'java.jdt.ls.java.home': paths.javaHomePath,
-        'java.jdt.ls.lombokSupport.enabled': true,
         'maven.executable.preferMavenWrapper': respectMvnw ? undefined : false,
         'maven.executable.path': paths.mavenExecutablePath,
-        'java.compile.nullAnalysis.mode': 'automatic',
-        'java.configuration.updateBuildConfiguration': 'automatic',
         'java.import.maven.userSettings': paths.userSettingsPath,
     };
 
-    for (const [key, value] of Object.entries(requiredSettings)) {
+    for (const [key, value] of Object.entries(managedSettings)) {
         if (typeof value === 'undefined') {
             if (key in data) {
                 delete data[key];
@@ -379,7 +389,34 @@ function applyManagedSettings(
         }
     }
 
+    const seededSettings: Record<string, unknown> = {
+        'java.compile.nullAnalysis.mode': 'automatic',
+        'java.configuration.updateBuildConfiguration': 'automatic',
+    };
+
+    for (const [key, value] of Object.entries(seededSettings)) {
+        if (data[key] === undefined) {
+            data[key] = value;
+            markUpdated(result, key);
+        }
+    }
+
+    removeRedundantLombokKey(data, result);
     migrateDeprecatedMavenUserSettings(data, paths.userSettingsPath, result);
+}
+
+/**
+ * Removes `java.jdt.ls.lombokSupport.enabled: true`, which older Jaenvtix
+ * versions wrote even though `true` is already the upstream default. An
+ * explicit `false` is a user opt-out and is preserved.
+ */
+function removeRedundantLombokKey(data: VsCodeSettings, result: UpdateResult): void {
+    const lombokKey = 'java.jdt.ls.lombokSupport.enabled';
+
+    if (data[lombokKey] === true) {
+        delete data[lombokKey];
+        markUpdated(result, lombokKey);
+    }
 }
 
 /**
@@ -405,41 +442,95 @@ function migrateDeprecatedMavenUserSettings(
     }
 }
 
+/** Maps the pipeline platform to the `NodeJS.Platform` value `validateRuntime` expects. */
+function toNodePlatform(platform: PlatformType): NodeJS.Platform {
+    if (platform === 'windows') {
+        return 'win32';
+    }
+
+    return platform === 'darwin' ? 'darwin' : 'linux';
+}
+
 /**
- * Writes `java.configuration.runtimes` when entries are provided, or removes
- * the key when none are (Java 21+ projects use `java.jdt.ls.java.home` instead).
- * Rewrites only when name/path/default actually differ from what is on disk.
+ * Maintains the folder-level `java.configuration.runtimes` by merging — the
+ * user may have added or repointed entries by hand, and those choices win.
+ *
+ * Business rules (desired entries present, i.e. Java < 21 project):
+ * - An existing entry with the same `name` is respected when its path still
+ *   points at a real JDK (the user chose their own JDK for that version);
+ *   when the path is broken, only the `path` field is repaired to the
+ *   provisioned JDK — `sources`/`javadoc`/`default` are preserved.
+ * - Entries with other names are preserved verbatim.
+ * - A missing entry is appended; its `default` flag is dropped when another
+ *   existing entry already carries `default: true` (jdt.ls allows only one).
+ *
+ * Business rules (no desired entries, i.e. Java 21+ project):
+ * - The key is removed only when it holds exactly one entry pointing at the
+ *   JDK Jaenvtix provisioned for this project — the fingerprint of a
+ *   previous Jaenvtix run. Anything else may be user-authored and is left
+ *   untouched.
  */
 function applyProjectRuntimes(
     data: VsCodeSettings,
-    runtimes: JavaRuntime[] | undefined,
+    paths: JavaMavenPaths,
     result: UpdateResult,
 ): void {
     const runtimesKey = 'java.configuration.runtimes';
+    const desired = paths.runtimes ?? [];
+    const existingRaw = data[runtimesKey];
 
-    if (!runtimes || runtimes.length === 0) {
-        if (runtimesKey in data) {
+    if (desired.length === 0) {
+        const existing = Array.isArray(existingRaw) ? existingRaw as Partial<JavaRuntime>[] : [];
+        if (existing.length === 1 && existing[0]?.path === paths.terminalJavaHome) {
             delete data[runtimesKey];
             markUpdated(result, runtimesKey);
         }
         return;
     }
 
-    const existingRuntimes = data[runtimesKey];
-    const isSameRuntime =
-        Array.isArray(existingRuntimes) &&
-        existingRuntimes.length === runtimes.length &&
-        existingRuntimes.every((entry, index) => {
-            const runtimeEntry = entry as Partial<JavaRuntime>;
-            const nextEntry = runtimes[index];
-            return Boolean(nextEntry) &&
-                runtimeEntry.name === nextEntry?.name &&
-                runtimeEntry.path === nextEntry?.path &&
-                Boolean(runtimeEntry.default) === Boolean(nextEntry?.default);
-        });
+    if (!Array.isArray(existingRaw)) {
+        data[runtimesKey] = desired.map((entry) => ({...entry}));
+        markUpdated(result, runtimesKey);
+        return;
+    }
 
-    if (!isSameRuntime) {
-        data[runtimesKey] = runtimes;
+    const merged = [...existingRaw] as JavaRuntime[];
+    const nodePlatform = toNodePlatform(paths.platform);
+    let updated = false;
+
+    for (const desiredEntry of desired) {
+        const index = merged.findIndex((entry) =>
+            isRecord(entry) && (entry as Partial<JavaRuntime>).name === desiredEntry.name);
+
+        if (index < 0) {
+            const someoneElseIsDefault = merged.some((entry) =>
+                isRecord(entry) && (entry as Partial<JavaRuntime>).default === true);
+            const appended: JavaRuntime = {name: desiredEntry.name, path: desiredEntry.path};
+            if (desiredEntry.default && !someoneElseIsDefault) {
+                appended.default = true;
+            }
+            merged.push(appended);
+            updated = true;
+            continue;
+        }
+
+        const existingEntry = merged[index] as JavaRuntime;
+        if (existingEntry.path === desiredEntry.path) {
+            continue;
+        }
+
+        if (validateRuntime(existingEntry, nodePlatform)) {
+            // The user pointed this version at a JDK of their own that still
+            // exists — their choice wins.
+            continue;
+        }
+
+        merged[index] = {...existingEntry, path: desiredEntry.path};
+        updated = true;
+    }
+
+    if (updated) {
+        data[runtimesKey] = merged;
         markUpdated(result, runtimesKey);
     }
 }
@@ -507,10 +598,12 @@ function persistSettings(settingsPath: string, data: VsCodeSettings): void {
  * with Java and Maven configuration derived from `paths`.
  *
  * Business rules:
- * - Always writes: `java.jdt.ls.lombokSupport.enabled`, `java.compile.nullAnalysis.mode`,
- *   `java.configuration.updateBuildConfiguration`, `java.import.maven.userSettings`
+ * - Always tracks the managed paths: `java.import.maven.userSettings`
  *   (migrating away from the deprecated `java.configuration.maven.userSettings`
- *   when Jaenvtix itself wrote it).
+ *   when Jaenvtix itself wrote it) and the `maven.executable.*` pair.
+ * - Seeds (never forces) the opinionated defaults `java.compile.nullAnalysis.mode`
+ *   and `java.configuration.updateBuildConfiguration`; removes the redundant
+ *   `java.jdt.ls.lombokSupport.enabled: true` older versions wrote.
  * - Writes `java.jdt.ls.java.home` only for Java 21+ (the project JDK runs jdt.ls);
  *   omits (and removes) it for Java < 21, which are mapped via
  *   `java.configuration.runtimes` while jdt.ls keeps its own tooling JDK.
@@ -550,7 +643,7 @@ export function updateVsCodeSettings(
     const respectMvnw = typeof paths.mavenExecutablePath === 'undefined';
 
     applyManagedSettings(data, paths, respectMvnw, result);
-    applyProjectRuntimes(data, paths.runtimes, result);
+    applyProjectRuntimes(data, paths, result);
     applyTerminalEnv(data, paths, result);
     applyMavenCustomEnv(data, paths, respectMvnw, result);
 
