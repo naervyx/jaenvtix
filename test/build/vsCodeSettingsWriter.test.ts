@@ -65,34 +65,10 @@ describe('updateVsCodeSettings — required keys', () => {
         assert.equal(settings['maven.executable.path'], '/home/dev/.jaenvtix/jdk-17/mvn-custom/bin/mvn');
         assert.equal(settings['java.compile.nullAnalysis.mode'], 'automatic');
         assert.equal(settings['java.configuration.updateBuildConfiguration'], 'automatic');
-        assert.equal(settings['java.import.maven.userSettings'], '/home/dev/.m2/settings.xml');
-        assert.equal('java.configuration.maven.userSettings' in settings, false);
-    });
-
-    it('migrates the deprecated maven.userSettings key when Jaenvtix wrote it', async () => {
-        const {settingsPath, paths, cleanup} = await withSettingsFile(
-            {platform: 'linux'},
-            {'java.configuration.maven.userSettings': '/home/dev/.m2/settings.xml'},
-        );
-        cleanups.push(cleanup);
-
-        updateVsCodeSettings(settingsPath, paths);
-        const settings = await readSettings(settingsPath);
-        assert.equal('java.configuration.maven.userSettings' in settings, false);
-        assert.equal(settings['java.import.maven.userSettings'], '/home/dev/.m2/settings.xml');
-    });
-
-    it('preserves a user-authored deprecated maven.userSettings value', async () => {
-        const {settingsPath, paths, cleanup} = await withSettingsFile(
-            {platform: 'linux'},
-            {'java.configuration.maven.userSettings': '/home/dev/custom/settings.xml'},
-        );
-        cleanups.push(cleanup);
-
-        updateVsCodeSettings(settingsPath, paths);
-        const settings = await readSettings(settingsPath);
-        assert.equal(settings['java.configuration.maven.userSettings'], '/home/dev/custom/settings.xml');
-        assert.equal(settings['java.import.maven.userSettings'], '/home/dev/.m2/settings.xml');
+        // The key the redhat.java manifest declares today. Its README once led
+        // us to a `java.import.*` variant that does not exist upstream — the
+        // contract test (test/contract/) now guards this name.
+        assert.equal(settings['java.configuration.maven.userSettings'], '/home/dev/.m2/settings.xml');
     });
 
     // Business rules (P2): opinionated defaults are seeded once and then

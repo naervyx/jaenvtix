@@ -22,7 +22,7 @@ interface VsCodeSettings {
     'maven.terminal.customEnv'?: MavenTerminalEnvEntry[];
     'java.compile.nullAnalysis.mode'?: string;
     'java.configuration.updateBuildConfiguration'?: string;
-    'java.import.maven.userSettings'?: string;
+    'java.configuration.maven.userSettings'?: string;
     'java.configuration.runtimes'?: JavaRuntime[];
     'terminal.integrated.env.windows'?: TerminalEnv;
     'terminal.integrated.env.linux'?: TerminalEnv;
@@ -367,11 +367,15 @@ function applyManagedSettings(
     respectMvnw: boolean,
     result: UpdateResult,
 ): void {
+    // NOTE: `java.configuration.maven.userSettings` is the key the redhat.java
+    // manifest declares TODAY (verified against main — the `java.import.*`
+    // variant does not exist upstream). The contract test in test/contract/
+    // guards this against renames.
     const managedSettings: Record<string, unknown> = {
         'java.jdt.ls.java.home': paths.javaHomePath,
         'maven.executable.preferMavenWrapper': respectMvnw ? undefined : false,
         'maven.executable.path': paths.mavenExecutablePath,
-        'java.import.maven.userSettings': paths.userSettingsPath,
+        'java.configuration.maven.userSettings': paths.userSettingsPath,
     };
 
     for (const [key, value] of Object.entries(managedSettings)) {
@@ -402,7 +406,6 @@ function applyManagedSettings(
     }
 
     removeRedundantLombokKey(data, result);
-    migrateDeprecatedMavenUserSettings(data, paths.userSettingsPath, result);
 }
 
 /**
@@ -416,29 +419,6 @@ function removeRedundantLombokKey(data: VsCodeSettings, result: UpdateResult): v
     if (data[lombokKey] === true) {
         delete data[lombokKey];
         markUpdated(result, lombokKey);
-    }
-}
-
-/**
- * Removes the deprecated `java.configuration.maven.userSettings` key that
- * older Jaenvtix versions wrote (vscode-java replaced it with
- * `java.import.maven.userSettings`).
- *
- * Business rules:
- * - Removed only when its value equals the path Jaenvtix manages — that is
- *   the fingerprint of "we wrote this". A different value means the user set
- *   it themselves, and user-authored settings are never touched.
- */
-function migrateDeprecatedMavenUserSettings(
-    data: VsCodeSettings,
-    managedUserSettingsPath: string,
-    result: UpdateResult,
-): void {
-    const deprecatedKey = 'java.configuration.maven.userSettings';
-
-    if (data[deprecatedKey] === managedUserSettingsPath) {
-        delete data[deprecatedKey];
-        markUpdated(result, deprecatedKey);
     }
 }
 
@@ -598,9 +578,8 @@ function persistSettings(settingsPath: string, data: VsCodeSettings): void {
  * with Java and Maven configuration derived from `paths`.
  *
  * Business rules:
- * - Always tracks the managed paths: `java.import.maven.userSettings`
- *   (migrating away from the deprecated `java.configuration.maven.userSettings`
- *   when Jaenvtix itself wrote it) and the `maven.executable.*` pair.
+ * - Always tracks the managed paths: `java.configuration.maven.userSettings`
+ *   and the `maven.executable.*` pair.
  * - Seeds (never forces) the opinionated defaults `java.compile.nullAnalysis.mode`
  *   and `java.configuration.updateBuildConfiguration`; removes the redundant
  *   `java.jdt.ls.lombokSupport.enabled: true` older versions wrote.
