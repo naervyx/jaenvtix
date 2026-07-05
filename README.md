@@ -63,9 +63,11 @@ replacing them: Jaenvtix populates the settings those extensions read, respects 
 - **Spring Initializr defaults that match your workspace** — when the Initializr extension is
   installed, `spring.initializr.defaultJavaVersion` is seeded with the best provisioned LTS
   (17+), so new projects start on a Java level your machine can actually build.
-- **Post-configuration verification (doctor)** — after configuring, Jaenvtix asks the Red Hat
-  Language Server which Java level it *actually* resolved per project and warns when it differs
-  from what was provisioned. No more "it wrote settings and hoped".
+- **Post-configuration verification (doctor)** — after a run that actually changed something,
+  Jaenvtix asks the Red Hat Language Server which Java level it *actually* resolved per project.
+  A mismatch is reported as one actionable toast — **Restart Language Server** applies the new
+  JDK in one click, no window reload — and re-checked on the next run until it is resolved.
+  Idempotent re-runs skip the whole dance, so reopening a big workspace stays instant.
 - **Choose your JDK vendor** — the `jaenvtix.preferredJdkVendor` setting supports Oracle,
   Temurin, Corretto, Liberica, Microsoft, Zulu, and Semeru, with an automatic fallback chain
   when your choice has no build for the requested version/platform.
@@ -177,9 +179,11 @@ Side effects you get for free from the cooperation model — none of them requir
 * **Spring Boot Dashboard finds runnable apps immediately** — it discovers apps through the
   language server and debugger that Jaenvtix already pointed at the right JDK, and the
   `Jaenvtix: Spring Boot (…)` launch configs give it named entries from the first click.
-* **Refreshes are timed, then verified** — Jaenvtix waits for the Red Hat server's `serverReady`
-  signal before asking it to re-import projects, then reads back the resolved Java level per
-  project (doctor) and warns on mismatch.
+* **Refreshes are event-driven, then verified** — when a run changes project settings, Jaenvtix
+  waits for the Red Hat server's `serverReady` signal (a short, labelled phase of the progress
+  notification) before asking it to re-import the changed projects, then reads back the resolved
+  Java level (doctor). If the server is still loading when the wait budget runs out, the refresh
+  and verification resume automatically the moment it finishes — never on a timer, never lost.
 
 ---
 
@@ -259,10 +263,16 @@ When a project **DOES** ship `mvnw` (Spring Boot, Quarkus, etc.), Jaenvtix yield
   that opts into `maven-toolchains-plugin` (CI builds, etc.) finds a matching JDK without manual
   setup. Existing toolchains the user authored are preserved — and also read back as a JDK
   discovery source.
-* After writing settings, Jaenvtix waits for the Red Hat language server to signal readiness
-  (`serverReady`, bounded wait), invokes `java.projectConfiguration.update` per `pom.xml` so the
-  new runtime mapping is picked up without a window reload, then **verifies** the resolved Java
-  level per project and warns if any project ended up on a different level than provisioned.
+* After writing settings, and **only for projects whose settings actually changed**, Jaenvtix
+  waits for the Red Hat language server to signal readiness (`serverReady`, a labelled wait
+  inside the progress notification), invokes `java.projectConfiguration.update` per changed
+  `pom.xml` so the new runtime mapping is picked up without a window reload, then **verifies**
+  the resolved Java level per project (skipping aggregator poms with no `src/main/java`). A
+  project still compiling at the old level gets a single informational toast with a one-click
+  **Restart Language Server** action — restarting is how the server applies a new
+  `java.jdt.ls.java.home` — and stays flagged for re-verification on the next run until it
+  resolves. If the server is still loading after the wait budget (15 s), the refresh and
+  verification run automatically as soon as it becomes ready instead of reporting stale state.
 
 ### Multi-module Maven monorepos
 
