@@ -1,6 +1,7 @@
 import {DownloadResult} from '../file/fileDownload';
 import {ArchitectureType, PlatformType} from './system';
 import {MavenDistribution} from '../build/mavenUrl';
+import type {ServerReadyWait} from '../configuration/serverReadyGate';
 
 /**
  * Entry shape of VS Code's `java.configuration.runtimes` setting. Shared by
@@ -93,6 +94,38 @@ export interface JavaConfigurationState {
     projectMavenVersions: Map<string, string>;
     /** Pinned Maven version string → in-flight download promise for its archive. */
     pinnedMavenDownloads: Map<string, Promise<DownloadResult>>;
+    /**
+     * Absolute paths of projects whose `.vscode/settings.json` content
+     * actually changed in this run. Populated by `ConfigureSettingsStep`;
+     * gates the Language Server refresh and verification steps so an
+     * idempotent re-run never waits for — or talks to — the server.
+     */
+    changedProjects: Set<string>;
+    /**
+     * True when this run wrote or removed `java.jdt.ls.java.home` anywhere.
+     * The Language Server only applies a new JDK after a restart, so the
+     * command entry point offers a one-click "Restart Language Server" toast.
+     */
+    jdtLsJavaHomeChanged: boolean;
+    /**
+     * Projects flagged with a compliance mismatch by the PREVIOUS run
+     * (mismatch memento), narrowed to the current contexts. Verification
+     * re-checks them even when their settings did not change this run.
+     * Populated by `AwaitLanguageServerStep`.
+     */
+    verificationBacklog: string[];
+    /**
+     * Result of waiting for the Red Hat Language Server
+     * (`AwaitLanguageServerStep`). Undefined while the step has not run or
+     * when the wait was skipped because no project needs attention.
+     */
+    languageServerWait?: ServerReadyWait;
+    /**
+     * True when `VerifyConfigurationStep` already surfaced a mismatch toast
+     * in this run. That toast carries its own restart action, so the generic
+     * "JDK changed — restart?" toast is suppressed to avoid a double ask.
+     */
+    mismatchNotified: boolean;
 }
 
 /**
@@ -131,6 +164,10 @@ export function createInitialState(): JavaConfigurationState {
         jdkDownloads: new Map(),
         projectMavenVersions: new Map(),
         pinnedMavenDownloads: new Map(),
+        changedProjects: new Set(),
+        jdtLsJavaHomeChanged: false,
+        verificationBacklog: [],
+        mismatchNotified: false,
     };
 }
 

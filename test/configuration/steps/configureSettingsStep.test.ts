@@ -41,6 +41,55 @@ describe('ConfigureSettingsStep', () => {
         const settings = JSON.parse(await fs.readFile(settingsPath, 'utf-8'));
         assert.equal(settings['java.jdt.ls.java.home'], '/home/dev/.jaenvtix/jdk-21');
         assert.equal('java.configuration.runtimes' in settings, false);
+
+        // Gating for the Language Server steps: the write changed the file
+        // and moved the server's JDK.
+        assert.deepEqual([...state.changedProjects], [project]);
+        assert.equal(state.jdtLsJavaHomeChanged, true);
+    });
+
+    it('leaves changedProjects and jdtLsJavaHomeChanged untouched on an idempotent re-run', async () => {
+        const project = await projectDir();
+        const buildState = () => {
+            const state = createInitialState();
+            state.platform = 'linux';
+            state.projectContexts = [{
+                workspace: project, projectPath: project, platform: 'linux', arch: 'x64',
+                javaVersion: '21',
+                jdkHome: '/home/dev/.jaenvtix/jdk-21',
+                toolHome: '/home/dev/.jaenvtix/jdk-21/mvn-custom',
+                toolBin: '/home/dev/.jaenvtix/jdk-21/mvn-custom/bin',
+                hasMvnw: false,
+            }];
+            return state;
+        };
+
+        await new ConfigureSettingsStep().run(buildState());
+
+        const rerunState = buildState();
+        await new ConfigureSettingsStep().run(rerunState);
+
+        assert.equal(rerunState.changedProjects.size, 0);
+        assert.equal(rerunState.jdtLsJavaHomeChanged, false);
+    });
+
+    it('does not flag jdtLsJavaHomeChanged for a Java < 21 project (key never written)', async () => {
+        const project = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [{
+            workspace: project, projectPath: project, platform: 'linux', arch: 'x64',
+            javaVersion: '11',
+            jdkHome: '/home/dev/.jaenvtix/jdk-11',
+            toolHome: '/home/dev/.jaenvtix/jdk-11/mvn-custom',
+            toolBin: '/home/dev/.jaenvtix/jdk-11/mvn-custom/bin',
+            hasMvnw: false,
+        }];
+
+        await new ConfigureSettingsStep().run(state);
+
+        assert.deepEqual([...state.changedProjects], [project]);
+        assert.equal(state.jdtLsJavaHomeChanged, false);
     });
 
     it('writes a runtimes array (and NOT java.jdt.ls.java.home) for Java < 21', async () => {

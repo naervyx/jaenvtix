@@ -22,6 +22,12 @@ export const Messages = {
         ALL_SELECTED_EXTENSIONS_INSTALLED: 'All selected extensions are already installed.',
         EXTENSIONS_INSTALLED: (count: number) =>
             `${count} extension${count === 1 ? '' : 's'} installed. Reload the window to activate ${count === 1 ? 'it' : 'them'}.`,
+        LS_JDK_CHANGED_RESTART:
+            'Jaenvtix updated the JDK used by the Java Language Server (Red Hat). Restart the Language Server to apply it — no window reload needed.',
+        PROJECT_VERIFICATION_MISMATCH: (folder: string, actualCompliance: string, expectedMajor: number) =>
+            `Jaenvtix: "${folder}" is still compiling at Java ${actualCompliance}, but its pom requests Java ${expectedMajor}. The Java Language Server (Red Hat) applies the new JDK after a restart.`,
+        PROJECT_VERIFICATION_MISMATCH_MANY: (count: number) =>
+            `Jaenvtix: ${count} projects are still compiling at a different Java level than their poms request. The Java Language Server (Red Hat) applies the new JDK after a restart. See the "Jaenvtix" output channel for details.`,
     },
     Warning: {
         NOT_FOUND_WORKSPACE: 'No workspaces open. Nothing to do.',
@@ -36,8 +42,6 @@ export const Messages = {
             `Failed to remove temporary archive ${filePath}: ${detail}`,
         LAUNCH_JSON_MALFORMED: (filePath: string) =>
             `Existing launch.json at ${filePath} could not be parsed and was reset. Previous launch configurations were dropped.`,
-        PROJECT_VERIFICATION_MISMATCH: (count: number) =>
-            `Jaenvtix verification: ${count} project${count === 1 ? '' : 's'} resolved to a different Java level than provisioned. See the "Jaenvtix" output channel for details.`,
     },
     Error: {
         STEP_FAILED: (stepLabel: string, detail: string) => `${stepLabel} failed: ${detail}`,
@@ -87,6 +91,7 @@ export const Messages = {
             ApplyUserTunings: 'Apply sensible Java defaults to user settings',
             ConfigureOptionalExtensions: 'Configure companion extensions',
             ConfigureLaunch: 'Configure Visual Studio Code launch configuration',
+            AwaitLanguageServer: 'Waiting for the Java Language Server to finish loading…',
             RefreshProjectConfiguration: 'Refresh Java Language Server project configuration',
             VerifyConfiguration: 'Verify resolved project configuration',
         } as Record<string, string>,
@@ -122,8 +127,20 @@ export const Messages = {
             `Retrying download (${attempt}/${max}) after transient failure (${detail}): ${url}`,
         REFRESH_SKIPPED_REDHAT_MISSING:
             'Language Server refresh skipped: Red Hat Java extension (redhat.java) is not installed.',
+        REFRESH_SKIPPED_NO_CHANGES:
+            'Language Server refresh skipped: no project settings changed in this run.',
         SERVER_READY_UNCONFIRMED:
-            'Java Language Server did not confirm readiness in time; refreshing projects best-effort.',
+            'Java Language Server readiness cannot be confirmed on this redhat.java version; refreshing projects best-effort.',
+        SERVER_READY_TIMEOUT_DEFERRED: (timeoutMs: number) =>
+            `Java Language Server still loading after ${Math.round(timeoutMs / 1000)}s; refresh and verification will resume automatically once it is ready.`,
+        SERVER_READY_CONTINUATION_RESUMED:
+            'Java Language Server is ready; running the deferred project refresh and verification.',
+        VERIFY_SKIPPED_LIGHTWEIGHT:
+            'Verification skipped: the Java Language Server runs in LightWeight mode (user choice), so no compiler compliance is resolved.',
+        VERIFY_BACKLOG_RESUMED: (count: number) =>
+            `Re-verifying ${count} project${count === 1 ? '' : 's'} flagged with a mismatch in the previous run.`,
+        VERIFY_PROJECT_NO_SOURCES: (projectPath: string) =>
+            `Project ${projectPath}: verification skipped (no src/main/java — aggregator or non-source project).`,
         VERIFY_PROJECT_OK: (projectPath: string, expectedMajor: number) =>
             `Project ${projectPath}: Language Server resolved Java ${expectedMajor} as expected.`,
         VERIFY_PROJECT_MISMATCH: (projectPath: string, expectedMajor: number, actualCompliance: string) =>
@@ -136,5 +153,7 @@ export const Messages = {
         ALWAYS: 'Always',
         NO: 'No',
         RELOAD_NOW: 'Reload Now',
+        RESTART_LANGUAGE_SERVER: 'Restart Language Server',
+        SHOW_LOGS: 'Show Logs',
     },
 } as const;

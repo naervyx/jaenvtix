@@ -2,40 +2,37 @@ import {join} from 'node:path';
 
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {refreshAllProjects} from '../refreshProjectConfiguration';
-import {RedhatApiResolver, waitForRedhatServerReady} from '../serverReadyGate';
 import {Messages} from '../../util/message';
 import {log} from '../../util/logger';
 
 export interface RefreshProjectConfigurationDeps {
     /**
-     * Resolves the activated redhat.java extension API (or `undefined` when
-     * the extension is not installed). Wired by the orchestrator; tests
-     * inject fakes.
-     */
-    resolveRedhatApi: RedhatApiResolver;
-    /**
      * Executes `java.projectConfiguration.update` for one pom. Wired to
      * `vscode.commands.executeCommand` by the orchestrator.
      */
     refreshProject: (pomPath: string) => Promise<void>;
-    /** Override the serverReady wait budget in tests. */
-    serverReadyTimeoutMs?: number;
+    /** Override the refresh concurrency pool size in tests. */
+    refreshConcurrency?: number;
 }
 
 /**
  * After Jaenvtix has rewritten settings.json (and friends), nudge the Red Hat
- * Java Language Server to re-import each project so the new runtime mapping
- * takes effect immediately. Without this, the user has to reload the window
- * to see the new classpath.
+ * Java Language Server to re-import the projects whose settings actually
+ * changed, so the new runtime mapping takes effect without a window reload.
  *
  * Business rules:
- * - Waits for the Language Server to signal `serverReady` before refreshing:
- *   the auto-configuration typically runs on first workspace open, exactly
- *   when the server is still starting, and refresh commands issued too early
- *   are rejected. The wait is bounded — on timeout the refresh is attempted
- *   anyway (pre-gate behaviour), and per-pom failures stay swallowed.
- * - When the Red Hat extension is not installed the refresh is skipped
- *   entirely (there is no server to notify) with an auditable log line.
+ * - Only projects in `state.changedProjects` are refreshed: an idempotent
+ *   re-run changed nothing, so there is nothing for the server to re-import
+ *   and the step is an instant no-op. (Backlog-only runs also skip: the
+ *   verification step re-READS those projects; re-importing an unchanged
+ *   project would not change what the server resolved.)
+ * - Relies on `AwaitLanguageServerStep` having already gated readiness:
+ *   refreshes on `ready`, best-effort on `unconfirmed` (pre-gate behaviour),
+ *   and skips silently on `extension-missing` / `lightweight` (nothing to
+ *   notify) and on `timeout` (the orchestrator's continuation re-runs this
+ *   step once the server finishes loading — never act on a loading server).
+ * - Refresh calls run through a small concurrency pool; per-pom failures
+ *   stay isolated and swallowed.
  */
 export class RefreshProjectConfigurationStep implements ConfigurationStep {
     readonly name = 'RefreshProjectConfiguration';
@@ -47,22 +44,20 @@ export class RefreshProjectConfigurationStep implements ConfigurationStep {
             return StepResult.success();
         }
 
-        const outcome = await waitForRedhatServerReady(
-            this.deps.resolveRedhatApi,
-            this.deps.serverReadyTimeoutMs,
-        );
-
-        if (outcome === 'extension-missing') {
-            log(Messages.Log.REFRESH_SKIPPED_REDHAT_MISSING);
+        const changedContexts = state.projectContexts
+            .filter((ctx) => state.changedProjects.has(ctx.projectPath));
+        if (changedContexts.length === 0) {
+            log(Messages.Log.REFRESH_SKIPPED_NO_CHANGES);
             return StepResult.success();
         }
 
-        if (outcome === 'unconfirmed') {
-            log(Messages.Log.SERVER_READY_UNCONFIRMED);
+        const outcome = state.languageServerWait?.outcome;
+        if (outcome === 'extension-missing' || outcome === 'lightweight' || outcome === 'timeout') {
+            return StepResult.success();
         }
 
-        const pomPaths = state.projectContexts.map((ctx) => join(ctx.projectPath, 'pom.xml'));
-        await refreshAllProjects(pomPaths, this.deps.refreshProject);
+        const pomPaths = changedContexts.map((ctx) => join(ctx.projectPath, 'pom.xml'));
+        await refreshAllProjects(pomPaths, this.deps.refreshProject, this.deps.refreshConcurrency);
 
         return StepResult.success();
     }

@@ -16,10 +16,13 @@ import {ConfigureUserRuntimesStep} from './steps/configureUserRuntimesStep';
 import {ApplyUserTuningsStep} from './steps/applyUserTuningsStep';
 import {ConfigureOptionalExtensionsStep} from './steps/configureOptionalExtensionsStep';
 import {ConfigureLaunchStep} from './steps/configureLaunchStep';
+import {AwaitLanguageServerStep} from './steps/awaitLanguageServerStep';
 import {RefreshProjectConfigurationStep} from './steps/refreshProjectConfigurationStep';
 import {VerifyConfigurationStep} from './steps/verifyConfigurationStep';
+import {MismatchMementoAccessor} from './mismatchMemento';
 import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
 import {Messages} from '../util/message';
+import {log} from '../util/logger';
 import {runStep, runSteps} from './stepRunner';
 import {getJdkDistribution, normalizeVendorPreference} from '../build/javaUrl';
 import {readSupportedJavaVersions} from '../build/redhatRuntimeReader';
@@ -27,6 +30,9 @@ import {downloadFile} from '../file/fileDownload';
 
 const REDHAT_JAVA_EXTENSION_ID = 'redhat.java';
 const JAVA_PROJECT_CONFIGURATION_UPDATE = 'java.projectConfiguration.update';
+// Public redhat.java command: restarts ONLY the Language Server (no window
+// reload), which is what applies a changed java.jdt.ls.java.home.
+const JAVA_SERVER_RESTART = 'java.server.restart';
 
 /**
  * Activates the redhat.java extension (when installed) and resolves its
@@ -103,6 +109,30 @@ export interface ConfigureJavaOptions {
 }
 
 /**
+ * Host services only `activate()` can provide (an `ExtensionContext` never
+ * reaches this module). Threaded from `extension.ts` into the pipeline steps.
+ */
+export interface ConfigureJavaDeps {
+    /** workspaceState-backed accessor for the verification mismatch backlog. */
+    mismatchMemento: MismatchMementoAccessor;
+    /** Reveals the "Jaenvtix" output channel (the mismatch toast's Show Logs action). */
+    showLogs: () => void;
+}
+
+/**
+ * Safe stand-in used when the command is invoked without host wiring (only
+ * possible in unforeseen re-entry paths): the pipeline still works, it just
+ * loses backlog persistence and the Show Logs shortcut.
+ */
+const NOOP_DEPS: ConfigureJavaDeps = {
+    mismatchMemento: {
+        get: () => [],
+        update: async () => { /* nowhere to persist without a workspaceState */ },
+    },
+    showLogs: () => { /* output channel unavailable */ },
+};
+
+/**
  * Builds the default two-phase step list for the `jaenvtix.configureJava` command.
  * The `preConfirm` list always includes validation and project resolution; the
  * `ConfirmConfigurationStep` is added only when `options.skipConfirmation` is not set.
@@ -110,6 +140,7 @@ export interface ConfigureJavaOptions {
 export function getDefaultStepGroups(
     workspaceFolders: readonly {uri: {fsPath: string}}[] | undefined,
     options: ConfigureJavaOptions = {},
+    deps: ConfigureJavaDeps = NOOP_DEPS,
 ): StepGroups {
     const preConfirm: ConfigurationStep[] = [
         new ValidateEnvironmentStep(workspaceFolders),
@@ -171,23 +202,52 @@ export function getDefaultStepGroups(
                     );
                 },
             }),
-            new RefreshProjectConfigurationStep({
+            new AwaitLanguageServerStep({
                 resolveRedhatApi: activateRedhatJavaApi,
-                refreshProject: async (pomPath) => {
-                    await vscode.commands.executeCommand(
-                        JAVA_PROJECT_CONFIGURATION_UPDATE,
-                        vscode.Uri.file(pomPath),
-                    );
-                },
+                getMismatchBacklog: () => deps.mismatchMemento.get(),
             }),
-            new VerifyConfigurationStep({
-                readProjectSettings: readRedhatProjectSettings,
-                notifyMismatch: (message) => {
-                    void vscode.window.showWarningMessage(message);
-                },
-            }),
+            buildRefreshStep(),
+            buildVerifyStep(deps),
         ],
     };
+}
+
+function buildRefreshStep(): RefreshProjectConfigurationStep {
+    return new RefreshProjectConfigurationStep({
+        refreshProject: async (pomPath) => {
+            await vscode.commands.executeCommand(
+                JAVA_PROJECT_CONFIGURATION_UPDATE,
+                vscode.Uri.file(pomPath),
+            );
+        },
+    });
+}
+
+function buildVerifyStep(deps: ConfigureJavaDeps): VerifyConfigurationStep {
+    return new VerifyConfigurationStep({
+        readProjectSettings: readRedhatProjectSettings,
+        notifyMismatch: (message) => notifyMismatchWithActions(message, deps.showLogs),
+        updateMismatchMemento: (projectPaths) => deps.mismatchMemento.update(projectPaths),
+    });
+}
+
+/**
+ * Mismatch toast (informational, not an error: restarting IS the fix).
+ * [Restart Language Server] applies the new JDK without a window reload;
+ * [Show Logs] opens the per-project detail in the "Jaenvtix" channel.
+ */
+function notifyMismatchWithActions(message: string, showLogs: () => void): void {
+    void vscode.window.showInformationMessage(
+        message,
+        Messages.Choice.RESTART_LANGUAGE_SERVER,
+        Messages.Choice.SHOW_LOGS,
+    ).then((choice) => {
+        if (choice === Messages.Choice.RESTART_LANGUAGE_SERVER) {
+            void vscode.commands.executeCommand(JAVA_SERVER_RESTART);
+        } else if (choice === Messages.Choice.SHOW_LOGS) {
+            showLogs();
+        }
+    });
 }
 
 function buildProgressMessage(step: ConfigurationStep): string {
@@ -240,11 +300,19 @@ async function runStepsWithProgress(
  * - A `warning` result shows a warning notification; an `error` result shows
  *   an error notification. A result with no message is silently discarded
  *   (e.g. the user dismissed the confirm prompt).
+ * - After a successful run: offers a one-click Language Server restart when
+ *   the run changed the server's JDK, and — when the server was still
+ *   loading at the end of the run — arms a detached continuation that
+ *   re-runs refresh + verification once `serverReady` resolves.
  */
-export async function runConfigureJavaCommand(options?: ConfigureJavaOptions): Promise<void> {
+export async function runConfigureJavaCommand(
+    options?: ConfigureJavaOptions,
+    deps: ConfigureJavaDeps = NOOP_DEPS,
+): Promise<void> {
     const {preConfirm, postConfirm} = getDefaultStepGroups(
         vscode.workspace.workspaceFolders,
         options,
+        deps,
     );
     const state = createInitialState();
     let result = await runSteps(preConfirm, state);
@@ -267,4 +335,70 @@ export async function runConfigureJavaCommand(options?: ConfigureJavaOptions): P
     }
 
     vscode.window.showInformationMessage(Messages.Info.CONFIGURATION_COMPLETED);
+
+    offerLanguageServerRestartIfNeeded(state);
+    armServerReadyContinuation(state, deps);
+}
+
+/**
+ * When the run changed `java.jdt.ls.java.home`, the new JDK only takes
+ * effect after a Language Server restart — offer it as one click.
+ *
+ * Business rules:
+ * - ALWAYS opt-in via the button, NEVER an automatic restart: restarting
+ *   re-imports the whole workspace (expensive in monorepos) and must not
+ *   interrupt the user without consent.
+ * - Suppressed when the verification toast already appeared (it carries the
+ *   same restart action) and when the Red Hat extension is absent (there is
+ *   no server to restart).
+ * - The Red Hat extension may show its own "configuration changed" prompt in
+ *   parallel; that redundancy is harmless and cannot be suppressed.
+ */
+function offerLanguageServerRestartIfNeeded(state: JavaConfigurationState): void {
+    if (!state.jdtLsJavaHomeChanged || state.mismatchNotified) {
+        return;
+    }
+
+    if (state.languageServerWait?.outcome === 'extension-missing') {
+        return;
+    }
+
+    void vscode.window.showInformationMessage(
+        Messages.Info.LS_JDK_CHANGED_RESTART,
+        Messages.Choice.RESTART_LANGUAGE_SERVER,
+    ).then((choice) => {
+        if (choice === Messages.Choice.RESTART_LANGUAGE_SERVER) {
+            void vscode.commands.executeCommand(JAVA_SERVER_RESTART);
+        }
+    });
+}
+
+/**
+ * The in-progress wait for `serverReady` is capped so the progress
+ * notification stays short — but a timeout never abandons the work. This
+ * arms a detached continuation on the still-live readiness promise: when the
+ * server finishes loading, the deferred refresh + verification run with
+ * fresh values (never by the clock). If the window closes first, nothing
+ * happens and the next open re-runs the pipeline.
+ */
+function armServerReadyContinuation(state: JavaConfigurationState, deps: ConfigureJavaDeps): void {
+    const wait = state.languageServerWait;
+    if (wait?.outcome !== 'timeout' || !wait.becameReady) {
+        return;
+    }
+
+    // Guard against double execution: the continuation must run at most once
+    // even if the readiness promise is shared across consumers.
+    let resumed = false;
+    void wait.becameReady.then(async () => {
+        if (resumed) {
+            return;
+        }
+        resumed = true;
+
+        log(Messages.Log.SERVER_READY_CONTINUATION_RESUMED);
+        state.languageServerWait = {outcome: 'ready'};
+        await runStep(buildRefreshStep(), state);
+        await runStep(buildVerifyStep(deps), state);
+    });
 }

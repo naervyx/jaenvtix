@@ -67,6 +67,14 @@ export class ConfigureSettingsStep implements ConfigurationStep {
             const updateResult = updateVsCodeSettings(settingsPath, javaMavenPaths, {documentJaenvtixSettings});
             if (updateResult.updated) {
                 log(Messages.Log.SETTINGS_UPDATED(projectContext.projectPath, updateResult.updatedKeys));
+                // Gate for the Language Server refresh/verification: only
+                // projects that actually changed need the server's attention.
+                state.changedProjects.add(projectContext.projectPath);
+                // Written OR removed: either way the server's JDK moved and
+                // only a Language Server restart applies it.
+                if (updateResult.updatedKeys.includes('java.jdt.ls.java.home')) {
+                    state.jdtLsJavaHomeChanged = true;
+                }
             }
         }
 

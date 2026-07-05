@@ -1,3 +1,5 @@
+import {DEFAULT_CONCURRENCY_LIMIT, mapWithConcurrency} from '../util/concurrencyPool';
+
 export type ProjectRefresher = (pomPath: string) => Promise<void>;
 
 export interface RefreshSummary {
@@ -6,12 +8,16 @@ export interface RefreshSummary {
 }
 
 /**
- * Sequentially asks `refresher` to reload every project pom.
- *
+ * Asks `refresher` to reload every project pom, keeping a bounded number of
+ * requests in flight.
+
  * Business rules:
- * - Each pom path is presented to the refresher exactly once, in order.
- * - A failure on any single pom does NOT abort the loop — the next pom is
- *   still attempted. This is critical because the Red Hat Language Server
+ * - Each pom path is presented to the refresher exactly once.
+ * - Requests run concurrently (pool of `concurrency`): each call just
+ *   enqueues an import job inside JDT, which m2e serializes internally, so
+ *   issuing them one-by-one would only add idle round-trips in monorepos.
+ * - A failure on any single pom does NOT affect the others — isolation per
+ *   pom is preserved. This is critical because the Red Hat Language Server
  *   may not be installed (in which case every call rejects), and we don't
  *   want the Jaenvtix configuration step to fail noisily for a cooperative
  *   feature.
@@ -24,19 +30,11 @@ export interface RefreshSummary {
  */
 export async function refreshAllProjects(
     pomPaths: readonly string[],
-    refresher: ProjectRefresher
+    refresher: ProjectRefresher,
+    concurrency: number = DEFAULT_CONCURRENCY_LIMIT,
 ): Promise<RefreshSummary> {
-    let succeeded = 0;
-    let failed = 0;
+    const settled = await mapWithConcurrency(pomPaths, concurrency, (pomPath) => refresher(pomPath));
+    const succeeded = settled.filter((result) => result.status === 'fulfilled').length;
 
-    for (const pomPath of pomPaths) {
-        try {
-            await refresher(pomPath);
-            succeeded++;
-        } catch {
-            failed++;
-        }
-    }
-
-    return {succeeded, failed};
+    return {succeeded, failed: settled.length - succeeded};
 }
