@@ -1,18 +1,25 @@
 import {describe, it} from 'node:test';
 import assert from 'node:assert/strict';
 
-import {ApplyUserTuningsStep} from '../../../src/configuration/steps/applyUserTuningsStep';
+import {ApplyUserTuningsStep, UserConfig} from '../../../src/configuration/steps/applyUserTuningsStep';
 import {createInitialState} from '../../../src/core/types';
 
-function makeConfig(initial: Record<string, unknown> = {}): {
-    store: Record<string, unknown>;
-    factory: () => {get(key: string): unknown; update(key: string, value: unknown, target: number): Promise<void>};
-} {
+/**
+ * In-memory fake mirroring the vscode configuration split the step relies on:
+ * `store` holds user-set values (surfaced via `inspect().globalValue`);
+ * `registeredDefaults` holds extension-declared defaults (surfaced via `get`
+ * when the user set nothing, exactly like the real API).
+ */
+function makeConfig(
+    initial: Record<string, unknown> = {},
+    registeredDefaults: Record<string, unknown> = {},
+): {store: Record<string, unknown>; factory: () => UserConfig} {
     const store = {...initial};
     return {
         store,
         factory: () => ({
-            get: (key: string) => store[key],
+            get: (key: string) => key in store ? store[key] : registeredDefaults[key],
+            inspect: (key: string) => key in store ? {globalValue: store[key]} : undefined,
             update: async (key: string, value: unknown) => { store[key] = value; },
         }),
     };
@@ -37,7 +44,7 @@ describe('ApplyUserTuningsStep', () => {
         const step = new ApplyUserTuningsStep(factory, 'win32');
         await step.run(createInitialState());
 
-        assert.deepEqual(store['java.test.config'], [{vmArgs: ['-Dfile.encoding=UTF-8']}]);
+        assert.deepEqual(store['java.test.config'], [{name: 'Jaenvtix UTF-8', vmArgs: ['-Dfile.encoding=UTF-8']}]);
     });
 
     it('does not overwrite a key the user has already set', async () => {
@@ -46,6 +53,41 @@ describe('ApplyUserTuningsStep', () => {
         await step.run(createInitialState());
 
         assert.equal(store['java.debug.settings.hotCodeReplace'], 'manual');
+    });
+
+    it('applies tunings even when the owning extension registered defaults', async () => {
+        // With the Java pack installed, `get` returns registered defaults for
+        // every key; only `inspect` reveals the user never set them. The step
+        // must still apply the tunings in that scenario.
+        const {store, factory} = makeConfig({}, {
+            'java.debug.settings.hotCodeReplace': 'manual',
+            'java.dependency.packagePresentation': 'flat',
+        });
+        const step = new ApplyUserTuningsStep(factory, 'linux');
+        await step.run(createInitialState());
+
+        assert.equal(store['java.debug.settings.hotCodeReplace'], 'auto');
+        assert.equal(store['java.dependency.packagePresentation'], 'hierarchical');
+    });
+
+    it('skips the hotCodeReplace tuning when the user disabled autobuild', async () => {
+        // Auto HCR only acts after an automatic build — seeding it with
+        // autobuild off would be a misleading no-op.
+        const {store, factory} = makeConfig({'java.autobuild.enabled': false});
+        const step = new ApplyUserTuningsStep(factory, 'linux');
+        await step.run(createInitialState());
+
+        assert.equal('java.debug.settings.hotCodeReplace' in store, false);
+        // The remaining tunings still apply.
+        assert.equal(store['java.dependency.packagePresentation'], 'hierarchical');
+    });
+
+    it('never writes java.autobuild.enabled back (read-only gate)', async () => {
+        const {store, factory} = makeConfig({}, {'java.autobuild.enabled': true});
+        const step = new ApplyUserTuningsStep(factory, 'linux');
+        await step.run(createInitialState());
+
+        assert.equal('java.autobuild.enabled' in store, false);
     });
 
     it('skips all writes when jaenvtix.applyJavaTunings is false (opt-out)', async () => {

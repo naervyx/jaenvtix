@@ -1,4 +1,8 @@
-import {detectOptionalExtensionConfig, selectLanguageServerJdkHome} from '../../build/optionalExtensionsConfig';
+import {
+    detectOptionalExtensionConfig,
+    selectInitializrDefaultJavaVersion,
+    selectLanguageServerJdkHome,
+} from '../../build/optionalExtensionsConfig';
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {log} from '../../util/logger';
 import {Messages} from '../../util/message';
@@ -20,8 +24,9 @@ export interface OptionalExtensionsUserConfig {
 }
 
 /**
- * Points companion extensions (currently Spring Boot Tools) at a Java 21+
- * JDK provisioned by the pipeline, via User Settings.
+ * Configures companion extensions via User Settings: points Spring Boot
+ * Tools at a Java 21+ JDK provisioned by the pipeline and seeds the Spring
+ * Initializr default Java version with the workspace's best LTS.
  *
  * Business rules:
  * - Skipped entirely when the user opted out via
@@ -31,7 +36,8 @@ export interface OptionalExtensionsUserConfig {
  * - A value the user already set globally is never overwritten — only the
  *   `globalValue` is checked, because the owning extension's registered
  *   default would mask "never set" if read through `get`.
- * - No provisioned Java 21+ JDK → nothing to write (the LS requires 21+).
+ * - No qualifying JDK → nothing to write (see the selectors in
+ *   `optionalExtensionsConfig` for the per-extension rules).
  */
 export class ConfigureOptionalExtensionsStep implements ConfigurationStep {
     readonly name = 'ConfigureOptionalExtensions';
@@ -48,8 +54,13 @@ export class ConfigureOptionalExtensionsStep implements ConfigurationStep {
             return StepResult.success();
         }
 
-        const jdkHome = selectLanguageServerJdkHome(state.versionPaths);
-        const updates = detectOptionalExtensionConfig(jdkHome, this.isExtensionInstalled);
+        const updates = detectOptionalExtensionConfig(
+            {
+                languageServerJdkHome: selectLanguageServerJdkHome(state.versionPaths),
+                initializrDefaultJavaVersion: selectInitializrDefaultJavaVersion(state.versionPaths),
+            },
+            this.isExtensionInstalled,
+        );
 
         for (const {settingKey, value, extensionId} of updates) {
             if (cfg.inspect(settingKey)?.globalValue !== undefined) {

@@ -41,6 +41,55 @@ describe('ConfigureSettingsStep', () => {
         const settings = JSON.parse(await fs.readFile(settingsPath, 'utf-8'));
         assert.equal(settings['java.jdt.ls.java.home'], '/home/dev/.jaenvtix/jdk-21');
         assert.equal('java.configuration.runtimes' in settings, false);
+
+        // Gating for the Language Server steps: the write changed the file
+        // and moved the server's JDK.
+        assert.deepEqual([...state.changedProjects], [project]);
+        assert.equal(state.jdtLsJavaHomeChanged, true);
+    });
+
+    it('leaves changedProjects and jdtLsJavaHomeChanged untouched on an idempotent re-run', async () => {
+        const project = await projectDir();
+        const buildState = () => {
+            const state = createInitialState();
+            state.platform = 'linux';
+            state.projectContexts = [{
+                workspace: project, projectPath: project, platform: 'linux', arch: 'x64',
+                javaVersion: '21',
+                jdkHome: '/home/dev/.jaenvtix/jdk-21',
+                toolHome: '/home/dev/.jaenvtix/jdk-21/mvn-custom',
+                toolBin: '/home/dev/.jaenvtix/jdk-21/mvn-custom/bin',
+                hasMvnw: false,
+            }];
+            return state;
+        };
+
+        await new ConfigureSettingsStep().run(buildState());
+
+        const rerunState = buildState();
+        await new ConfigureSettingsStep().run(rerunState);
+
+        assert.equal(rerunState.changedProjects.size, 0);
+        assert.equal(rerunState.jdtLsJavaHomeChanged, false);
+    });
+
+    it('does not flag jdtLsJavaHomeChanged for a Java < 21 project (key never written)', async () => {
+        const project = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [{
+            workspace: project, projectPath: project, platform: 'linux', arch: 'x64',
+            javaVersion: '11',
+            jdkHome: '/home/dev/.jaenvtix/jdk-11',
+            toolHome: '/home/dev/.jaenvtix/jdk-11/mvn-custom',
+            toolBin: '/home/dev/.jaenvtix/jdk-11/mvn-custom/bin',
+            hasMvnw: false,
+        }];
+
+        await new ConfigureSettingsStep().run(state);
+
+        assert.deepEqual([...state.changedProjects], [project]);
+        assert.equal(state.jdtLsJavaHomeChanged, false);
     });
 
     it('writes a runtimes array (and NOT java.jdt.ls.java.home) for Java < 21', async () => {
@@ -155,5 +204,88 @@ describe('ConfigureSettingsStep', () => {
         assert.match(executablePath, /jdk-17/);
         assert.match(executablePath, /jaenvtix-mvn/);
         assert.equal(settings['maven.executable.preferMavenWrapper'], false);
+    });
+
+    // Business rule: maven.view: hierarchical is seeded only in the
+    // workspace-root settings of a multi-module workspace.
+
+    it('seeds maven.view: hierarchical at the root of a multi-module workspace', async () => {
+        const root = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [
+            {
+                workspace: root, projectPath: root, platform: 'linux', arch: 'x64',
+                javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+            },
+            {
+                workspace: root, projectPath: join(root, 'module-a'), platform: 'linux', arch: 'x64',
+                javaVersion: '17', jdkHome: '/j17', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+            },
+        ];
+
+        await new ConfigureSettingsStep().run(state);
+
+        const rootSettings = JSON.parse(
+            await fs.readFile(join(root, '.vscode', 'settings.json'), 'utf-8'),
+        );
+        assert.equal(rootSettings['maven.view'], 'hierarchical');
+
+        const moduleSettings = JSON.parse(
+            await fs.readFile(join(root, 'module-a', '.vscode', 'settings.json'), 'utf-8'),
+        );
+        assert.equal('maven.view' in moduleSettings, false);
+    });
+
+    it('does not seed maven.view for a single-module workspace', async () => {
+        const root = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [{
+            workspace: root, projectPath: root, platform: 'linux', arch: 'x64',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+        }];
+
+        await new ConfigureSettingsStep().run(state);
+
+        const settings = JSON.parse(
+            await fs.readFile(join(root, '.vscode', 'settings.json'), 'utf-8'),
+        );
+        assert.equal('maven.view' in settings, false);
+    });
+
+    // Business rule: terminal env settings only apply to NEW terminals, so the
+    // state flag drives a "reopen terminals" hint shown by the command entry point.
+
+    it('flags terminalEnvUpdated when terminal env keys are written', async () => {
+        const project = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [{
+            workspace: project, projectPath: project, platform: 'linux', arch: 'x64',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+        }];
+
+        await new ConfigureSettingsStep().run(state);
+        assert.equal(state.terminalEnvUpdated, true);
+    });
+
+    it('does not flag terminalEnvUpdated on a no-op second run', async () => {
+        const project = await projectDir();
+        const state = createInitialState();
+        state.platform = 'linux';
+        state.projectContexts = [{
+            workspace: project, projectPath: project, platform: 'linux', arch: 'x64',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+        }];
+
+        await new ConfigureSettingsStep().run(state);
+
+        const secondRunState = createInitialState();
+        secondRunState.platform = 'linux';
+        secondRunState.projectContexts = state.projectContexts;
+        await new ConfigureSettingsStep().run(secondRunState);
+
+        assert.equal(secondRunState.terminalEnvUpdated, false);
     });
 });

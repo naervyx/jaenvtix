@@ -25,6 +25,11 @@ export interface ConfigureLaunchDeps {
  * - Resolves the main class via `resolveJavaLaunchInfo`, which checks the
  *   `pom.xml` first (Spring Boot `<start-class>` / `<mainClass>`) and falls
  *   back to scanning `src/main/java` for a `main` method.
+ * - Records the Spring Boot detection on each `ProjectContext` and on
+ *   `state.springBootProjectDetected` — this step already pays the resolution
+ *   cost, so later steps (Maven favorites, extension recommendations) reuse
+ *   the result instead of re-scanning sources. It therefore MUST run before
+ *   `ConfigureSettingsStep` in the pipeline.
  * - Projects without a discoverable main class are silently skipped (a log
  *   message is written so the skip is auditable, but it is not an error).
  * - Generated config names follow the pattern `Jaenvtix: <Java|Spring Boot> (<ProjectName>)`.
@@ -38,6 +43,12 @@ export class ConfigureLaunchStep implements ConfigurationStep {
     async run(state: JavaConfigurationState): Promise<ConfigurationStepResult> {
         for (const projectContext of state.projectContexts) {
             const launchInfo = resolveJavaLaunchInfo(projectContext.projectPath);
+
+            projectContext.isSpringBoot = launchInfo.isSpringBoot;
+            if (launchInfo.isSpringBoot) {
+                state.springBootProjectDetected = true;
+            }
+
             if (!launchInfo.mainClass) {
                 log(Messages.Log.LAUNCH_SKIPPED(projectContext.projectPath));
                 continue;

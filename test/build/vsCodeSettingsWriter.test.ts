@@ -60,12 +60,60 @@ describe('updateVsCodeSettings — required keys', () => {
 
         const settings = await readSettings(settingsPath);
         assert.equal(settings['java.jdt.ls.java.home'], '/home/dev/.jaenvtix/jdk-17');
-        assert.equal(settings['java.jdt.ls.lombokSupport.enabled'], true);
+        assert.equal('java.jdt.ls.lombokSupport.enabled' in settings, false);
         assert.equal(settings['maven.executable.preferMavenWrapper'], false);
         assert.equal(settings['maven.executable.path'], '/home/dev/.jaenvtix/jdk-17/mvn-custom/bin/mvn');
         assert.equal(settings['java.compile.nullAnalysis.mode'], 'automatic');
         assert.equal(settings['java.configuration.updateBuildConfiguration'], 'automatic');
+        // The key the redhat.java manifest declares today. Its README once led
+        // us to a `java.import.*` variant that does not exist upstream — the
+        // contract test (test/contract/) now guards this name.
         assert.equal(settings['java.configuration.maven.userSettings'], '/home/dev/.m2/settings.xml');
+    });
+
+    // Business rules (P2): opinionated defaults are seeded once and then
+    // belong to the user; the redundant lombok key is cleaned up.
+
+    it('respects a user-changed updateBuildConfiguration instead of forcing automatic', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {
+                'java.configuration.updateBuildConfiguration': 'interactive',
+                'java.compile.nullAnalysis.mode': 'disabled',
+            },
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+
+        assert.equal(settings['java.configuration.updateBuildConfiguration'], 'interactive');
+        assert.equal(settings['java.compile.nullAnalysis.mode'], 'disabled');
+    });
+
+    it('removes the redundant lombokSupport.enabled: true written by older versions', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {'java.jdt.ls.lombokSupport.enabled': true},
+        );
+        cleanups.push(cleanup);
+
+        const result = updateVsCodeSettings(settingsPath, paths);
+        assert.equal(result.updated, true);
+        const settings = await readSettings(settingsPath);
+        assert.equal('java.jdt.ls.lombokSupport.enabled' in settings, false);
+    });
+
+    it('preserves an explicit lombokSupport.enabled: false (user opt-out)', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {'java.jdt.ls.lombokSupport.enabled': false},
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+        assert.equal(settings['java.jdt.ls.lombokSupport.enabled'], false);
     });
 
     it('omits jdt.ls.java.home when no JDK is provided (Java 21+ uses bundled JDK)', async () => {
@@ -133,10 +181,12 @@ describe('updateVsCodeSettings — runtimes gating', () => {
         ]);
     });
 
-    it('removes a previously written runtimes array when no runtimes are required', async () => {
+    it('removes the runtimes key only when it holds the single Jaenvtix-provisioned entry', async () => {
+        // paths.terminalJavaHome is '/home/dev/.jaenvtix/jdk-17' in this scenario —
+        // a single entry pointing there is the fingerprint of a previous Jaenvtix run.
         const {settingsPath, paths, cleanup} = await withSettingsFile(
             {platform: 'linux'},
-            {'java.configuration.runtimes': [{name: 'JavaSE-11', path: '/jdk-11'}]},
+            {'java.configuration.runtimes': [{name: 'JavaSE-17', path: '/home/dev/.jaenvtix/jdk-17', default: true}]},
         );
         cleanups.push(cleanup);
 
@@ -144,6 +194,87 @@ describe('updateVsCodeSettings — runtimes gating', () => {
         assert.equal(result.updated, true);
         const settings = await readSettings(settingsPath);
         assert.equal('java.configuration.runtimes' in settings, false);
+    });
+
+    it('leaves a runtimes array alone when it may be user-authored (no desired entries)', async () => {
+        const userRuntimes = [
+            {name: 'JavaSE-11', path: '/opt/my-jdk-11'},
+            {name: 'JavaSE-17', path: '/opt/my-jdk-17', default: true},
+        ];
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {'java.configuration.runtimes': userRuntimes},
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+        assert.deepEqual(settings['java.configuration.runtimes'], userRuntimes);
+    });
+
+    it('preserves user entries with other names when merging the desired runtime', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {
+                platform: 'linux',
+                runtimes: [{name: 'JavaSE-17', path: '/jdk-17', default: true}],
+            },
+            {'java.configuration.runtimes': [{name: 'JavaSE-11', path: '/opt/my-jdk-11', default: true}]},
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+
+        // The user's JavaSE-11 entry survives, keeps its default flag, and the
+        // appended Jaenvtix entry drops default (only one default is allowed).
+        assert.deepEqual(settings['java.configuration.runtimes'], [
+            {name: 'JavaSE-11', path: '/opt/my-jdk-11', default: true},
+            {name: 'JavaSE-17', path: '/jdk-17'},
+        ]);
+    });
+
+    it('respects a same-name entry whose path still points at a real JDK', async () => {
+        // Simulate a valid user JDK: a temp dir with bin/javac.
+        const userJdk = await createTempDir();
+        cleanups.push(() => removeTempDir(userJdk));
+        await fs.mkdir(join(userJdk, 'bin'), {recursive: true});
+        writeFileSync(join(userJdk, 'bin', 'javac'), '', 'utf-8');
+
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {
+                platform: 'linux',
+                runtimes: [{name: 'JavaSE-17', path: '/jdk-17', default: true}],
+            },
+            {'java.configuration.runtimes': [{name: 'JavaSE-17', path: userJdk}]},
+        );
+        cleanups.push(cleanup);
+
+        const result = updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+
+        assert.deepEqual(settings['java.configuration.runtimes'], [{name: 'JavaSE-17', path: userJdk}]);
+        // No runtime change was needed — but other keys may still update on
+        // this first write, so only the runtimes key is asserted stable.
+        assert.equal(result.updatedKeys.includes('java.configuration.runtimes'), false);
+    });
+
+    it('repairs the path of a same-name entry that no longer points at a JDK', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {
+                platform: 'linux',
+                runtimes: [{name: 'JavaSE-17', path: '/jdk-17', default: true}],
+            },
+            {'java.configuration.runtimes': [{name: 'JavaSE-17', path: '/broken/path', sources: '/my/src.zip'}]},
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+
+        // Path repaired, user-authored sources preserved.
+        assert.deepEqual(settings['java.configuration.runtimes'], [
+            {name: 'JavaSE-17', path: '/jdk-17', sources: '/my/src.zip'},
+        ]);
     });
 });
 
@@ -465,6 +596,104 @@ describe('updateVsCodeSettings — jaenvtix.* defaults seeding', () => {
     });
 });
 
+describe('updateVsCodeSettings — maven.terminal.favorites seeding', () => {
+    const cleanups: (() => Promise<void>)[] = [];
+
+    afterEach(async () => {
+        await Promise.all(cleanups.splice(0).map((fn) => fn()));
+    });
+
+    it('seeds the skip-tests install favorite for a plain Java project', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {seedMavenFavorites: {isSpringBoot: false}});
+        const settings = await readSettings(settingsPath);
+
+        assert.deepEqual(settings['maven.terminal.favorites'], [
+            {alias: 'Jaenvtix: Install (skip tests)', command: 'clean install -DskipTests'},
+        ]);
+    });
+
+    it('adds spring-boot:run for a Spring Boot application', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {seedMavenFavorites: {isSpringBoot: true}});
+        const settings = await readSettings(settingsPath);
+
+        assert.deepEqual(settings['maven.terminal.favorites'], [
+            {alias: 'Jaenvtix: Install (skip tests)', command: 'clean install -DskipTests'},
+            {alias: 'Jaenvtix: Spring Boot Run', command: 'spring-boot:run'},
+        ]);
+    });
+
+    it('never touches an existing favorites key (user owns it after creation)', async () => {
+        const userFavorites = [{alias: 'mine', command: 'clean verify'}];
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {'maven.terminal.favorites': userFavorites},
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {seedMavenFavorites: {isSpringBoot: true}});
+        const settings = await readSettings(settingsPath);
+
+        assert.deepEqual(settings['maven.terminal.favorites'], userFavorites);
+    });
+
+    it('does not seed favorites when the option is absent', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+
+        assert.equal('maven.terminal.favorites' in settings, false);
+    });
+});
+
+describe('updateVsCodeSettings — maven.view seeding', () => {
+    const cleanups: (() => Promise<void>)[] = [];
+
+    afterEach(async () => {
+        await Promise.all(cleanups.splice(0).map((fn) => fn()));
+    });
+
+    it('seeds maven.view: hierarchical when requested', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {seedMavenHierarchicalView: true});
+        const settings = await readSettings(settingsPath);
+
+        assert.equal(settings['maven.view'], 'hierarchical');
+    });
+
+    it('never overwrites a maven.view the user already set', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile(
+            {platform: 'linux'},
+            {'maven.view': 'flat'},
+        );
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths, {seedMavenHierarchicalView: true});
+        const settings = await readSettings(settingsPath);
+
+        assert.equal(settings['maven.view'], 'flat');
+    });
+
+    it('does not write maven.view when the option is absent', async () => {
+        const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
+        cleanups.push(cleanup);
+
+        updateVsCodeSettings(settingsPath, paths);
+        const settings = await readSettings(settingsPath);
+
+        assert.equal('maven.view' in settings, false);
+    });
+});
+
 describe('applyUserJavaTunings', () => {
     it('writes 4 settings on Linux (no java.test.config)', () => {
         const result = applyUserJavaTunings({}, 'linux');
@@ -475,10 +704,10 @@ describe('applyUserJavaTunings', () => {
         assert.equal('java.test.config' in result, false);
     });
 
-    it('writes 5 settings on Windows (includes java.test.config with UTF-8 vmArg)', () => {
+    it('writes 5 settings on Windows (includes named java.test.config with UTF-8 vmArg)', () => {
         const result = applyUserJavaTunings({}, 'win32');
         assert.equal(result['java.debug.settings.hotCodeReplace'], 'auto');
-        assert.deepEqual(result['java.test.config'], [{vmArgs: ['-Dfile.encoding=UTF-8']}]);
+        assert.deepEqual(result['java.test.config'], [{name: 'Jaenvtix UTF-8', vmArgs: ['-Dfile.encoding=UTF-8']}]);
     });
 
     it('preserves an existing hotCodeReplace value and writes the remaining 3', () => {
@@ -505,5 +734,22 @@ describe('applyUserJavaTunings', () => {
         const result = applyUserJavaTunings({}, 'linux');
         const computed = result['java.maxConcurrentBuilds'] as number;
         assert.ok(computed >= 1, 'must be at least 1');
+    });
+
+    it('skips hotCodeReplace when java.autobuild.enabled is false', () => {
+        const result = applyUserJavaTunings({'java.autobuild.enabled': false}, 'linux');
+        assert.equal('java.debug.settings.hotCodeReplace' in result, false);
+        assert.equal(result['java.dependency.packagePresentation'], 'hierarchical');
+    });
+
+    it('applies hotCodeReplace when autobuild is enabled or unset', () => {
+        assert.equal(
+            applyUserJavaTunings({'java.autobuild.enabled': true}, 'linux')['java.debug.settings.hotCodeReplace'],
+            'auto',
+        );
+        assert.equal(
+            applyUserJavaTunings({}, 'linux')['java.debug.settings.hotCodeReplace'],
+            'auto',
+        );
     });
 });

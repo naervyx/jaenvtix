@@ -1,0 +1,82 @@
+name: Upstream schema watch
+
+# Weekly check that the base extensions Jaenvtix integrates with have not
+# renamed/removed settings or commands we depend on (P4.12). On drift, the
+# job fails and opens (or refreshes) a tracking issue with the diff.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  check-upstream-schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Compare upstream manifests against the committed snapshot
+        id: schema-check
+        run: |
+          set +e
+          OUTPUT=$(node scripts/check-upstream-schemas.mjs 2>&1)
+          STATUS=$?
+          echo "$OUTPUT"
+          {
+            echo 'diff<<EOF'
+            echo "$OUTPUT"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          exit $STATUS
+
+      - name: Open or refresh the drift tracking issue
+        if: failure() && steps.schema-check.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Upstream extension schema drift detected';
+            const label = 'upstream-schema-drift';
+            const body = [
+              'The weekly upstream schema watch found differences between the',
+              'committed snapshot (`scripts/upstream-schema-snapshot.json`) and the',
+              'current `main` manifests of the base extensions.',
+              '',
+              '```',
+              `${{ steps.schema-check.outputs.diff }}`,
+              '```',
+              '',
+              'If a key Jaenvtix writes was renamed or deprecated, adapt the writers first.',
+              'Then refresh the snapshot with `node scripts/check-upstream-schemas.mjs --update`.',
+            ].join('\n');
+
+            const {data: issues} = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+            });
+
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                labels: [label],
+                body,
+              });
+            }

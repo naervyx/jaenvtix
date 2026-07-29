@@ -61,6 +61,42 @@ public class BootApp { public static void main(String[] args) {} }`),
         assert.match(launch.configurations[0].name, /Jaenvtix: Spring Boot/);
     });
 
+    it('records the Spring Boot detection on the context and the shared state', async () => {
+        const root = await withProject([
+            javaSource('com.example.boot', 'BootApp.java', `package com.example.boot;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+@SpringBootApplication
+public class BootApp { public static void main(String[] args) {} }`),
+        ]);
+        const state = createInitialState();
+        state.projectContexts = [{
+            workspace: root, projectPath: root, platform: 'linux', arch: 'x64',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+        }];
+
+        await new ConfigureLaunchStep().run(state);
+
+        assert.equal(state.projectContexts[0].isSpringBoot, true);
+        assert.equal(state.springBootProjectDetected, true);
+    });
+
+    it('records isSpringBoot=false for a plain Java project', async () => {
+        const root = await withProject([
+            javaSource('com.example.app', 'Cli.java', `package com.example.app;
+public class Cli { public static void main(String[] args) {} }`),
+        ]);
+        const state = createInitialState();
+        state.projectContexts = [{
+            workspace: root, projectPath: root, platform: 'linux', arch: 'x64',
+            javaVersion: '21', jdkHome: '/j', toolHome: '/m', toolBin: '/m/b', hasMvnw: false,
+        }];
+
+        await new ConfigureLaunchStep().run(state);
+
+        assert.equal(state.projectContexts[0].isSpringBoot, false);
+        assert.equal(state.springBootProjectDetected, false);
+    });
+
     it('skips projects without a discoverable main class without failing', async () => {
         const root = await withProject([
             javaSource('com.example.lib', 'Lib.java', 'package com.example.lib; public class Lib {}'),

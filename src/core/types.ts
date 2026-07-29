@@ -1,6 +1,7 @@
 import {DownloadResult} from '../file/fileDownload';
 import {ArchitectureType, PlatformType} from './system';
 import {MavenDistribution} from '../build/mavenUrl';
+import type {ServerReadyWait} from '../configuration/serverReadyGate';
 
 /**
  * Entry shape of VS Code's `java.configuration.runtimes` setting. Shared by
@@ -36,6 +37,14 @@ export interface ProjectContext {
      * mvnw (preserving the team's pinned Maven version).
      */
     hasMvnw: boolean;
+    /**
+     * True when the project is a Spring Boot application (Spring Boot
+     * `<start-class>` in the pom or a `@SpringBootApplication` class in the
+     * sources). Populated by `ConfigureLaunchStep`, which already resolves
+     * this while looking for the main class; downstream steps use it to seed
+     * Spring-specific conveniences (e.g. a `spring-boot:run` Maven favorite).
+     */
+    isSpringBoot?: boolean;
 }
 
 /**
@@ -93,6 +102,51 @@ export interface JavaConfigurationState {
     projectMavenVersions: Map<string, string>;
     /** Pinned Maven version string → in-flight download promise for its archive. */
     pinnedMavenDownloads: Map<string, Promise<DownloadResult>>;
+    /**
+     * Absolute paths of projects whose `.vscode/settings.json` content
+     * actually changed in this run. Populated by `ConfigureSettingsStep`;
+     * gates the Language Server refresh and verification steps so an
+     * idempotent re-run never waits for — or talks to — the server.
+     */
+    changedProjects: Set<string>;
+    /**
+     * True when this run wrote or removed `java.jdt.ls.java.home` anywhere.
+     * The Language Server only applies a new JDK after a restart, so the
+     * command entry point offers a one-click "Restart Language Server" toast.
+     */
+    jdtLsJavaHomeChanged: boolean;
+    /**
+     * Projects flagged with a compliance mismatch by the PREVIOUS run
+     * (mismatch memento), narrowed to the current contexts. Verification
+     * re-checks them even when their settings did not change this run.
+     * Populated by `AwaitLanguageServerStep`.
+     */
+    verificationBacklog: string[];
+    /**
+     * Result of waiting for the Red Hat Language Server
+     * (`AwaitLanguageServerStep`). Undefined while the step has not run or
+     * when the wait was skipped because no project needs attention.
+     */
+    languageServerWait?: ServerReadyWait;
+    /**
+     * True when `VerifyConfigurationStep` already surfaced a mismatch toast
+     * in this run. That toast carries its own restart action, so the generic
+     * "JDK changed — restart?" toast is suppressed to avoid a double ask.
+     */
+    mismatchNotified: boolean;
+    /**
+     * Set by `ConfigureSettingsStep` when a terminal-environment setting
+     * (`terminal.integrated.env.*` or `maven.terminal.customEnv`) actually
+     * changed. VS Code only applies these to NEW terminals, so the command
+     * entry point uses this flag to tell the user to reopen open terminals.
+     */
+    terminalEnvUpdated: boolean;
+    /**
+     * True when at least one project context was identified as a Spring Boot
+     * application. Populated by `ConfigureLaunchStep`; used by workspace-level
+     * steps (e.g. conditional Spring extension recommendations).
+     */
+    springBootProjectDetected: boolean;
 }
 
 /**
@@ -131,6 +185,12 @@ export function createInitialState(): JavaConfigurationState {
         jdkDownloads: new Map(),
         projectMavenVersions: new Map(),
         pinnedMavenDownloads: new Map(),
+        changedProjects: new Set(),
+        jdtLsJavaHomeChanged: false,
+        verificationBacklog: [],
+        mismatchNotified: false,
+        terminalEnvUpdated: false,
+        springBootProjectDetected: false,
     };
 }
 

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import {runConfigureJavaCommand} from './configuration/configureJavaCommand';
+import {createMismatchMemento} from './configuration/mismatchMemento';
 import {runInstallRecommendedExtensionsCommand} from './commands/installRecommendedExtensions';
 import {
     AUTO_CONFIG_ALWAYS_KEY,
@@ -48,7 +49,12 @@ export async function activate(context: vscode.ExtensionContext) {
     const configureJava = vscode.commands.registerCommand(
         CONFIGURE_JAVA_COMMAND,
         (options?: import('./configuration/configureJavaCommand').ConfigureJavaOptions) =>
-            runConfigureJavaCommand(options),
+            runConfigureJavaCommand(options, {
+                // Only activate() sees the ExtensionContext; the pipeline gets
+                // a narrow accessor to the workspace-scoped mismatch backlog.
+                mismatchMemento: createMismatchMemento(context.workspaceState),
+                showLogs: () => outputChannel.show(true),
+            }),
     );
     context.subscriptions.push(configureJava);
 

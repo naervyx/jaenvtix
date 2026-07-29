@@ -89,6 +89,11 @@ export function buildVsCodeLaunchPath(projectPath: string): string {
     return join(buildVsCodePath(projectPath), 'launch.json');
 }
 
+/** Returns the `.vscode/extensions.json` path for a project. */
+export function buildVsCodeExtensionsPath(projectPath: string): string {
+    return join(buildVsCodePath(projectPath), 'extensions.json');
+}
+
 /**
  * Resolves the directory that actually contains `bin/java` for the JDK
  * installed at `jdkHome`.

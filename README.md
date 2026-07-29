@@ -48,12 +48,26 @@ replacing them: Jaenvtix populates the settings those extensions read, respects 
 
 ### ⚡ Java dev quality of life
 
-- **Sensible Java tunings out of the box** — `java.debug.settings.hotCodeReplace: "auto"`,
-  parallel builds using your cores, hierarchical package view, JUnit UTF-8 fix on Windows.
-  Applied once, never overriding values you already set.
+- **Sensible Java tunings out of the box** — `java.debug.settings.hotCodeReplace: "auto"`
+  (only when auto-build is on — it is a no-op without it), parallel builds using your cores,
+  hierarchical package view, JUnit UTF-8 fix on Windows. Applied once, never overriding values
+  you already set.
+- **Maven favorites seeded like IntelliJ run configurations** — every project gets a
+  `clean install -DskipTests` favorite in the Maven explorer; Spring Boot apps also get
+  `spring-boot:run`. Seeded once (`maven.terminal.favorites`); yours to edit afterwards.
+- **Hierarchical Maven view for monorepos** — multi-module workspaces get
+  `maven.view: "hierarchical"` so the Maven panel mirrors the module tree, IntelliJ-style.
 - **Spring Boot Tools auto-configured** — detects `vmware.vscode-spring-boot` (or the Boot dev
   pack) and points `spring-boot.ls.java.home` at a provisioned Java 21+ JDK, preventing
   "wrong JDK" language-server crashes.
+- **Spring Initializr defaults that match your workspace** — when the Initializr extension is
+  installed, `spring.initializr.defaultJavaVersion` is seeded with the best provisioned LTS
+  (17+), so new projects start on a Java level your machine can actually build.
+- **Post-configuration verification (doctor)** — after a run that actually changed something,
+  Jaenvtix asks the Red Hat Language Server which Java level it *actually* resolved per project.
+  A mismatch is reported as one actionable toast — **Restart Language Server** applies the new
+  JDK in one click, no window reload — and re-checked on the next run until it is resolved.
+  Idempotent re-runs skip the whole dance, so reopening a big workspace stays instant.
 - **Choose your JDK vendor** — the `jaenvtix.preferredJdkVendor` setting supports Oracle,
   Temurin, Corretto, Liberica, Microsoft, Zulu, and Semeru, with an automatic fallback chain
   when your choice has no build for the requested version/platform.
@@ -82,6 +96,10 @@ replacing them: Jaenvtix populates the settings those extensions read, respects 
 - **`Jaenvtix: Install Recommended Extensions`** — opt-in command (never automatic): offers
   XML, Spring Boot Extension Pack, and Extension Pack for Java in a multi-select QuickPick with
   "(already installed)" markers. You choose; already-installed ones are never reinstalled.
+- **Native workspace recommendations** — the same catalog is written to
+  `.vscode/extensions.json` (merged, never replacing entries you added), so VS Code itself
+  suggests the companions to anyone who opens the repo. Spring Boot Dashboard is recommended
+  only when a Spring Boot app is actually detected.
 
 ---
 
@@ -131,14 +149,41 @@ which bundles:
 | Extension | What it does | What Jaenvtix feeds it |
 | --- | --- | --- |
 | **Language Support for Java™ by Red Hat** (`redhat.java`) | Compiler / IntelliSense / refactor via Eclipse JDT-LS | `java.configuration.runtimes`, `java.jdt.ls.java.home`, `java.configuration.maven.userSettings` |
-| **Maven for Java** (`vscjava.vscode-maven`) | Maven Explorer, goal execution | `maven.executable.path` (when no `mvnw`), `maven.executable.preferMavenWrapper`, `terminal.integrated.env.*` |
-| **Project Manager for Java** (`vscjava.vscode-java-dependency`) | Project tree / dependency view | reads what Red Hat exposes — no direct wiring needed |
-| **Debugger for Java**, **Test Runner for Java** | run/debug, JUnit | reads from Red Hat — no direct wiring needed |
+| **Maven for Java** (`vscjava.vscode-maven`) | Maven Explorer, goal execution | `maven.executable.path` (when no `mvnw`), `maven.executable.preferMavenWrapper`, `maven.terminal.favorites`, `maven.view`, `terminal.integrated.env.*` |
+| **Project Manager for Java** (`vscjava.vscode-java-dependency`) | Project tree / dependency view | `java.dependency.packagePresentation` tuning; reads the rest from Red Hat |
+| **Debugger for Java**, **Test Runner for Java** | run/debug, JUnit | launch configurations, `hotCodeReplace` tuning, `java.test.config` UTF-8 fix on Windows |
+| **Spring Boot Tools** (`vmware.vscode-spring-boot`) | Spring language server, live data | `spring-boot.ls.java.home` (a provisioned Java 21+ JDK) |
+| **Spring Initializr** (`vscjava.vscode-spring-initializr`) | project generation from start.spring.io | `spring.initializr.defaultJavaVersion` (best provisioned LTS) |
 
 Without the Extension Pack, the per-folder `.vscode/settings.json` Jaenvtix writes still tries to
 do the right thing, but the language-server / build features only light up once the Red Hat
-extension is present. Spring Boot Tools (`vmware.vscode-spring-boot`), when installed, is also
-auto-configured (`spring-boot.ls.java.home`).
+extension is present.
+
+### How the pieces reinforce each other
+
+Side effects you get for free from the cooperation model — none of them require configuration:
+
+* **No-Config Debug just works** — the `debugjava` command that Debugger for Java adds to the
+  terminal inherits the per-folder `JAVA_HOME`/`PATH` Jaenvtix injects, so it debugs with the
+  project's exact JDK.
+* **Spring Boot LS never complains about the JVM** — Spring Tools validates its JVM at startup
+  (`spring-boot.ls.checkJVM`); because Jaenvtix hands it a valid Java 21+ home, that check stays
+  green instead of greeting you with a warning dialog.
+* **CVE alerts get resolved, not just reported** — Project Manager's Dependency Checkup notifies
+  you when your runtime has known vulnerabilities; Jaenvtix's 24h patch auto-update is the other
+  half: it refreshes cached JDKs so the alert has nothing to point at.
+* **Initializr → ready-to-build in one flow** — generate a project with Spring Initializr, and
+  the new `pom.xml` triggers Jaenvtix's activation: JDK resolved, Maven wired, launch config
+  created, dashboard recommended. The IntelliJ "new project wizard" feel, assembled from
+  official parts.
+* **Spring Boot Dashboard finds runnable apps immediately** — it discovers apps through the
+  language server and debugger that Jaenvtix already pointed at the right JDK, and the
+  `Jaenvtix: Spring Boot (…)` launch configs give it named entries from the first click.
+* **Refreshes are event-driven, then verified** — when a run changes project settings, Jaenvtix
+  waits for the Red Hat server's `serverReady` signal (a short, labelled phase of the progress
+  notification) before asking it to re-import the changed projects, then reads back the resolved
+  Java level (doctor). If the server is still loading when the wait budget runs out, the refresh
+  and verification resume automatically the moment it finishes — never on a timer, never lost.
 
 ---
 
@@ -179,11 +224,14 @@ When a project **does NOT** ship `mvnw`:
 | `maven.executable.preferMavenWrapper` | `false` (so vscode-maven uses the explicit path) |
 | `maven.terminal.customEnv` | per-folder `JAVA_HOME` / `MAVEN_HOME` / `M2_HOME` / `PATH` |
 | `terminal.integrated.env.{windows,linux,osx}` | same env, applied to every terminal opened in the folder |
-| `java.jdt.ls.java.home` *(Java 21+)* or `java.configuration.runtimes` *(Java < 21)* | the matching JDK |
+| `java.jdt.ls.java.home` *(Java 21+)* or `java.configuration.runtimes` *(Java < 21)* | the matching JDK; folder runtimes are **merged** — entries you authored (or repointed) win |
 | `java.configuration.maven.userSettings` | `~/.m2/settings.xml` |
-| `java.jdt.ls.lombokSupport.enabled` | `true` |
-| `java.compile.nullAnalysis.mode` | `automatic` |
-| `java.configuration.updateBuildConfiguration` | `automatic` |
+| `java.compile.nullAnalysis.mode` | `automatic` *(seeded once — change it and Jaenvtix won't touch it again)* |
+| `java.configuration.updateBuildConfiguration` | `automatic` *(seeded once, same rule)* |
+| `maven.terminal.favorites` | common goals (`clean install -DskipTests`, `spring-boot:run` for Spring apps) *(seeded once)* |
+
+If any terminal-affecting setting changed and you have terminals open, Jaenvtix tells you to
+reopen them — VS Code only applies the new environment to new terminals.
 
 When a project **DOES** ship `mvnw` (Spring Boot, Quarkus, etc.), Jaenvtix yields to it:
 
@@ -206,12 +254,25 @@ When a project **DOES** ship `mvnw` (Spring Boot, Quarkus, etc.), Jaenvtix yield
 * **`spring-boot.ls.java.home`** — written when Spring Boot Tools is installed and a Java 21+
   JDK is provisioned, never overwriting a value you set
   (`jaenvtix.configureOptionalExtensions` opts out).
+* **`spring.initializr.defaultJavaVersion`** — seeded with the best provisioned LTS (17+) when
+  the Spring Initializr extension is installed, same never-overwrite rule.
+* **`.vscode/extensions.json`** — the recommended-extensions catalog is merged into the
+  workspace root's recommendations (your entries and `unwantedRecommendations` untouched);
+  Spring Boot Dashboard is added only when a Spring Boot app was detected.
 * **`~/.m2/toolchains.xml`** — generated / merged with one `<toolchain>` per JDK, so any project
   that opts into `maven-toolchains-plugin` (CI builds, etc.) finds a matching JDK without manual
   setup. Existing toolchains the user authored are preserved — and also read back as a JDK
   discovery source.
-* After writing settings, Jaenvtix invokes `java.projectConfiguration.update` per `pom.xml` so
-  the Red Hat language server picks up the new runtime mapping without a window reload.
+* After writing settings, and **only for projects whose settings actually changed**, Jaenvtix
+  waits for the Red Hat language server to signal readiness (`serverReady`, a labelled wait
+  inside the progress notification), invokes `java.projectConfiguration.update` per changed
+  `pom.xml` so the new runtime mapping is picked up without a window reload, then **verifies**
+  the resolved Java level per project (skipping aggregator poms with no `src/main/java`). A
+  project still compiling at the old level gets a single informational toast with a one-click
+  **Restart Language Server** action — restarting is how the server applies a new
+  `java.jdt.ls.java.home` — and stays flagged for re-verification on the next run until it
+  resolves. If the server is still loading after the wait budget (15 s), the refresh and
+  verification run automatically as soon as it becomes ready instead of reporting stale state.
 
 ### Multi-module Maven monorepos
 
@@ -335,7 +396,7 @@ Recommended at install time (the user's responsibility, not bundled):
 ```bash
 bun install
 bun run compile    # or: bun run watch
-bun run test       # 430+ unit tests
+bun run test       # 530+ unit tests
 bun run lint
 bun run package    # produces a .vsix for local install
 ```

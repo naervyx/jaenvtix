@@ -10,6 +10,18 @@ import {log} from '../../util/logger';
 import {isJavaVersionAtLeast, TOOLING_JAVA_MIN_VERSION, toJavaRuntimeName} from '../../util/javaVersion';
 
 /**
+ * Settings that VS Code applies only to terminals opened AFTER the change.
+ * Touching any of them flips `state.terminalEnvUpdated` so the command entry
+ * point can tell the user to reopen terminals that are already open.
+ */
+const TERMINAL_ENV_KEYS = new Set([
+    'terminal.integrated.env.windows',
+    'terminal.integrated.env.linux',
+    'terminal.integrated.env.osx',
+    'maven.terminal.customEnv',
+]);
+
+/**
  * Writes or updates the per-project `.vscode/settings.json` for each `ProjectContext`.
  *
  * Business rules:
@@ -64,9 +76,32 @@ export class ConfigureSettingsStep implements ConfigurationStep {
             // every nested module would duplicate noise that is never read.
             const documentJaenvtixSettings = projectContext.projectPath === projectContext.workspace;
 
-            const updateResult = updateVsCodeSettings(settingsPath, javaMavenPaths, {documentJaenvtixSettings});
+            // Hierarchical Maven view helps only when there are modules to
+            // nest; seeded in the workspace-root file, the one vscode-maven
+            // reads when that folder is opened.
+            const isMultiModuleWorkspace = state.projectContexts
+                .filter((ctx) => ctx.workspace === projectContext.workspace).length > 1;
+
+            const updateResult = updateVsCodeSettings(settingsPath, javaMavenPaths, {
+                documentJaenvtixSettings,
+                // ConfigureLaunchStep runs earlier in the pipeline and records
+                // the Spring Boot detection on each context.
+                seedMavenFavorites: {isSpringBoot: projectContext.isSpringBoot === true},
+                seedMavenHierarchicalView: documentJaenvtixSettings && isMultiModuleWorkspace,
+            });
             if (updateResult.updated) {
                 log(Messages.Log.SETTINGS_UPDATED(projectContext.projectPath, updateResult.updatedKeys));
+                // Gate for the Language Server refresh/verification: only
+                // projects that actually changed need the server's attention.
+                state.changedProjects.add(projectContext.projectPath);
+                // Written OR removed: either way the server's JDK moved and
+                // only a Language Server restart applies it.
+                if (updateResult.updatedKeys.includes('java.jdt.ls.java.home')) {
+                    state.jdtLsJavaHomeChanged = true;
+                }
+                if (updateResult.updatedKeys.some((key) => TERMINAL_ENV_KEYS.has(key))) {
+                    state.terminalEnvUpdated = true;
+                }
             }
         }
 
