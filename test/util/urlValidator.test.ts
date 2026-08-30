@@ -67,7 +67,7 @@ describe('isUrlAccessible', () => {
 
     it('honours the custom timeout when the server hangs', async () => {
         const server = await startTestServer(() => {
-            // Never call res.end — leave the request hanging.
+            // Never call res.end; leave the request hanging.
         });
         track(server);
 

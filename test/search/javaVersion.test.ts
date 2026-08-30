@@ -17,7 +17,7 @@ async function projectWithPom(xml: string): Promise<string> {
     return root;
 }
 
-describe('parseJavaVersionFromPom — properties block', () => {
+describe('parseJavaVersionFromPom: properties block', () => {
     it('reads <java.version> from <properties>', async () => {
         const root = await projectWithPom(`<?xml version="1.0"?>
 <project>
@@ -74,7 +74,7 @@ describe('parseJavaVersionFromPom — properties block', () => {
     });
 });
 
-describe('parseJavaVersionFromPom — maven-compiler-plugin', () => {
+describe('parseJavaVersionFromPom: maven-compiler-plugin', () => {
     it('reads <release> under the compiler plugin configuration', async () => {
         const root = await projectWithPom(`<?xml version="1.0"?>
 <project>
@@ -128,7 +128,7 @@ describe('parseJavaVersionFromPom — maven-compiler-plugin', () => {
     });
 });
 
-describe('parseJavaVersionFromPom — toolchains plugin', () => {
+describe('parseJavaVersionFromPom: toolchains plugin', () => {
     it('reads <jdkToolchain><version> from maven-toolchains-plugin', async () => {
         const root = await projectWithPom(`<?xml version="1.0"?>
 <project>
@@ -168,7 +168,7 @@ describe('parseJavaVersionFromPom — toolchains plugin', () => {
     });
 });
 
-describe('parseJavaVersionFromPom — robustness', () => {
+describe('parseJavaVersionFromPom: robustness', () => {
     it('skips XML comments without picking up commented-out versions', async () => {
         const root = await projectWithPom(`<?xml version="1.0"?>
 <project>

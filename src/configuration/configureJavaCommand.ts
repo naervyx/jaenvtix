@@ -38,7 +38,7 @@ const JAVA_SERVER_RESTART = 'java.server.restart';
 /**
  * Activates the redhat.java extension (when installed) and resolves its
  * public API exports. Returns `undefined` when the extension is not
- * installed — the distinction lets steps skip Language-Server-dependent
+ * installed; the distinction lets steps skip Language-Server-dependent
  * work instead of issuing commands that can only fail.
  */
 async function activateRedhatJavaApi(): Promise<unknown> {
@@ -307,8 +307,8 @@ async function runStepsWithProgress(
  *   an error notification. A result with no message is silently discarded
  *   (e.g. the user dismissed the confirm prompt).
  * - After a successful run: offers a one-click Language Server restart when
- *   the run changed the server's JDK, and — when the server was still
- *   loading at the end of the run — arms a detached continuation that
+ *   the run changed the server's JDK, and, when the server was still
+ *   loading at the end of the run, arms a detached continuation that
  *   re-runs refresh + verification once `serverReady` resolves.
  */
 export async function runConfigureJavaCommand(
@@ -343,7 +343,7 @@ export async function runConfigureJavaCommand(
     vscode.window.showInformationMessage(Messages.Info.CONFIGURATION_COMPLETED);
 
     // terminal.integrated.env.* and maven.terminal.customEnv only apply to
-    // terminals opened after the change — tell the user when it matters.
+    // terminals opened after the change; tell the user when it matters.
     if (state.terminalEnvUpdated && vscode.window.terminals.length > 0) {
         vscode.window.showInformationMessage(Messages.Info.REOPEN_TERMINALS);
     }
@@ -354,7 +354,7 @@ export async function runConfigureJavaCommand(
 
 /**
  * When the run changed `java.jdt.ls.java.home`, the new JDK only takes
- * effect after a Language Server restart — offer it as one click.
+ * effect after a Language Server restart; offer it as one click.
  *
  * Business rules:
  * - ALWAYS opt-in via the button, NEVER an automatic restart: restarting
@@ -387,7 +387,7 @@ function offerLanguageServerRestartIfNeeded(state: JavaConfigurationState): void
 
 /**
  * The in-progress wait for `serverReady` is capped so the progress
- * notification stays short — but a timeout never abandons the work. This
+ * notification stays short, but a timeout never abandons the work. This
  * arms a detached continuation on the still-live readiness promise: when the
  * server finishes loading, the deferred refresh + verification run with
  * fresh values (never by the clock). If the window closes first, nothing

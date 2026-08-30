@@ -129,7 +129,7 @@ describe('ResolveProjectsStep', () => {
     // Business rule: detect mvnw once during project resolution so downstream
     // steps (download scheduling, wrapper writing, project context building)
     // can read the result without redundant filesystem hits.
-    it('records hasMvnw per project — true when mvnw/mvnw.cmd exists, false otherwise', async () => {
+    it('records hasMvnw per project: true when mvnw/mvnw.cmd exists, false otherwise', async () => {
         const root = await workspaceWith([
             {path: 'with-wrapper/pom.xml', content: '<project><properties><java.version>17</java.version></properties></project>'},
             {path: 'with-wrapper/mvnw', content: '#!/bin/sh\nexit 0'},
@@ -178,13 +178,13 @@ describe('ResolveProjectsStep', () => {
 
         await new ResolveProjectsStep().run(state);
 
-        // The legacy module keeps its own 1.8 — inheritance only fills gaps.
+        // The legacy module keeps its own 1.8; inheritance only fills gaps.
         assert.deepEqual(state.projectVersionMap.get('17') ?? [], [root]);
         assert.deepEqual(state.projectVersionMap.get('8') ?? [], [join(root, 'legacy')]);
     });
 
     it('still drops modules without a Java version when no ancestor in the workspace declares one', async () => {
-        // The user opened only `module-a/` as a workspace folder — its parent
+        // The user opened only `module-a/` as a workspace folder; its parent
         // pom (which would declare the version) is not part of the workspace,
         // so there is nothing to inherit from.
         const root = await workspaceWith([

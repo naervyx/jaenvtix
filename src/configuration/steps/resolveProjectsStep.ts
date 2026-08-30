@@ -56,7 +56,7 @@ function findClosestAncestor(descendant: string, candidates: readonly string[]):
  *   filesystem hit.
  * - A child pom that declares no Java version inherits from the closest ancestor
  *   pom in the same workspace that does declare one. This mirrors how Spring Boot,
- *   Quarkus, and other Maven monorepos structure their parent–child version ownership.
+ *   Quarkus, and other Maven monorepos structure their parent-child version ownership.
  * - When isolated Maven is enabled (default), each pom is also inspected for a
  *   pinned Maven version (`<prerequisites><maven>` / `<properties><maven.version>`)
  *   so downstream steps can provision one Maven per pinned version.

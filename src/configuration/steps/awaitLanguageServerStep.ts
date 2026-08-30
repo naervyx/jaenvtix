@@ -26,16 +26,16 @@ export interface AwaitLanguageServerDeps {
 
 /**
  * Decides whether this run needs the Red Hat Java Language Server at all
- * and, only then, waits for it — inside the progress notification, under its
+ * and, only then, waits for it, inside the progress notification, under its
  * own explicit label ("Waiting for the Java Language Server…").
  *
  * Business rules:
  * - The server is needed only when at least one project's settings changed
  *   this run OR the previous run flagged a project with a compliance
- *   mismatch (backlog). Idempotent re-runs skip the wait entirely — this is
+ *   mismatch (backlog). Idempotent re-runs skip the wait entirely; this is
  *   what keeps multi-repo reopens instant.
  * - The backlog is narrowed to projects that still exist in the current
- *   contexts; entries for vanished projects stay recorded and simply resume
+ *   contexts; entries for vanished projects stay recorded and resume
  *   mattering if the project reappears (the mismatch was never resolved).
  * - The wait outcome is stored on the state for the refresh and verification
  *   steps; this step itself never fails the pipeline.

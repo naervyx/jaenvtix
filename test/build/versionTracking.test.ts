@@ -23,7 +23,7 @@ function makeSlot(root: string, name: string): string {
     return slot;
 }
 
-describe('versionTracking — read/write', () => {
+describe('versionTracking: read/write', () => {
     let root: string;
 
     before(async () => { root = await createTempDir('jaenvtix-vt-'); });
@@ -62,7 +62,7 @@ describe('versionTracking — read/write', () => {
     });
 });
 
-describe('shouldCheckForUpdate — 24h rate limit', () => {
+describe('shouldCheckForUpdate: 24h rate limit', () => {
     const info = (checkedAt: number): VersionInfo => ({fullVersion: '21.0.5+11', checkedAt, vendor: 'temurin'});
 
     it('is false within 24 hours of the last check', () => {

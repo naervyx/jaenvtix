@@ -114,7 +114,7 @@ function vendorFromImplementor(implementor: string): JdkVendor | null {
  * - `JAVA_RUNTIME_VERSION` (full, e.g. `21.0.5+11-LTS`) is preferred over
  *   `JAVA_VERSION` (no build number).
  * - Returns `null` when the release file is missing/unreadable or the
- *   implementor maps to no known vendor — callers must then skip the update
+ *   implementor maps to no known vendor; callers must then skip the update
  *   check rather than guess.
  */
 export function buildVersionInfoFromDisk(jdkHome: string, checkedAt: number = Date.now()): VersionInfo | null {

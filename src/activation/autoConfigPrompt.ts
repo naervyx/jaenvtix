@@ -6,7 +6,7 @@
  *   silently invoke the configuration command, no prompt.
  * - `'prompt'`: ask the user with the three-option message
  *   ("Yes" / "Always" / "No").
- * - `'skip'`: stay quiet — either there are no folders, or the user already
+ * - `'skip'`: stay quiet; either there are no folders, or the user already
  *   answered "Yes"/"No" for THIS workspace.
  */
 export type AutoConfigDecision = 'auto-run' | 'prompt' | 'skip';
@@ -25,7 +25,7 @@ export type AutoConfigDecision = 'auto-run' | 'prompt' | 'skip';
  * - If "Always" is not set and the workspace already has a definitive
  *   answer (Yes or No, encoded as `dismissed === true`), respect it and
  *   `'skip'`. The user can re-run via the Command Palette.
- * - Otherwise, `'prompt'` — first time this workspace is being asked.
+ * - Otherwise, `'prompt'`: first time this workspace is being asked.
  */
 export function decideAutoConfigAction(
     workspaceFolders: readonly {uri: {fsPath: string}}[] | undefined,
@@ -48,7 +48,7 @@ export function decideAutoConfigAction(
 }
 
 /**
- * Workspace-state key — set after the user answers Yes or No for THIS
+ * Workspace-state key. Set after the user answers Yes or No for THIS
  * specific workspace. The literal string is part of the persistence
  * contract: changing it would forget every existing dismissal/acceptance
  * and re-prompt every user once.
@@ -56,7 +56,7 @@ export function decideAutoConfigAction(
 export const AUTO_CONFIG_DISMISSED_KEY = 'jaenvtix.autoConfigPromptDismissed';
 
 /**
- * Global-state key — set when the user picks "Always" in the prompt. From
+ * Global-state key. Set when the user picks "Always" in the prompt. From
  * then on, every workspace with a pom auto-configures silently. The flag
  * lives in `context.globalState` so it crosses workspaces and machines
  * (when sync settings is enabled).

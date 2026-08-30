@@ -20,7 +20,7 @@ const jdk = (homedir: string, major: number, extra: Partial<DetectedJdk> = {}): 
     ...extra,
 });
 
-describe('DetectInstalledJdksStep — toolchains.xml discovery', () => {
+describe('DetectInstalledJdksStep: toolchains.xml discovery', () => {
     it('adds a valid toolchains entry and skips one that fails JDK validation', async () => {
         const state = stateRequiring('17', '21');
         const step = new DetectInstalledJdksStep({
@@ -96,7 +96,7 @@ describe('DetectInstalledJdksStep — toolchains.xml discovery', () => {
     });
 });
 
-describe('DetectInstalledJdksStep — package manager discovery', () => {
+describe('DetectInstalledJdksStep: package manager discovery', () => {
     it('fills a missing version from a Chocolatey JDK', async () => {
         const state = stateRequiring('21');
         const step = new DetectInstalledJdksStep({

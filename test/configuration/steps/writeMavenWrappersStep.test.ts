@@ -90,7 +90,7 @@ describe('WriteMavenWrappersStep', () => {
 
         const binPath = join(root, 'jdk-17', 'mvn-custom', 'bin');
         await fs.mkdir(binPath, {recursive: true});
-        // No `mvn`/`mvn.cmd` written — this simulates the ScheduleDownloadsStep
+        // No `mvn`/`mvn.cmd` written; this simulates the ScheduleDownloadsStep
         // having skipped the Maven download for an mvnw-only workspace.
 
         const state = createInitialState();

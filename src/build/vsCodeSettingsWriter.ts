@@ -38,7 +38,7 @@ interface JavaMavenPaths {
     /**
      * Absolute path to the JDK used by jdt.ls (`java.jdt.ls.java.home`).
      * Set only for Java 21+ projects, whose provisioned JDK can run jdt.ls
-     * directly. Omitted for Java < 21 projects — the Language Server keeps
+     * directly. Omitted for Java < 21 projects; the Language Server keeps
      * its own tooling JDK and the project is mapped via `runtimes` instead.
      */
     javaHomePath?: string;
@@ -85,14 +85,14 @@ export interface UpdateVsCodeSettingsOptions {
     /**
      * Seed `maven.terminal.favorites` with common goals (the IntelliJ
      * "run configuration" equivalent in vscode-maven's explorer). Seeded
-     * once and never managed afterwards — the key belongs to the user as
+     * once and never managed afterwards; the key belongs to the user as
      * soon as it exists.
      */
     seedMavenFavorites?: {isSpringBoot: boolean};
     /**
      * Seed `maven.view: "hierarchical"` so vscode-maven's explorer mirrors
      * the module tree (the IntelliJ Maven panel layout). Passed only for the
-     * workspace-root settings of multi-module workspaces — in a single-module
+     * workspace-root settings of multi-module workspaces; in a single-module
      * workspace the flat default is equivalent and the key would be noise.
      */
     seedMavenHierarchicalView?: boolean;
@@ -236,7 +236,7 @@ function isMavenCustomEnvArray(value: unknown): value is MavenTerminalEnvEntry[]
  * - Existing entries with an `environmentVariable` Jaenvtix doesn't manage
  *   are preserved verbatim (the user may have added their own).
  * - Existing entries that DO collide on `environmentVariable` are updated
- *   in place — same env var, new value.
+ *   in place: same env var, new value.
  * - Order of pre-existing entries is preserved; new managed entries are
  *   appended after them.
  */
@@ -295,7 +295,7 @@ export function applyUserJavaTunings(
     if (osPlatform === 'win32') {
         // Named so the entry stays identifiable next to user-created configs
         // and referenceable via `java.test.defaultConfig` (which Jaenvtix
-        // deliberately never sets — that choice belongs to the user).
+        // deliberately never sets; that choice belongs to the user).
         setIfUndefined(result, 'java.test.config', [{name: 'Jaenvtix UTF-8', vmArgs: ['-Dfile.encoding=UTF-8']}]);
     }
     return result;
@@ -330,7 +330,7 @@ function readSettingsData(settingsPath: string): VsCodeSettings {
 
 /**
  * Seeds the `jaenvtix.*` settings into `data` with their defaults so a freshly
- * configured `settings.json` shows every knob — the user can flip one without
+ * configured `settings.json` shows every knob; the user can flip one without
  * having to know it exists. Accepted values are documented natively via
  * `enumDescriptions` in `package.json` (settings.json autocomplete / hover).
  *
@@ -368,7 +368,7 @@ function applyManagedSettings(
     result: UpdateResult,
 ): void {
     // NOTE: `java.configuration.maven.userSettings` is the key the redhat.java
-    // manifest declares TODAY (verified against main — the `java.import.*`
+    // manifest declares TODAY (verified against main; the `java.import.*`
     // variant does not exist upstream). The contract test in test/contract/
     // guards this against renames.
     const managedSettings: Record<string, unknown> = {
@@ -432,21 +432,21 @@ function toNodePlatform(platform: PlatformType): NodeJS.Platform {
 }
 
 /**
- * Maintains the folder-level `java.configuration.runtimes` by merging — the
+ * Maintains the folder-level `java.configuration.runtimes` by merging; the
  * user may have added or repointed entries by hand, and those choices win.
  *
  * Business rules (desired entries present, i.e. Java < 21 project):
  * - An existing entry with the same `name` is respected when its path still
  *   points at a real JDK (the user chose their own JDK for that version);
  *   when the path is broken, only the `path` field is repaired to the
- *   provisioned JDK — `sources`/`javadoc`/`default` are preserved.
+ *   provisioned JDK; `sources`/`javadoc`/`default` are preserved.
  * - Entries with other names are preserved verbatim.
  * - A missing entry is appended; its `default` flag is dropped when another
  *   existing entry already carries `default: true` (jdt.ls allows only one).
  *
  * Business rules (no desired entries, i.e. Java 21+ project):
  * - The key is removed only when it holds exactly one entry pointing at the
- *   JDK Jaenvtix provisioned for this project — the fingerprint of a
+ *   JDK Jaenvtix provisioned for this project; the fingerprint of a
  *   previous Jaenvtix run. Anything else may be user-authored and is left
  *   untouched.
  */
@@ -501,7 +501,7 @@ function applyProjectRuntimes(
 
         if (validateRuntime(existingEntry, nodePlatform)) {
             // The user pointed this version at a JDK of their own that still
-            // exists — their choice wins.
+            // exists; their choice wins.
             continue;
         }
 
@@ -590,7 +590,7 @@ function persistSettings(settingsPath: string, data: VsCodeSettings): void {
  *   `maven.executable.preferMavenWrapper: false` to prevent vscode-maven from
  *   searching for a non-existent wrapper. Also writes `maven.terminal.customEnv`.
  * - When the project DOES ship `mvnw`: removes both `maven.executable.*` keys and
- *   `maven.terminal.customEnv` — vscode-maven's defaults handle the wrapper.
+ *   `maven.terminal.customEnv`; vscode-maven's defaults handle the wrapper.
  *   JAVA_HOME is still injected via `terminal.integrated.env.*`.
  * - Terminal env (`terminal.integrated.env.linux/windows/osx`) is merged
  *   non-destructively: existing user-defined keys are preserved; managed keys
@@ -617,7 +617,7 @@ export function updateVsCodeSettings(
 
     // When the project ships `mvnw`, Jaenvtix yields to it: omit
     // `maven.executable.path` AND `maven.executable.preferMavenWrapper`
-    // entirely — vscode-maven's default (`preferMavenWrapper: true`) already
+    // entirely; vscode-maven's default (`preferMavenWrapper: true`) already
     // does the right thing, so writing redundant keys would be noise.
     const respectMvnw = typeof paths.mavenExecutablePath === 'undefined';
 

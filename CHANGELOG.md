@@ -11,15 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Spring Boot Tools auto-configuration: `spring-boot.ls.java.home` is pointed at a provisioned
   Java 21+ JDK when `vmware.vscode-spring-boot` (or the Boot dev pack) is installed (MP-15).
-- `Jaenvtix: Install Recommended Extensions` — opt-in Command Palette command that offers XML,
+- `Jaenvtix: Install Recommended Extensions`, an opt-in Command Palette command that offers XML,
   Spring Boot Extension Pack, and Extension Pack for Java in a multi-select QuickPick (MP-08).
 - `~/.m2/toolchains.xml` is now also **read** as a JDK discovery source; entries registered for
   `maven-toolchains-plugin` are validated and reused instead of re-downloaded (MP-04).
 - Supported Java versions are read from the Red Hat Language Server's own `package.json` at
   runtime, so new LTS releases are recognized without a Jaenvtix release (MP-16).
 - JDKs installed via Chocolatey (Windows) and Homebrew (macOS / Linuxbrew) are detected (MP-01).
-- New JDK vendors — Microsoft, Liberica (BellSoft), Zulu (Azul), and Semeru (IBM) — selectable
-  through the new `jaenvtix.preferredJdkVendor` setting, with automatic fallback chains (MP-02).
+- New JDK vendors selectable through the new `jaenvtix.preferredJdkVendor` setting: Microsoft,
+  Liberica (BellSoft), Zulu (Azul), and Semeru (IBM), with automatic fallback chains (MP-02).
 - Security patch auto-update: cached JDKs are checked against the vendor's metadata API at most
   once every 24h and refreshed when a newer patch ships (`jaenvtix.autoUpdatePatches`) (MP-17).
 - Downloads retry transient failures (timeout, reset, 5xx, 429) with exponential backoff
@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     failed" error. Installation detection and every downstream path (settings,
     `toolchains.xml`, wrapper scripts) now resolve to `Contents/Home`.
   - `EACCES: permission denied` when re-extracting a JDK over the read-only `legal/**`
-    files left by a previous extraction — those files are now made writable before
+    files left by a previous extraction; those files are now made writable before
     being overwritten.
   - Oracle JDK 21 and 25 macOS archives, whose entries are prefixed with `./`, extracted
     one directory too deep and failed; common-root detection now strips the `./` prefix
@@ -63,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - The Maven download page is now fetched with an asynchronous HTTP client instead of
-  a blocking `curl` subprocess — the editor no longer freezes (up to 15s) during
+  a blocking `curl` subprocess; the editor no longer freezes (up to 15s) during
   activation, and `curl` is no longer required on the system.
 - Archive extraction no longer loads whole archives into memory: ZIP entries are read
   on demand via positioned file reads and `.tar.gz` archives are processed in two
@@ -260,7 +260,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   detected.
 
 ### Security
-- Hardened archive extraction against path traversal (zip-slip) — entries resolving outside
+- Hardened archive extraction against path traversal (zip-slip); entries resolving outside
   the target directory are skipped.
 - Temporary download archives are now removed after successful extraction.
 - `decompressGzip` cleans up its read / gunzip streams even on error.

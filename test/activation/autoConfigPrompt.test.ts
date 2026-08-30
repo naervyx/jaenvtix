@@ -32,7 +32,7 @@ describe('decideAutoConfigAction', () => {
         assert.equal(decideAutoConfigAction([folder], undefined, true), 'auto-run');
     });
 
-    it("'Always' overrides a per-workspace dismissal — global preference wins", () => {
+    it("'Always' overrides a per-workspace dismissal; global preference wins", () => {
         // The user dismissed this specific workspace at some point but later
         // turned on "Always" globally. New global decision wins; this workspace
         // should now auto-run too.
@@ -44,7 +44,7 @@ describe('decideAutoConfigAction', () => {
         assert.equal(decideAutoConfigAction([folder], true, false), 'skip');
     });
 
-    it("returns 'prompt' on first encounter — no global Always, no workspace decision", () => {
+    it("returns 'prompt' on first encounter: no global Always, no workspace decision", () => {
         assert.equal(decideAutoConfigAction([folder], undefined, undefined), 'prompt');
     });
 

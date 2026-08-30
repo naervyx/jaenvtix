@@ -9,7 +9,7 @@ const CONFIG_TARGET_GLOBAL = 1;
  * Minimal surface of `vscode.WorkspaceConfiguration` this step needs. The
  * orchestrator injects the real configuration; tests inject an in-memory fake.
  * `inspect` is required (over `get`) to distinguish "user never set this"
- * from "the owning extension registered a default value" — `get` returns the
+ * from "the owning extension registered a default value"; `get` returns the
  * registered default, which would make every tuning look already-set once
  * the Java extension pack is installed.
  */
@@ -43,7 +43,7 @@ function userSetValue(cfg: UserConfig, key: string): unknown {
  * Business rules:
  * - Skipped entirely when the user opted out via `jaenvtix.applyJavaTunings: false`.
  * - `setIfUndefined` semantics against what the USER set (via `inspect`),
- *   not against the owning extension's registered default — see `UserConfig`.
+ *   not against the owning extension's registered default; see `UserConfig`.
  * - The hotCodeReplace tuning is gated on the EFFECTIVE
  *   `java.autobuild.enabled` value (via `get`): auto HCR only acts after an
  *   automatic build, so a user who disabled autobuild anywhere must not
@@ -72,7 +72,7 @@ export class ApplyUserTuningsStep implements ConfigurationStep {
         for (const key of TUNING_KEYS) {
             current[key] = userSetValue(cfg, key);
         }
-        // Effective value (registered default included) — this one gates a
+        // Effective value (registered default included); this one gates a
         // tuning instead of being tuned itself, and is never written back.
         current['java.autobuild.enabled'] = cfg.get('java.autobuild.enabled');
 

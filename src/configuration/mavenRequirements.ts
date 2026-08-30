@@ -5,7 +5,7 @@ import type {JavaConfigurationState} from '../core/types';
  * version, the set of Maven versions pinned by its projects.
  *
  * Business rules:
- * - Projects shipping their own `mvnw` are excluded — Jaenvtix yields to the
+ * - Projects shipping their own `mvnw` are excluded; Jaenvtix yields to the
  *   project wrapper and never provisions Maven for them.
  * - Shared by the download-scheduling, extraction, and wrapper-writing steps
  *   so all three agree on exactly the same (Java × Maven) pairs.

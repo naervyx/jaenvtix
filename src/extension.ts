@@ -100,9 +100,9 @@ export async function activate(context: vscode.ExtensionContext) {
  * On activation (triggered by the `workspaceContains` event for any
  * pom.xml in the workspace), decide between three paths:
  *
- *   1. Auto-run (silent) — when the user has previously chosen "Always".
- *   2. Prompt — when no decision has been made for this workspace yet.
- *   3. Skip — when the user already answered Yes/No for this workspace.
+ *   1. Auto-run (silent): when the user has previously chosen "Always".
+ *   2. Prompt: when no decision has been made for this workspace yet.
+ *   3. Skip: when the user already answered Yes/No for this workspace.
  *
  * Errors are swallowed: failing to show the prompt or run the command
  * must never block the extension from being usable via the Command
@@ -157,7 +157,7 @@ async function offerAutoConfigIfNeeded(context: vscode.ExtensionContext): Promis
             await context.workspaceState.update(AUTO_CONFIG_DISMISSED_KEY, true);
         }
         // A `null`/`undefined` choice means the notification was dismissed
-        // via the X button. We deliberately do NOT persist that — it's
+        // via the X button. We deliberately do NOT persist that; it's
         // ambiguous (user may have just been busy), so we re-ask next session.
     } catch (error) {
         console.warn('[jaenvtix] Auto-config prompt failed:', error);

@@ -11,7 +11,7 @@ import {mergeUserRuntimes, validateAndCleanRuntimes} from '../../build/userRunti
  * Jaenvtix has staged in this run, so the Red Hat Language Server can resolve
  * each Maven project to the correct execution environment automatically.
  *
- * The merge with whatever the user already had is non-destructive — see
+ * The merge with whatever the user already had is non-destructive; see
  * `mergeUserRuntimes` for the exact rules. The intent is cooperation: feed
  * the official extension the data it needs, never overwrite the user's own
  * choices.
@@ -36,7 +36,7 @@ export class ConfigureUserRuntimesStep implements ConfigurationStep {
         // CRITICAL: read SPECIFICALLY the Global (User Settings) layer, not
         // `config.get(...)` which returns the merged value across all scopes.
         // If a `.code-workspace` (or folder settings) already declares
-        // `java.configuration.runtimes`, `config.get` would return that — and
+        // `java.configuration.runtimes`, `config.get` would return that, and
         // our merge would conclude "nothing to add", so User Settings would
         // never be written. Inspect lets us look only at the Global layer.
         const inspected = config.inspect<JavaRuntime[]>('runtimes');

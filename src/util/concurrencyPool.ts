@@ -1,8 +1,8 @@
 /**
  * How many Language-Server-bound calls Jaenvtix keeps in flight at once.
  * The calls become queued jobs inside JDT (m2e serializes the actual imports
- * internally), so this bounds the request burst — the same path the server
- * already exercises on every window open with a bulk import — without
+ * internally), so this bounds the request burst to the same path the server
+ * already exercises on every window open with a bulk import, without
  * serializing round-trips on our side.
  */
 export const DEFAULT_CONCURRENCY_LIMIT = 4;

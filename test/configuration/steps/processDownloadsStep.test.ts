@@ -72,7 +72,7 @@ describe('ensureBinDirectoryExecutable', () => {
     });
 });
 
-describe('ProcessDownloadsStep — macOS bundle jdkHome normalization', () => {
+describe('ProcessDownloadsStep: macOS bundle jdkHome normalization', () => {
     const cleanups: (() => Promise<void>)[] = [];
 
     afterEach(async () => {

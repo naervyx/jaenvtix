@@ -71,7 +71,7 @@ describe('ApplyUserTuningsStep', () => {
     });
 
     it('skips the hotCodeReplace tuning when the user disabled autobuild', async () => {
-        // Auto HCR only acts after an automatic build — seeding it with
+        // Auto HCR only acts after an automatic build; seeding it with
         // autobuild off would be a misleading no-op.
         const {store, factory} = makeConfig({'java.autobuild.enabled': false});
         const step = new ApplyUserTuningsStep(factory, 'linux');

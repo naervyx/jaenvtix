@@ -22,13 +22,13 @@ interface VendorConfig {
  * JDK vendors supported by Jaenvtix.
  *
  * Template vendors (URL built locally):
- * - `'oracle'`: Oracle JDK — only for Oracle-hosted versions (LTS releases 21+
- *   that the Red Hat Language Server already recognizes — see `isOracleHostedVersion`).
+ * - `'oracle'`: Oracle JDK, only for Oracle-hosted versions (LTS releases 21+
+ *   that the Red Hat Language Server already recognizes; see `isOracleHostedVersion`).
  * - `'corretto'`: Amazon Corretto.
  * - `'temurin'`: Eclipse Temurin (Adoptium).
- * - `'microsoft'`: Microsoft Build of OpenJDK — LTS releases only.
+ * - `'microsoft'`: Microsoft Build of OpenJDK, LTS releases only.
  *
- * API vendors (URL resolved through a metadata API — see `vendorApiResolvers`):
+ * API vendors (URL resolved through a metadata API; see `vendorApiResolvers`):
  * - `'liberica'`: BellSoft Liberica.
  * - `'zulu'`: Azul Zulu.
  * - `'semeru'`: IBM Semeru (OpenJ9).
@@ -110,7 +110,7 @@ function capitalize(str: string): string {
  * Business rules:
  * - Returns `null` when the vendor has no mapping for the requested platform or
  *   architecture (e.g. Oracle does not publish ARM64 binaries for all versions).
- * - Does NOT probe the URL for accessibility — the caller is responsible for that.
+ * - Does NOT probe the URL for accessibility; the caller is responsible for that.
  */
 export function buildDistribution(
     vendor: TemplateJdkVendor,

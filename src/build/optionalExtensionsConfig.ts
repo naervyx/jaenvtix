@@ -5,7 +5,7 @@ import {isLtsVersion} from './redhatRuntimeReader';
 /**
  * Marketplace IDs of the Spring Boot Tools distributions. Either the
  * standalone language server extension or the dev pack that bundles it
- * qualifies — both register the `spring-boot.ls.java.home` setting.
+ * qualifies; both register the `spring-boot.ls.java.home` setting.
  */
 const SPRING_BOOT_EXTENSION_IDS = [
     'vmware.vscode-spring-boot',
@@ -19,7 +19,7 @@ const SPRING_INITIALIZR_EXTENSION_ID = 'vscjava.vscode-spring-initializr';
  * Minimum Java version able to run the Spring Boot Language Server.
  *
  * Deliberately a separate constant from `TOOLING_JAVA_MIN_VERSION` (jdt.ls):
- * the two language servers evolve their JDK floors independently — Spring
+ * the two language servers evolve their JDK floors independently; Spring
  * Tools already ships Java-25-only features (CDS) while jdt.ls sits at 21.
  * A dynamic reader (like `redhatRuntimeReader`) was considered and declined:
  * the vmware.vscode-spring-boot manifest exposes no machine-readable JDK
@@ -63,7 +63,7 @@ export interface OptionalExtensionInputs {
  * - The highest qualifying major version wins, so a monorepo with Java 17 + 21
  *   projects points the LS at the 21 JDK.
  * - Returns `undefined` when no provisioned version satisfies
- *   `SPRING_BOOT_LS_MIN_JAVA_VERSION` — the LS cannot run on an older JDK,
+ *   `SPRING_BOOT_LS_MIN_JAVA_VERSION`; the LS cannot run on an older JDK,
  *   so writing a path would break it.
  */
 export function selectLanguageServerJdkHome(
@@ -87,7 +87,7 @@ export function selectLanguageServerJdkHome(
  * Picks the Java version to seed as `spring.initializr.defaultJavaVersion`.
  *
  * Business rules:
- * - Only LTS releases qualify — start.spring.io only offers LTS versions, so
+ * - Only LTS releases qualify; start.spring.io only offers LTS versions, so
  *   a non-LTS default would be silently useless.
  * - The version must be >= 17 (Spring Boot 3 floor, see
  *   `INITIALIZR_MIN_JAVA_VERSION`).

@@ -10,7 +10,7 @@ import {Messages} from '../../util/message';
  * Business rules:
  * - Shows a Yes/No information message. Selecting "Yes" returns success;
  *   anything else (including dismissing the notification) halts the pipeline
- *   with `success: false` and no message — the user's choice is intentional.
+ *   with `success: false` and no message; the user's choice is intentional.
  * - This step is omitted from the pipeline when `ConfigureJavaOptions.skipConfirmation`
  *   is set (e.g. when the auto-config prompt already asked the user at activation).
  */

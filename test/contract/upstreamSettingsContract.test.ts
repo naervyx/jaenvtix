@@ -7,7 +7,7 @@ import {join} from 'node:path';
 // Jaenvtix references in source code must exist in the committed upstream
 // schema snapshot (scripts/upstream-schema-snapshot.json, maintained by
 // scripts/check-upstream-schemas.mjs). This catches typos and upstream
-// renames at test time instead of in a user's settings.json — it caught its
+// renames at test time instead of in a user's settings.json; it caught its
 // first real bug during development: a `java.import.maven.userSettings` key
 // that a README suggested but the upstream manifest never declared.
 
@@ -98,7 +98,7 @@ describe('upstream settings contract', () => {
         for (const [extensionId, schema] of Object.entries(snapshot)) {
             assert.ok(
                 schema.settings.length + schema.commands.length > 0,
-                `snapshot for ${extensionId} is empty — re-run scripts/check-upstream-schemas.mjs --update`,
+                `snapshot for ${extensionId} is empty; re-run scripts/check-upstream-schemas.mjs --update`,
             );
         }
         // Spot checks that the extraction understood both manifest shapes.
@@ -123,7 +123,7 @@ describe('upstream settings contract', () => {
         assert.deepEqual(
             unknown,
             [],
-            'Keys referenced in src/ but absent from the upstream snapshot — either a typo, '
+            'Keys referenced in src/ but absent from the upstream snapshot: either a typo, '
             + 'an upstream rename, or the snapshot needs a refresh via '
             + 'node scripts/check-upstream-schemas.mjs --update',
         );
