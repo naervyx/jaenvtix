@@ -1,6 +1,11 @@
 # Jaenvtix
 
-[![License: EPL 2.0](https://img.shields.io/badge/license-EPL%202.0-blue?style=for-the-badge)](LICENSE.md)
+[![Marketplace](https://vsmarketplacebadges.dev/version-short/naervyx.jaenvtix.svg?style=flat-square&label=Marketplace&color=blue)](https://marketplace.visualstudio.com/items?itemName=naervyx.jaenvtix)
+[![Installs](https://vsmarketplacebadges.dev/installs-short/naervyx.jaenvtix.svg?style=flat-square&label=installs&color=blue)](https://marketplace.visualstudio.com/items?itemName=naervyx.jaenvtix)
+[![Open VSX](https://img.shields.io/open-vsx/v/Naervyx/jaenvtix?style=flat-square&label=Open%20VSX&color=blue)](https://open-vsx.org/extension/Naervyx/jaenvtix)
+[![Open VSX downloads](https://img.shields.io/open-vsx/dt/Naervyx/jaenvtix?style=flat-square&label=downloads&color=blue)](https://open-vsx.org/extension/Naervyx/jaenvtix)
+[![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.100-blue?style=flat-square)](https://code.visualstudio.com/)
+[![License: EPL 2.0](https://img.shields.io/badge/license-EPL%202.0-blue?style=flat-square)](LICENSE.md)
 
 Jaenvtix configures Java and Maven workspaces in VS Code. It reads every `pom.xml` it finds,
 resolves the Java version each project needs, reuses a JDK you already have installed (or
