@@ -6,6 +6,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-08-30
+
+Compatibility release: everything here is about cooperating better with the official
+Red Hat / Microsoft Java extensions. No new `jaenvtix.*` settings or commands.
+
+### Added
+- Post-configuration verification ("doctor"). After a run that changed project settings,
+  Jaenvtix waits for the Red Hat Language Server to signal `serverReady` (a labelled phase
+  inside the progress notification), asks it to re-import only the changed projects, then
+  reads back the Java level it actually resolved. A project still compiling at the old level
+  gets one informational toast naming the folder, with **Restart Language Server** and
+  **Show Logs** actions, and stays flagged for re-verification on the next run until it
+  resolves (N1).
+- One-click Language Server restart when a run changes `java.jdt.ls.java.home`. Restarting is
+  how the Red Hat server picks up a new JDK, and it applies without a window reload. Always
+  offered as a button, never triggered automatically (N1).
+- Deferred continuation. If the server is still loading when the 15s wait budget runs out, the
+  pipeline finishes anyway and the refresh and verification resume on their own the moment the
+  server becomes ready, never on a timer (N1).
+- `.vscode/extensions.json` recommendations at each workspace root, so VS Code itself suggests
+  the companion extensions to anyone who opens the repo. Merged non-destructively: your entries
+  and `unwantedRecommendations` are preserved. Spring Boot Dashboard is added only when a Spring
+  Boot application was detected (P1.4, P3.10).
+- `maven.terminal.favorites` seeded per project: `clean install -DskipTests` everywhere, plus
+  `spring-boot:run` for Spring Boot apps. Aliases are prefixed `Jaenvtix:`, and the key becomes
+  yours once it exists (N2).
+- `maven.view: "hierarchical"` seeded for multi-module workspaces so the Maven panel mirrors the
+  module tree (N3).
+- `spring.initializr.defaultJavaVersion` seeded with the highest provisioned LTS (17 or newer)
+  when the Spring Initializr extension is installed (P3.9).
+- A toast asking you to reopen existing terminals when a run changed the terminal environment,
+  since VS Code only applies `JAVA_HOME` / `PATH` changes to new terminals (P1.5).
+- Upstream schema watch. `scripts/check-upstream-schemas.mjs` diffs the settings and commands
+  Jaenvtix writes against the published manifests of the eight base extensions, a weekly
+  workflow opens or refreshes an issue when they drift, and a contract test fails the suite when
+  a key we write is missing from the snapshot (P4.12, P4.13).
+
+### Changed
+- Refresh and verification now touch only the projects whose settings actually changed in the
+  run, plus any project the previous run flagged with a mismatch (`jaenvtix.lastVerificationMismatch`
+  in workspace state). Idempotent re-runs skip the wait and both steps, so reopening a large
+  workspace stays instant (N1).
+- Calls into the Language Server run through a concurrency pool of 4 instead of sequential
+  round-trips (N1).
+- The doctor skips aggregator projects with no `src/main/java`, removing a structural false
+  positive on `packaging: pom` modules (N1).
+- `java.compile.nullAnalysis.mode` and `java.configuration.updateBuildConfiguration` are seeded
+  only when absent, and never forced back afterwards (P2.6).
+- Folder-level `java.configuration.runtimes` is merged instead of replaced. Same-name entries
+  pointing at a real JDK are respected, broken paths are repaired in place while preserving
+  `sources`, `javadoc` and `default`, other names are kept verbatim, and an appended entry never
+  claims the `default` flag when another entry already carries it. The key is removed only when
+  it holds the single Jaenvtix-provisioned entry (P2.6).
+- The `java.debug.settings.hotCodeReplace: "auto"` tuning is applied only when
+  `java.autobuild.enabled` is on, because auto hot code replace does nothing without it (P2.7).
+- Jaenvtix no longer writes `java.jdt.ls.lombokSupport.enabled` (it matches the upstream
+  default) and cleans up the redundant `true` left by older runs. A user-set `false` is kept
+  (P2.8).
+- The seeded JUnit UTF-8 test configuration is now named "Jaenvtix UTF-8" so it stays
+  identifiable next to your own entries. `java.test.defaultConfig` is still untouched (P1.3).
+- The Spring Boot Language Server JDK floor is its own constant instead of reusing the jdt.ls
+  one, since the two servers raise their requirements independently (P3.11).
+
+### Fixed
+- User tunings were silently skipped whenever the Java extension pack was installed.
+  `ApplyUserTuningsStep` used `get()` to decide "the user never set this", but `get()` returns
+  the registered default from the installed extensions, so every tuning looked as if it were
+  already set. It now uses `inspect()` (P2).
+
+### Internal
+- README documents how Jaenvtix cooperates with each base extension, what it writes for each of
+  them, and how the pieces reinforce each other (N5).
+- Upstream schema snapshot refreshed: additive drift only (new upstream keys), no writer
+  changes (#78).
+
 ## [0.0.8] - 2026-06-27
 
 ### Added

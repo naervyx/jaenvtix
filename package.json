@@ -3,7 +3,7 @@
 	"displayName": "Jaenvtix",
 	"description": "Maven monorepo provisioner for VS Code: per-project Java/Maven, multi-vendor JDK, multi-module inheritance, security auto-updates, consent-based.",
 	"publisher": "naervyx",
-	"version": "0.0.8",
+	"version": "0.0.9",
 	"license": "EPL-2.0",
 	"author": {
 		"name": "Alysson Maia"
