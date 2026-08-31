@@ -88,7 +88,7 @@ Red Hat / Microsoft Java extensions. No new `jaenvtix.*` settings or commands.
   Java 21+ JDK when `vmware.vscode-spring-boot` (or the Boot dev pack) is installed (MP-15).
 - `Jaenvtix: Install Recommended Extensions`, an opt-in Command Palette command that offers XML,
   Spring Boot Extension Pack, and Extension Pack for Java in a multi-select QuickPick (MP-08).
-- `~/.m2/toolchains.xml` is now also **read** as a JDK discovery source; entries registered for
+- `~/.m2/toolchains.xml` is now also read as a JDK discovery source; entries registered for
   `maven-toolchains-plugin` are validated and reused instead of re-downloaded (MP-04).
 - Supported Java versions are read from the Red Hat Language Server's own `package.json` at
   runtime, so new LTS releases are recognized without a Jaenvtix release (MP-16).
@@ -324,7 +324,7 @@ Red Hat / Microsoft Java extensions. No new `jaenvtix.*` settings or commands.
 - JDK download and extraction to `~/.jaenvtix/jdk-<version>/` (Oracle for 21+, Corretto /
   Temurin fallback).
 - Maven download and extraction to `~/.jaenvtix/jdk-<version>/mvn-custom/`.
-- **Jaenvtix Maven wrapper script** (`jaenvtix-mvn` / `jaenvtix-mvn.cmd`) generated per JDK,
+- Jaenvtix Maven wrapper script (`jaenvtix-mvn` / `jaenvtix-mvn.cmd`) generated per JDK,
   enforcing `JAVA_HOME`, `MAVEN_HOME`, `-s settings.xml`, and `-Dmaven.repo.local=<repo>`
   (JetBrains-style invocation).
 - Per-project `.vscode/settings.json` wiring: `java.jdt.ls.java.home` /

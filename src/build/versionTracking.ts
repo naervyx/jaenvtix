@@ -49,8 +49,8 @@ export function writeVersionInfo(jdkHome: string, info: VersionInfo): void {
     try {
         writeFileSync(getVersionFilePath(jdkHome), JSON.stringify(info, null, 2), 'utf-8');
     } catch {
-        // A read-only cache dir must not break the pipeline; the check simply
-        // repeats next run.
+        // A read-only cache dir must not break the pipeline; the check repeats
+        // next run.
     }
 }
 
