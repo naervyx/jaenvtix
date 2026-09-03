@@ -6,6 +6,7 @@ import {
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
 import {log} from '../../util/logger';
 import {Messages} from '../../util/message';
+import {writeCooperatively} from '../../util/cooperativeWrite';
 
 // vscode.ConfigurationTarget.Global = 1; hardcoded so this module never imports
 // `vscode` and stays loadable under plain Node in unit tests.
@@ -38,6 +39,11 @@ export interface OptionalExtensionsUserConfig {
  *   default would mask "never set" if read through `get`.
  * - No qualifying JDK → nothing to write (see the selectors in
  *   `optionalExtensionsConfig` for the per-extension rules).
+ * - The installed check narrows the risk of writing an unregistered setting
+ *   but does not remove it: `vmware.vscode-boot-dev-pack` is a pack, and the
+ *   member that registers `spring-boot.ls.java.home` can be uninstalled while
+ *   the pack stays. Every write therefore goes through `writeCooperatively`,
+ *   which logs a refusal and lets the run continue.
  */
 export class ConfigureOptionalExtensionsStep implements ConfigurationStep {
     readonly name = 'ConfigureOptionalExtensions';
@@ -67,8 +73,13 @@ export class ConfigureOptionalExtensionsStep implements ConfigurationStep {
                 continue;
             }
 
-            await cfg.update(settingKey, value, CONFIG_TARGET_GLOBAL);
-            log(Messages.Log.OPTIONAL_EXTENSION_CONFIGURED(settingKey, extensionId, value));
+            const written = await writeCooperatively(
+                () => cfg.update(settingKey, value, CONFIG_TARGET_GLOBAL),
+                (detail) => Messages.Log.OPTIONAL_EXTENSION_SKIPPED(settingKey, extensionId, detail),
+            );
+            if (written) {
+                log(Messages.Log.OPTIONAL_EXTENSION_CONFIGURED(settingKey, extensionId, value));
+            }
         }
 
         return StepResult.success();

@@ -110,6 +110,8 @@ export const Messages = {
             `Java ${javaVersion}: Jaenvtix Maven wrapper written at ${scriptPath}`,
         USER_RUNTIMES_UPDATED: (count: number) =>
             `User-level java.configuration.runtimes updated (${count} entr${count === 1 ? 'y' : 'ies'}).`,
+        USER_RUNTIMES_SKIPPED: (detail: string) =>
+            `java.configuration.runtimes not updated: ${detail}. The Red Hat Java extension (redhat.java) registers this setting and is likely not installed.`,
         TOOLCHAINS_XML_WRITTEN: (path: string) =>
             `~/.m2/toolchains.xml updated at ${path}`,
         RUNTIME_PATH_FIXED: (oldPath: string, newPath: string) =>
@@ -118,6 +120,10 @@ export const Messages = {
             `Removed invalid runtime: ${name} (${path})`,
         OPTIONAL_EXTENSION_CONFIGURED: (settingKey: string, extensionId: string, value: string) =>
             `Configured ${settingKey} for ${extensionId}: ${value}`,
+        OPTIONAL_EXTENSION_SKIPPED: (settingKey: string, extensionId: string, detail: string) =>
+            `${settingKey} not configured for ${extensionId}: ${detail}. The extension is installed but does not register this setting.`,
+        LANGUAGE_SERVER_RESTART_FAILED: (detail: string) =>
+            `Language Server restart command failed: ${detail}`,
         TUNING_SKIPPED: (settingKey: string, detail: string) =>
             `User tuning ${settingKey} not applied: ${detail}. The extension that registers this setting is likely not installed.`,
         TOOLCHAINS_JDK_DETECTED: (jdkHome: string, version?: string) =>
