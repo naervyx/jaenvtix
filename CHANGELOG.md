@@ -21,6 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the absence of elsewhere. The write is now guarded the same way: refused means logged and
   skipped, never a failed run. Without a Language Server installed the setting has no consumer
   anyway.
+- Every remaining write into another extension's settings now carries the same guard, through
+  one shared `writeCooperatively` helper. The companion-extension settings
+  (`spring-boot.ls.java.home`, `spring.initializr.defaultJavaVersion`) were still unguarded,
+  and checking that the extension is installed is not enough for them:
+  `vmware.vscode-boot-dev-pack` is a pack, and the member that registers
+  `spring-boot.ls.java.home` can be uninstalled while the pack stays.
+- The **Restart Language Server** action on the mismatch and JDK-changed toasts could fail as
+  an unhandled rejection, with no feedback to the user, when the Red Hat extension was removed
+  after the toast appeared. The failure is now logged.
 
 ## [0.0.9] - 2026-08-30
 

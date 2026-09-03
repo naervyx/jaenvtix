@@ -251,6 +251,23 @@ function buildVerifyStep(deps: ConfigureJavaDeps): VerifyConfigurationStep {
 }
 
 /**
+ * Runs the Red Hat restart command, tolerating its absence.
+ *
+ * The command belongs to `redhat.java`, so `executeCommand` rejects with
+ * "command not found" when that extension is gone. Both callers only offer the
+ * button when the Language Server answered earlier in the run, but the user
+ * can uninstall between the toast appearing and the click, and a bare `void`
+ * on the rejected promise would surface as an unhandled rejection with no
+ * trace of why nothing happened.
+ */
+function restartLanguageServer(): void {
+    void Promise.resolve(vscode.commands.executeCommand(JAVA_SERVER_RESTART)).then(undefined, (error) => {
+        const detail = error instanceof Error ? error.message : String(error);
+        log(Messages.Log.LANGUAGE_SERVER_RESTART_FAILED(detail));
+    });
+}
+
+/**
  * Mismatch toast (informational, not an error: restarting IS the fix).
  * [Restart Language Server] applies the new JDK without a window reload;
  * [Show Logs] opens the per-project detail in the "Jaenvtix" channel.
@@ -262,7 +279,7 @@ function notifyMismatchWithActions(message: string, showLogs: () => void): void 
         Messages.Choice.SHOW_LOGS,
     ).then((choice) => {
         if (choice === Messages.Choice.RESTART_LANGUAGE_SERVER) {
-            void vscode.commands.executeCommand(JAVA_SERVER_RESTART);
+            restartLanguageServer();
         } else if (choice === Messages.Choice.SHOW_LOGS) {
             showLogs();
         }
@@ -393,7 +410,7 @@ function offerLanguageServerRestartIfNeeded(state: JavaConfigurationState): void
         Messages.Choice.RESTART_LANGUAGE_SERVER,
     ).then((choice) => {
         if (choice === Messages.Choice.RESTART_LANGUAGE_SERVER) {
-            void vscode.commands.executeCommand(JAVA_SERVER_RESTART);
+            restartLanguageServer();
         }
     });
 }

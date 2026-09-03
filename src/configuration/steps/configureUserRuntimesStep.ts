@@ -1,6 +1,7 @@
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, JavaRuntime, StepResult} from '../../core/types';
 import {Messages} from '../../util/message';
 import {log} from '../../util/logger';
+import {writeCooperatively} from '../../util/cooperativeWrite';
 import {toJavaRuntimeName} from '../../util/javaVersion';
 import {mergeUserRuntimes, validateAndCleanRuntimes} from '../../build/userRuntimesMerge';
 
@@ -84,15 +85,14 @@ export class ConfigureUserRuntimesStep implements ConfigurationStep {
             return StepResult.success();
         }
 
-        try {
-            await this.deps.writeGlobalRuntimes(merged);
-        } catch (error) {
-            const detail = error instanceof Error ? error.message : String(error);
-            log(Messages.Log.USER_RUNTIMES_SKIPPED(detail));
-            return StepResult.success();
+        const written = await writeCooperatively(
+            () => this.deps.writeGlobalRuntimes(merged),
+            (detail) => Messages.Log.USER_RUNTIMES_SKIPPED(detail),
+        );
+        if (written) {
+            log(Messages.Log.USER_RUNTIMES_UPDATED(merged.length));
         }
 
-        log(Messages.Log.USER_RUNTIMES_UPDATED(merged.length));
         return StepResult.success();
     }
 }

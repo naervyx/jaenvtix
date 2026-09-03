@@ -1,6 +1,6 @@
 import {applyUserJavaTunings} from '../../build/vsCodeSettingsWriter';
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
-import {log} from '../../util/logger';
+import {writeCooperatively} from '../../util/cooperativeWrite';
 import {Messages} from '../../util/message';
 
 // vscode.ConfigurationTarget.Global = 1; hardcoded so this module never imports
@@ -40,21 +40,16 @@ function userSetValue(cfg: UserConfig, key: string): unknown {
 }
 
 /**
- * Writes one tuning, isolating its failure from the remaining keys.
- *
- * `update` rejects when no installed extension registered the key. The five
- * tunings belong to four different extensions of the Java pack, and partial
- * installs are common (`java.test.config` is registered by
- * vscjava.vscode-java-test). The rejection is logged and swallowed so the
- * other tunings still land and the pipeline reaches the steps that follow.
+ * Writes one tuning, isolating its failure from the remaining keys. The five
+ * tunings belong to four different extensions of the Java pack, so a partial
+ * install refuses some keys and accepts others (`java.test.config` is
+ * registered by vscjava.vscode-java-test). See `writeCooperatively`.
  */
 async function writeTuning(cfg: UserConfig, key: string, value: unknown): Promise<void> {
-    try {
-        await cfg.update(key, value, CONFIG_TARGET_GLOBAL);
-    } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        log(Messages.Log.TUNING_SKIPPED(key, detail));
-    }
+    await writeCooperatively(
+        () => cfg.update(key, value, CONFIG_TARGET_GLOBAL),
+        (detail) => Messages.Log.TUNING_SKIPPED(key, detail),
+    );
 }
 
 /**

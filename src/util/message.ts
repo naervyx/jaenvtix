@@ -120,6 +120,10 @@ export const Messages = {
             `Removed invalid runtime: ${name} (${path})`,
         OPTIONAL_EXTENSION_CONFIGURED: (settingKey: string, extensionId: string, value: string) =>
             `Configured ${settingKey} for ${extensionId}: ${value}`,
+        OPTIONAL_EXTENSION_SKIPPED: (settingKey: string, extensionId: string, detail: string) =>
+            `${settingKey} not configured for ${extensionId}: ${detail}. The extension is installed but does not register this setting.`,
+        LANGUAGE_SERVER_RESTART_FAILED: (detail: string) =>
+            `Language Server restart command failed: ${detail}`,
         TUNING_SKIPPED: (settingKey: string, detail: string) =>
             `User tuning ${settingKey} not applied: ${detail}. The extension that registers this setting is likely not installed.`,
         TOOLCHAINS_JDK_DETECTED: (jdkHome: string, version?: string) =>
