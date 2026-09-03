@@ -12,7 +12,7 @@ import {ProcessDownloadsStep} from './steps/processDownloadsStep';
 import {WriteMavenWrappersStep} from './steps/writeMavenWrappersStep';
 import {WriteToolchainsStep} from './steps/writeToolchainsStep';
 import {ConfigureSettingsStep} from './steps/configureSettingsStep';
-import {ConfigureUserRuntimesStep} from './steps/configureUserRuntimesStep';
+import {ConfigureUserRuntimesDeps, ConfigureUserRuntimesStep} from './steps/configureUserRuntimesStep';
 import {ApplyUserTuningsStep} from './steps/applyUserTuningsStep';
 import {ConfigureOptionalExtensionsStep} from './steps/configureOptionalExtensionsStep';
 import {ConfigureLaunchStep} from './steps/configureLaunchStep';
@@ -21,7 +21,7 @@ import {AwaitLanguageServerStep} from './steps/awaitLanguageServerStep';
 import {RefreshProjectConfigurationStep} from './steps/refreshProjectConfigurationStep';
 import {VerifyConfigurationStep} from './steps/verifyConfigurationStep';
 import {MismatchMementoAccessor} from './mismatchMemento';
-import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
+import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, JavaRuntime, StepResult} from '../core/types';
 import {Messages} from '../util/message';
 import {log} from '../util/logger';
 import {runStep, runSteps} from './stepRunner';
@@ -201,7 +201,7 @@ export function getDefaultStepGroups(
                 },
             }),
             new ConfigureSettingsStep(),
-            new ConfigureUserRuntimesStep(),
+            new ConfigureUserRuntimesStep(buildUserRuntimesDeps()),
             new ApplyUserTuningsStep(() => vscode.workspace.getConfiguration()),
             new ConfigureOptionalExtensionsStep(
                 () => vscode.workspace.getConfiguration(),
@@ -215,6 +215,19 @@ export function getDefaultStepGroups(
             buildRefreshStep(),
             buildVerifyStep(deps),
         ],
+    };
+}
+
+function buildUserRuntimesDeps(): ConfigureUserRuntimesDeps {
+    // Each closure re-reads the configuration so the step sees the settings as
+    // they are when it runs, not as they were when the step list was built.
+    const javaConfiguration = () => vscode.workspace.getConfiguration('java.configuration');
+    return {
+        readGlobalRuntimes: () => javaConfiguration().inspect<JavaRuntime[]>('runtimes')?.globalValue,
+        isPathFixEnabled: () =>
+            vscode.workspace.getConfiguration('jaenvtix').get<boolean>('enableRuntimePathFix', true),
+        writeGlobalRuntimes: (runtimes) =>
+            javaConfiguration().update('runtimes', runtimes, vscode.ConfigurationTarget.Global),
     };
 }
 

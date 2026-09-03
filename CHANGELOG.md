@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.vscode/extensions.json` recommendations, the Language Server refresh and the verification.
   Each tuning is now written independently: a setting VS Code refuses is logged and skipped,
   and the run continues.
+- The same abort could happen one step earlier, in `ConfigureUserRuntimesStep`, which writes
+  `java.configuration.runtimes`. That setting is registered by the Red Hat Java extension
+  (`redhat.java`), which Jaenvtix does not declare as a hard dependency and already tolerates
+  the absence of elsewhere. The write is now guarded the same way: refused means logged and
+  skipped, never a failed run. Without a Language Server installed the setting has no consumer
+  anyway.
 
 ## [0.0.9] - 2026-08-30
 

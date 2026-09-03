@@ -110,6 +110,8 @@ export const Messages = {
             `Java ${javaVersion}: Jaenvtix Maven wrapper written at ${scriptPath}`,
         USER_RUNTIMES_UPDATED: (count: number) =>
             `User-level java.configuration.runtimes updated (${count} entr${count === 1 ? 'y' : 'ies'}).`,
+        USER_RUNTIMES_SKIPPED: (detail: string) =>
+            `java.configuration.runtimes not updated: ${detail}. The Red Hat Java extension (redhat.java) registers this setting and is likely not installed.`,
         TOOLCHAINS_XML_WRITTEN: (path: string) =>
             `~/.m2/toolchains.xml updated at ${path}`,
         RUNTIME_PATH_FIXED: (oldPath: string, newPath: string) =>
