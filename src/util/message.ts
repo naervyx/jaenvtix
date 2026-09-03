@@ -118,6 +118,8 @@ export const Messages = {
             `Removed invalid runtime: ${name} (${path})`,
         OPTIONAL_EXTENSION_CONFIGURED: (settingKey: string, extensionId: string, value: string) =>
             `Configured ${settingKey} for ${extensionId}: ${value}`,
+        TUNING_SKIPPED: (settingKey: string, detail: string) =>
+            `User tuning ${settingKey} not applied: ${detail}. The extension that registers this setting is likely not installed.`,
         TOOLCHAINS_JDK_DETECTED: (jdkHome: string, version?: string) =>
             `Detected JDK from toolchains.xml: ${jdkHome}${version ? ` (version ${version})` : ''}`,
         TOOLCHAINS_READ_FAILED: (detail: string) =>
