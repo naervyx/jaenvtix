@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Configuration aborted on a partial Java extension pack install. `ApplyUserTuningsStep`
+  wrote its five tunings without isolating failures, and VS Code rejects a write to a setting
+  no installed extension registered (`java.test.config` belongs to Test Runner for Java,
+  `vscjava.vscode-java-test`). The rejection surfaced as "Apply Java defaults to user settings
+  failed" and stopped the run before the companion-extension configuration, the
+  `.vscode/extensions.json` recommendations, the Language Server refresh and the verification.
+  Each tuning is now written independently: a setting VS Code refuses is logged and skipped,
+  and the run continues.
+
 ## [0.0.9] - 2026-08-30
 
 Compatibility release: everything here is about cooperating better with the official
