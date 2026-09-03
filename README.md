@@ -17,6 +17,48 @@ Jaenvtix is a provisioner, not a language server. It fills in the settings the o
 and Microsoft Java extensions read, defers to a project's `mvnw` when there is one, and leaves
 alone whatever those extensions already get right.
 
+## What it looks like
+
+The first time Jaenvtix sees a `pom.xml` it asks, once, and touches nothing until you answer.
+
+![Consent prompt offering Yes, Always and No](docs/images/01-consent-prompt.png)
+
+Answering Yes runs the pipeline. It reports when it finishes, and when the run changed the JDK the
+Red Hat language server uses, it offers to restart that server in one click. Restarting is how the
+server picks up a new JDK, and it needs no window reload.
+
+![Completion notice and the one-click Restart Language Server action](docs/images/02-configuration-complete.png)
+
+What the run produces is a per-project `.vscode/settings.json`: the JDK for the language server,
+the Maven wrapper path, the per-folder environment, and the `jaenvtix.*` keys seeded with their
+defaults so you can change one inline instead of hunting for it.
+
+![Generated .vscode/settings.json](docs/images/06-generated-settings.png)
+
+Two of those keys surface in the UI. `maven.terminal.favorites` puts the common goals in the Maven
+explorer, the way run configurations work in IntelliJ, and a Spring Boot project also gets its own
+entry in Run and Debug.
+
+![Maven explorer showing the seeded favorites](docs/images/07-maven-favorites.png)
+
+![Launch configuration created for a Spring Boot project](docs/images/08-launch-configuration.png)
+
+`Jaenvtix: Install Recommended Extensions` is opt-in and never runs on its own. It offers the
+companion extensions in a multi-select list, marks the ones you already have, and installs only
+what you pick.
+
+![Recommended extensions picker](docs/images/04-recommended-extensions.png)
+
+![Notification confirming the installed extensions](docs/images/05-extensions-installed.png)
+
+All three commands live under the `Jaenvtix:` prefix in the Command Palette.
+
+![The three Jaenvtix commands in the Command Palette](docs/images/03-command-palette.png)
+
+Everything else happens in the same run, without a dialog to show for it: the Java version
+boundary, the isolated Maven per pinned version, the `mvnw` projects Jaenvtix leaves alone, and the
+`~/.m2/toolchains.xml` merge. The sections below describe each one.
+
 ## Quick start
 
 1. Install the extension, for example with `code --install-extension jaenvtix-<version>.vsix`.
