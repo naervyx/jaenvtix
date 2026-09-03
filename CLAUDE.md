@@ -32,6 +32,19 @@ bun run compile                                   # tsc only
 bun run package                                   # build the .vsix
 ```
 
+README images live in `docs/images/` and are referenced with relative paths.
+`vsce` rewrites those to `github.com/<repo>/raw/HEAD/...` when packaging, and
+`HEAD` is the default branch, so a `.vsix` built from a feature branch shows
+broken images on the extension page until the branch merges. To check them in
+a local build, pass the branch explicitly:
+
+```bash
+bunx @vscode/vsce package --baseImagesUrl "https://raw.githubusercontent.com/naervyx/jaenvtix/<branch>"
+```
+
+`docs/**` is in `.vscodeignore` on purpose: the rewritten URLs are absolute, so
+shipping the files inside the package would only add weight.
+
 ## Architecture
 
 The extension is a **step pipeline**. `extension.ts` registers the
