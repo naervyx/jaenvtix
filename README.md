@@ -19,21 +19,44 @@ alone whatever those extensions already get right.
 
 ## The three commands
 
-![The three Jaenvtix commands in the Command Palette](docs/images/03-command-palette.png)
+![The three Jaenvtix commands in the Command Palette](docs/images/01-command-palette.png)
 
-`Jaenvtix: Java: Automatic Configuration` runs the whole pipeline: it resolves the Java version
-each project needs, provisions the JDKs and Maven versions that are missing, and writes every
-project's `.vscode/settings.json`. It also runs on its own the first time you answer Yes or Always
-to the activation prompt. When a run changes the JDK the Red Hat language server uses, it offers a
-one-click restart rather than a window reload, and it reports which projects it touched. What it
-writes, and what it leaves alone, is described in the sections below.
+### Java: Automatic Configuration
 
-`Jaenvtix: Install Recommended Extensions` offers the companion extensions in a multi-select list,
-marks the ones you already have, and installs only what you pick. It never runs on its own.
+Runs the whole pipeline. It also runs on its own the first time you answer Yes or Always to the
+activation prompt, which is the only thing Jaenvtix does before you agree to anything.
 
-`Jaenvtix: Reset Auto-Configuration Preference` clears the Yes or No answer stored for this
-workspace and the global Always, so the prompt comes back the next time you open a workspace with
-a `pom.xml`.
+![Consent prompt offering Yes, Always and No](docs/images/02-consent-prompt.png)
+
+The progress notification names the step it is on, including the wait for the Red Hat language
+server to finish loading. A re-run with nothing to do skips that wait entirely.
+
+![Progress notification naming the current step](docs/images/03-progress.png)
+
+When the run ends it says so, and when it changed the JDK the language server uses it offers a
+restart in one click. Restarting is how that server picks up a new JDK, and it needs no window
+reload.
+
+![Completion notice with the Restart Language Server action](docs/images/04-configuration-complete.png)
+
+What the run writes, and what it leaves untouched, is in [Settings written per
+project](#settings-written-per-project) and the sections after it.
+
+### Install Recommended Extensions
+
+Opt-in, and never runs on its own. It offers the companion extensions in a multi-select list,
+ignores the ones you already have, and installs only what you pick.
+
+![Recommended extensions picker](docs/images/05-extensions-picker.png)
+
+![Notification confirming the installed extensions](docs/images/06-extensions-installed.png)
+
+### Reset Auto-Configuration Preference
+
+Clears the Yes or No answer stored for this workspace and the global Always, so the activation
+prompt comes back the next time you open a workspace with a `pom.xml`.
+
+![Notification confirming the preference reset](docs/images/07-preference-reset.png)
 
 ## Quick start
 
