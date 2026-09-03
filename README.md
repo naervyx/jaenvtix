@@ -24,20 +24,16 @@ alone whatever those extensions already get right.
 ### Java: Automatic Configuration
 
 Runs the whole pipeline. It also runs on its own the first time you answer Yes or Always to the
-activation prompt, which is the only thing Jaenvtix does before you agree to anything.
+activation prompt, which is the only thing Jaenvtix does before you agree to anything. The
+progress notification names the step it is on, including the wait for the Red Hat language server
+to finish loading.
 
-![Consent prompt offering Yes, Always and No](docs/images/02-consent-prompt.png)
+![First run: the consent prompt, the named progress steps, and the Maven favorites the run seeds](docs/images/02-automatic-configuration.gif)
 
-The progress notification names the step it is on, including the wait for the Red Hat language
-server to finish loading. A re-run with nothing to do skips that wait entirely.
+Running it again reuses everything already provisioned. Change detection means a re-run with
+nothing to do writes nothing, skips the language server wait, and finishes in seconds.
 
-![Progress notification naming the current step](docs/images/03-progress.png)
-
-When the run ends it says so, and when it changed the JDK the language server uses it offers a
-restart in one click. Restarting is how that server picks up a new JDK, and it needs no window
-reload.
-
-![Completion notice with the Restart Language Server action](docs/images/04-configuration-complete.png)
+![Re-running the command from the palette with the JDKs already cached](docs/images/03-automatic-configuration-rerun.gif)
 
 What the run writes, and what it leaves untouched, is in [Settings written per
 project](#settings-written-per-project) and the sections after it.
@@ -47,16 +43,14 @@ project](#settings-written-per-project) and the sections after it.
 Opt-in, and never runs on its own. It offers the companion extensions in a multi-select list,
 ignores the ones you already have, and installs only what you pick.
 
-![Recommended extensions picker](docs/images/05-extensions-picker.png)
-
-![Notification confirming the installed extensions](docs/images/06-extensions-installed.png)
+![Picking the companion extensions and installing them](docs/images/04-install-recommended-extensions.gif)
 
 ### Reset Auto-Configuration Preference
 
 Clears the Yes or No answer stored for this workspace and the global Always, so the activation
 prompt comes back the next time you open a workspace with a `pom.xml`.
 
-![Notification confirming the preference reset](docs/images/07-preference-reset.png)
+![Running the reset command and the notice confirming it](docs/images/05-reset-preference.gif)
 
 ## Quick start
 
