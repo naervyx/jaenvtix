@@ -12,7 +12,7 @@ import {ProcessDownloadsStep} from './steps/processDownloadsStep';
 import {WriteMavenWrappersStep} from './steps/writeMavenWrappersStep';
 import {WriteToolchainsStep} from './steps/writeToolchainsStep';
 import {ConfigureSettingsStep} from './steps/configureSettingsStep';
-import {ConfigureUserRuntimesStep} from './steps/configureUserRuntimesStep';
+import {ConfigureUserRuntimesDeps, ConfigureUserRuntimesStep} from './steps/configureUserRuntimesStep';
 import {ApplyUserTuningsStep} from './steps/applyUserTuningsStep';
 import {ConfigureOptionalExtensionsStep} from './steps/configureOptionalExtensionsStep';
 import {ConfigureLaunchStep} from './steps/configureLaunchStep';
@@ -21,7 +21,7 @@ import {AwaitLanguageServerStep} from './steps/awaitLanguageServerStep';
 import {RefreshProjectConfigurationStep} from './steps/refreshProjectConfigurationStep';
 import {VerifyConfigurationStep} from './steps/verifyConfigurationStep';
 import {MismatchMementoAccessor} from './mismatchMemento';
-import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, StepResult} from '../core/types';
+import {ConfigurationStep, ConfigurationStepResult, createInitialState, JavaConfigurationState, JavaRuntime, StepResult} from '../core/types';
 import {Messages} from '../util/message';
 import {log} from '../util/logger';
 import {runStep, runSteps} from './stepRunner';
@@ -201,7 +201,7 @@ export function getDefaultStepGroups(
                 },
             }),
             new ConfigureSettingsStep(),
-            new ConfigureUserRuntimesStep(),
+            new ConfigureUserRuntimesStep(buildUserRuntimesDeps()),
             new ApplyUserTuningsStep(() => vscode.workspace.getConfiguration()),
             new ConfigureOptionalExtensionsStep(
                 () => vscode.workspace.getConfiguration(),
@@ -215,6 +215,19 @@ export function getDefaultStepGroups(
             buildRefreshStep(),
             buildVerifyStep(deps),
         ],
+    };
+}
+
+function buildUserRuntimesDeps(): ConfigureUserRuntimesDeps {
+    // Each closure re-reads the configuration so the step sees the settings as
+    // they are when it runs, not as they were when the step list was built.
+    const javaConfiguration = () => vscode.workspace.getConfiguration('java.configuration');
+    return {
+        readGlobalRuntimes: () => javaConfiguration().inspect<JavaRuntime[]>('runtimes')?.globalValue,
+        isPathFixEnabled: () =>
+            vscode.workspace.getConfiguration('jaenvtix').get<boolean>('enableRuntimePathFix', true),
+        writeGlobalRuntimes: (runtimes) =>
+            javaConfiguration().update('runtimes', runtimes, vscode.ConfigurationTarget.Global),
     };
 }
 
@@ -238,6 +251,23 @@ function buildVerifyStep(deps: ConfigureJavaDeps): VerifyConfigurationStep {
 }
 
 /**
+ * Runs the Red Hat restart command, tolerating its absence.
+ *
+ * The command belongs to `redhat.java`, so `executeCommand` rejects with
+ * "command not found" when that extension is gone. Both callers only offer the
+ * button when the Language Server answered earlier in the run, but the user
+ * can uninstall between the toast appearing and the click, and a bare `void`
+ * on the rejected promise would surface as an unhandled rejection with no
+ * trace of why nothing happened.
+ */
+function restartLanguageServer(): void {
+    void Promise.resolve(vscode.commands.executeCommand(JAVA_SERVER_RESTART)).then(undefined, (error) => {
+        const detail = error instanceof Error ? error.message : String(error);
+        log(Messages.Log.LANGUAGE_SERVER_RESTART_FAILED(detail));
+    });
+}
+
+/**
  * Mismatch toast (informational, not an error: restarting IS the fix).
  * [Restart Language Server] applies the new JDK without a window reload;
  * [Show Logs] opens the per-project detail in the "Jaenvtix" channel.
@@ -249,7 +279,7 @@ function notifyMismatchWithActions(message: string, showLogs: () => void): void 
         Messages.Choice.SHOW_LOGS,
     ).then((choice) => {
         if (choice === Messages.Choice.RESTART_LANGUAGE_SERVER) {
-            void vscode.commands.executeCommand(JAVA_SERVER_RESTART);
+            restartLanguageServer();
         } else if (choice === Messages.Choice.SHOW_LOGS) {
             showLogs();
         }
@@ -380,7 +410,7 @@ function offerLanguageServerRestartIfNeeded(state: JavaConfigurationState): void
         Messages.Choice.RESTART_LANGUAGE_SERVER,
     ).then((choice) => {
         if (choice === Messages.Choice.RESTART_LANGUAGE_SERVER) {
-            void vscode.commands.executeCommand(JAVA_SERVER_RESTART);
+            restartLanguageServer();
         }
     });
 }

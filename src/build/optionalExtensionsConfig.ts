@@ -3,9 +3,12 @@ import {parseJavaVersionNumber} from '../util/javaVersion';
 import {isLtsVersion} from './redhatRuntimeReader';
 
 /**
- * Marketplace IDs of the Spring Boot Tools distributions. Either the
- * standalone language server extension or the dev pack that bundles it
- * qualifies — both register the `spring-boot.ls.java.home` setting.
+ * Marketplace IDs of the Spring Boot Tools distributions, most specific first.
+ * The setting belongs to the standalone language server extension; the dev
+ * pack qualifies only as evidence that it should be there, since installing
+ * the pack installs its members. A user who uninstalled the member while
+ * keeping the pack leaves the setting unregistered, which is why the caller
+ * writes through `writeCooperatively`.
  */
 const SPRING_BOOT_EXTENSION_IDS = [
     'vmware.vscode-spring-boot',

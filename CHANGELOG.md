@@ -6,6 +6,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Configuration aborted on a partial Java extension pack install. `ApplyUserTuningsStep`
+  wrote its five tunings without isolating failures, and VS Code rejects a write to a setting
+  no installed extension registered (`java.test.config` belongs to Test Runner for Java,
+  `vscjava.vscode-java-test`). The rejection surfaced as "Apply Java defaults to user settings
+  failed" and stopped the run before the companion-extension configuration, the
+  `.vscode/extensions.json` recommendations, the Language Server refresh and the verification.
+  Each tuning is now written independently: a setting VS Code refuses is logged and skipped,
+  and the run continues.
+- The same abort could happen one step earlier, in `ConfigureUserRuntimesStep`, which writes
+  `java.configuration.runtimes`. That setting is registered by the Red Hat Java extension
+  (`redhat.java`), which Jaenvtix does not declare as a hard dependency and already tolerates
+  the absence of elsewhere. The write is now guarded the same way: refused means logged and
+  skipped, never a failed run. Without a Language Server installed the setting has no consumer
+  anyway.
+- Every remaining write into another extension's settings now carries the same guard, through
+  one shared `writeCooperatively` helper. The companion-extension settings
+  (`spring-boot.ls.java.home`, `spring.initializr.defaultJavaVersion`) were still unguarded,
+  and checking that the extension is installed is not enough for them:
+  `vmware.vscode-boot-dev-pack` is a pack, and the member that registers
+  `spring-boot.ls.java.home` can be uninstalled while the pack stays.
+- The **Restart Language Server** action on the mismatch and JDK-changed toasts could fail as
+  an unhandled rejection, with no feedback to the user, when the Red Hat extension was removed
+  after the toast appeared. The failure is now logged.
+
 ## [0.0.9] - 2026-08-30
 
 Compatibility release: everything here is about cooperating better with the official
