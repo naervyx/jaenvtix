@@ -11,14 +11,16 @@ const UNKNOWN_ERROR_DETAIL = 'Unknown error';
  * - `Progress`: labels displayed in the progress notification during the
  *   configuration pipeline (one label per step).
  * - `Log`: structured messages written to the output channel.
- * - `Choice`: button labels for Yes/Always/No prompts.
+ * - `Choice`: button labels for notification prompts.
  */
 export const Messages = {
     Info: {
         START_CONFIG: 'This project looks like a Java project. Do you want to start automatic configuration?',
+        START_CONFIG_WITH_EXTENSIONS:
+            'This project looks like a Java project, but Java language support is not installed. Jaenvtix can install the Extension Pack for Java and configure the workspace.',
         CONFIGURATION_COMPLETED: 'Java and Maven environment configuration completed.',
         AUTO_CONFIG_PREFERENCE_RESET:
-      'Jaenvtix auto-configuration preference reset. Reload the window (or open another workspace) to see the prompt again.',
+      'Jaenvtix auto-configuration preference reset for every workspace. Reload the window (or open another workspace) to see the prompt again.',
         ALL_SELECTED_EXTENSIONS_INSTALLED: 'All selected extensions are already installed.',
         EXTENSIONS_INSTALLED: (count: number) =>
             `${count} extension${count === 1 ? '' : 's'} installed. Reload the window to activate ${count === 1 ? 'it' : 'them'}.`,
@@ -40,6 +42,8 @@ export const Messages = {
         MAVEN_DISTRIBUTION_NOT_FOUND: 'Unable to resolve a Maven distribution for this platform.',
         JDK_DISTRIBUTION_NOT_FOUND: 'Unable to resolve a Java Development Kit distribution for this platform and version.',
         CONFIGURATION_CANCELLED: 'Configuration canceled by the user.',
+        CONFIG_SKIPPED_NO_LANGUAGE_SUPPORT:
+            'Jaenvtix did not configure this workspace: Java language support is still not active. Reload the window, or install and enable the Extension Pack for Java, then open the project again.',
         TEMP_CLEANUP_FAILED: (filePath: string, detail: string) =>
             `Failed to remove temporary archive ${filePath}: ${detail}`,
         LAUNCH_JSON_MALFORMED: (filePath: string) =>
@@ -75,6 +79,7 @@ export const Messages = {
     Progress: {
         TITLE: 'Java and Maven configuration',
         INSTALL_EXTENSIONS_TITLE: 'Jaenvtix: Installing recommended extensions',
+        INSTALL_LANGUAGE_SUPPORT_TITLE: 'Jaenvtix: Installing Extension Pack for Java',
         DEFAULT: 'Running configuration step',
         STEPS: {
             ValidateEnvironment: 'Validate environment',
@@ -110,6 +115,8 @@ export const Messages = {
             `Java ${javaVersion}: Jaenvtix Maven wrapper written at ${scriptPath}`,
         USER_RUNTIMES_UPDATED: (count: number) =>
             `User-level java.configuration.runtimes updated (${count} entr${count === 1 ? 'y' : 'ies'}).`,
+        USER_RUNTIMES_SKIPPED: (detail: string) =>
+            `java.configuration.runtimes not updated: ${detail}. The Red Hat Java extension (redhat.java) registers this setting and is likely not installed.`,
         TOOLCHAINS_XML_WRITTEN: (path: string) =>
             `~/.m2/toolchains.xml updated at ${path}`,
         RUNTIME_PATH_FIXED: (oldPath: string, newPath: string) =>
@@ -118,6 +125,12 @@ export const Messages = {
             `Removed invalid runtime: ${name} (${path})`,
         OPTIONAL_EXTENSION_CONFIGURED: (settingKey: string, extensionId: string, value: string) =>
             `Configured ${settingKey} for ${extensionId}: ${value}`,
+        OPTIONAL_EXTENSION_SKIPPED: (settingKey: string, extensionId: string, detail: string) =>
+            `${settingKey} not configured for ${extensionId}: ${detail}. The extension is installed but does not register this setting.`,
+        LANGUAGE_SERVER_RESTART_FAILED: (detail: string) =>
+            `Language Server restart command failed: ${detail}`,
+        TUNING_SKIPPED: (settingKey: string, detail: string) =>
+            `User tuning ${settingKey} not applied: ${detail}. The extension that registers this setting is likely not installed.`,
         TOOLCHAINS_JDK_DETECTED: (jdkHome: string, version?: string) =>
             `Detected JDK from toolchains.xml: ${jdkHome}${version ? ` (version ${version})` : ''}`,
         TOOLCHAINS_READ_FAILED: (detail: string) =>
@@ -152,12 +165,33 @@ export const Messages = {
             `Project ${projectPath}: verification skipped (project settings unavailable).`,
         EXTENSIONS_JSON_UPDATED: (workspace: string, added: string[]) =>
             `Workspace ${workspace}: .vscode/extensions.json recommendations updated - ${added.join(', ')}`,
+        EXTENSION_PACK_INSTALLING: (extensionId: string) =>
+            `Installing ${extensionId} before configuring, at the user's request.`,
+        EXTENSION_PACK_INSTALL_FAILED: (extensionId: string, detail: string) =>
+            `Could not install ${extensionId}: ${detail}`,
+        LANGUAGE_SERVER_READY: (extensionId: string) =>
+            `${extensionId} is available; continuing with the configuration.`,
+        LANGUAGE_SERVER_STILL_ABSENT: (extensionId: string) =>
+            `${extensionId} is still unavailable, so nothing was configured. It may need a window reload, or it may be installed but disabled.`,
+        EXTENSION_PAGE_NOT_OPENED: (extensionId: string) =>
+            `Could not open the extension page for ${extensionId}.`,
+        ACTIVATED: (folderCount: number) =>
+            `Jaenvtix activated with ${folderCount} workspace folder${folderCount === 1 ? '' : 's'}.`,
+        AUTO_CONFIG_SKIPPED_NO_FOLDERS:
+            'Automatic configuration skipped: this window has no workspace folders.',
+        AUTO_CONFIG_SKIPPED_DECLINED:
+            'Automatic configuration skipped: this workspace was declined. Run "Jaenvtix: Java: Automatic Configuration" to configure it anyway, or "Jaenvtix: Reset Auto-Configuration Preference" to be asked again.',
+        AUTO_CONFIG_SKIPPED_CONFIGURED:
+            'Automatic configuration skipped: this workspace is already configured.',
+        AUTO_CONFIG_PROMPT_FAILED: (detail: string) =>
+            `The activation prompt failed: ${detail}. Jaenvtix is still available from the Command Palette.`,
     },
     Choice: {
         YES: 'Yes',
-        ALWAYS: 'Always',
         NO: 'No',
         RELOAD_NOW: 'Reload Now',
+        INSTALL_AND_CONFIGURE: 'Install and Configure',
+        SHOW_EXTENSION: 'Show Extension',
         RESTART_LANGUAGE_SERVER: 'Restart Language Server',
         SHOW_LOGS: 'Show Logs',
     },

@@ -103,8 +103,27 @@ test/          # mirrors src/ 1:1; shared fixtures in test/fixtures/
 - **Idempotency.** Every file writer does change detection and returns
   `updated: false` on no-ops so re-runs don't bump mtimes or spam logs.
 - The state keys in `activation/autoConfigPrompt.ts`
-  (`jaenvtix.autoConfigPromptDismissed`, `jaenvtix.autoConfigAlways`) are a
+  (`jaenvtix.autoConfigPromptDismissed`, `jaenvtix.autoConfigGeneration`) are a
   persistence contract; renaming them re-prompts every existing user.
+  `autoConfigPromptDismissed` also has a legacy value shape (a bare `true`)
+  that `normalizeRecord` must keep reading.
+- **No silent path at activation.** Nothing is written to any workspace without
+  an answer for that workspace. Do not add a global opt-in: one existed
+  ("Always") and was removed, because it produced a state the user could
+  neither see nor escape, where a workspace with no language support was
+  neither configured nor offered the install.
+- **The activation prompt is triggered by project state, not by history.** A
+  project with a pom and no configuration gets asked, whatever was answered
+  before: a past "Yes" does not configure anything today, and anchoring on
+  "already answered" is what let workspaces go permanently silent while
+  genuinely broken. `'declined'` is the single exception and is permanent,
+  which is what keeps the rule from nagging.
+- **"Is it configured?" is answered from the recorded path list**
+  (`isWorkspaceConfigured`), never by scanning. Every successful run records the
+  `settings.json` of each resolved project; activation stats them. Scanning at
+  activation is the cost the `workspaceContains` fix exists to avoid.
+- Unrecognized persisted state always fails towards asking, never towards
+  silence; the user has no other way to reach the prompt.
 
 ## Architecture constraints
 

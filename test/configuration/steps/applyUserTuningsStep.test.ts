@@ -8,11 +8,14 @@ import {createInitialState} from '../../../src/core/types';
  * In-memory fake mirroring the vscode configuration split the step relies on:
  * `store` holds user-set values (surfaced via `inspect().globalValue`);
  * `registeredDefaults` holds extension-declared defaults (surfaced via `get`
- * when the user set nothing, exactly like the real API).
+ * when the user set nothing, exactly like the real API); `unregistered` lists
+ * keys whose owning extension is not installed, for which the real `update`
+ * rejects instead of writing.
  */
 function makeConfig(
     initial: Record<string, unknown> = {},
     registeredDefaults: Record<string, unknown> = {},
+    unregistered: string[] = [],
 ): {store: Record<string, unknown>; factory: () => UserConfig} {
     const store = {...initial};
     return {
@@ -20,7 +23,12 @@ function makeConfig(
         factory: () => ({
             get: (key: string) => key in store ? store[key] : registeredDefaults[key],
             inspect: (key: string) => key in store ? {globalValue: store[key]} : undefined,
-            update: async (key: string, value: unknown) => { store[key] = value; },
+            update: async (key: string, value: unknown) => {
+                if (unregistered.includes(key)) {
+                    throw new Error(`Unable to write to User Settings because ${key} is not a registered configuration.`);
+                }
+                store[key] = value;
+            },
         }),
     };
 }
@@ -104,5 +112,34 @@ describe('ApplyUserTuningsStep', () => {
         await step.run(createInitialState());
 
         assert.equal(store['java.debug.settings.hotCodeReplace'], 'auto');
+    });
+
+    it('keeps the remaining tunings and succeeds when a key is not registered', async () => {
+        // Test Runner for Java (vscjava.vscode-java-test) not installed, so
+        // `java.test.config` is unknown to VS Code and `update` rejects. Letting
+        // that reject would abort the pipeline before the five steps that follow
+        // this one, among them the workspace extension recommendations.
+        const {store, factory} = makeConfig({}, {}, ['java.test.config']);
+        const step = new ApplyUserTuningsStep(factory, 'win32');
+        const result = await step.run(createInitialState());
+
+        assert.equal(result.success, true);
+        assert.equal('java.test.config' in store, false);
+        assert.equal(store['java.debug.settings.hotCodeReplace'], 'auto');
+        assert.notEqual(store['java.maxConcurrentBuilds'], undefined);
+        assert.equal(store['java.dependency.packagePresentation'], 'hierarchical');
+        assert.equal(store['java.sources.organizeImports.staticStarThreshold'], 1);
+    });
+
+    it('still writes the tunings that come after an unregistered key', async () => {
+        const {store, factory} = makeConfig({}, {}, ['java.maxConcurrentBuilds']);
+        const step = new ApplyUserTuningsStep(factory, 'win32');
+        const result = await step.run(createInitialState());
+
+        assert.equal(result.success, true);
+        assert.equal('java.maxConcurrentBuilds' in store, false);
+        assert.equal(store['java.dependency.packagePresentation'], 'hierarchical');
+        assert.equal(store['java.sources.organizeImports.staticStarThreshold'], 1);
+        assert.notEqual(store['java.test.config'], undefined);
     });
 });

@@ -1,5 +1,7 @@
 import {applyUserJavaTunings} from '../../build/vsCodeSettingsWriter';
 import {ConfigurationStep, ConfigurationStepResult, JavaConfigurationState, StepResult} from '../../core/types';
+import {writeCooperatively} from '../../util/cooperativeWrite';
+import {Messages} from '../../util/message';
 
 // vscode.ConfigurationTarget.Global = 1; hardcoded so this module never imports
 // `vscode` and stays loadable under plain Node in unit tests.
@@ -38,6 +40,19 @@ function userSetValue(cfg: UserConfig, key: string): unknown {
 }
 
 /**
+ * Writes one tuning, isolating its failure from the remaining keys. The five
+ * tunings belong to four different extensions of the Java pack, so a partial
+ * install refuses some keys and accepts others (`java.test.config` is
+ * registered by vscjava.vscode-java-test). See `writeCooperatively`.
+ */
+async function writeTuning(cfg: UserConfig, key: string, value: unknown): Promise<void> {
+    await writeCooperatively(
+        () => cfg.update(key, value, CONFIG_TARGET_GLOBAL),
+        (detail) => Messages.Log.TUNING_SKIPPED(key, detail),
+    );
+}
+
+/**
  * Applies sensible Java defaults to User Settings on first run.
  *
  * Business rules:
@@ -49,6 +64,10 @@ function userSetValue(cfg: UserConfig, key: string): unknown {
  *   automatic build, so a user who disabled autobuild anywhere must not
  *   receive it.
  * - The `java.test.config` UTF-8 tuning is Windows-only.
+ * - Each tuning is written independently: a key VS Code refuses because no
+ *   installed extension registered it is logged and skipped, and the step
+ *   still succeeds. Failing here would abort the pipeline before the five
+ *   remaining steps, among them the extension recommendations and the doctor.
  * - The configuration accessor is injected by the orchestrator
  *   (`getDefaultStepGroups`) so this module never imports `vscode` and stays
  *   loadable under plain Node in unit tests.
@@ -81,7 +100,7 @@ export class ApplyUserTuningsStep implements ConfigurationStep {
         for (const key of TUNING_KEYS) {
             const value = desired[key];
             if (current[key] === undefined && value !== undefined) {
-                await cfg.update(key, value, CONFIG_TARGET_GLOBAL);
+                await writeTuning(cfg, key, value);
             }
         }
 

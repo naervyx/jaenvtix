@@ -23,12 +23,13 @@ alone whatever those extensions already get right.
 
 ### Java: Automatic Configuration
 
-Runs the whole pipeline. It also runs on its own the first time you answer Yes or Always to the
-activation prompt, which is the only thing Jaenvtix does before you agree to anything. The
-progress notification names the step it is on, including the wait for the Red Hat language server
-to finish loading.
+Runs the whole pipeline. It also runs on its own when you answer Yes to the activation prompt,
+which is the only thing Jaenvtix does before you agree to anything. When Java language support is
+missing the prompt offers to install it first and configures only once that succeeds. The progress
+notification names the step it is on, including the wait for the Red Hat language server to finish
+loading.
 
-![First run: the consent prompt, the named progress steps, and the Maven favorites the run seeds](docs/images/02-automatic-configuration.gif)
+![A first run: the named progress steps, and the Maven favorites it seeds](docs/images/02-automatic-configuration.gif)
 
 Running it again reuses everything already provisioned. Change detection means a re-run with
 nothing to do writes nothing, skips the language server wait, and finishes in seconds.
@@ -47,27 +48,32 @@ ignores the ones you already have, and installs only what you pick.
 
 ### Reset Auto-Configuration Preference
 
-Clears the Yes or No answer stored for this workspace and the global Always, so the activation
-prompt comes back the next time you open a workspace with a `pom.xml`.
-
-![Running the reset command and the notice confirming it](docs/images/05-reset-preference.gif)
+Clears the answer in every workspace at once, not only the one in front of you. It bumps a global
+generation counter that each answer is stamped with, so older answers stop counting and the prompt
+comes back the next time you open a workspace with a `pom.xml`.
 
 ## Quick start
 
 1. Install the extension, for example with `code --install-extension jaenvtix-<version>.vsix`.
 2. Open a workspace (single folder or multi-root) that contains at least one Maven project.
-3. Jaenvtix activates on `pom.xml` and asks once: Yes, Always, or No. Yes configures this
-   workspace. Always configures it now and in every future workspace with a `pom.xml`, without
-   asking again. No does nothing and remembers that answer for this workspace.
+3. Jaenvtix activates on `pom.xml` and asks: Yes or No. Yes configures this workspace. No does
+   nothing, now or later, for this workspace.
+4. Without Java language support installed the question becomes Install and Configure, or No.
+   Jaenvtix offers the Extension Pack for Java first and configures only once it is there, because
+   everything it writes is read by those extensions.
 
-Later sessions follow the answer you gave. `Jaenvtix: Reset Auto-Configuration Preference` clears
-it and brings the prompt back. You can run `Jaenvtix: Java: Automatic Configuration` manually at
-any time, and `Jaenvtix: Install Recommended Extensions` if you are new to Java on VS Code.
+Once a workspace is configured, reopening it is silent. If the configuration goes missing, say
+because `.vscode` was deleted or never committed, the question comes back on the next open. A No is
+respected either way. `Jaenvtix: Reset Auto-Configuration Preference` clears the answers everywhere
+and asks again from scratch. You can run `Jaenvtix: Java: Automatic Configuration` manually at any
+time, and `Jaenvtix: Install Recommended Extensions` if you are new to Java on VS Code.
 
 ## What it will and will not touch
 
 Jaenvtix asks before its first run in a workspace and never edits your User Settings until you
-answer. Every writer merges rather than overwrites: entries you wrote in `settings.json`,
+answer. It installs nothing without being asked and configures nothing it cannot make work: when
+Java language support is missing it offers to install it and stops if that does not happen, rather
+than reporting success over a workspace where nothing works. Every writer merges rather than overwrites: entries you wrote in `settings.json`,
 `~/.m2/toolchains.xml` and `java.configuration.runtimes` survive verbatim, and the `default` flag
 on a runtime is yours to set. Broken runtime paths are repaired where possible (a path pointing
 at `bin/` instead of the JDK root, say) and are removed only when repair fails and the JDK is
@@ -261,15 +267,42 @@ better.
 
 ## Activation
 
-The activation event is `workspaceContains:**/pom.xml`, so the extension stays out of memory
-until there is something to do. Jaenvtix then looks for `pom.xml` files in each workspace folder
-and its immediate children, and configures each project it finds independently.
+Two activation events are declared, `workspaceContains:pom.xml` and
+`workspaceContains:**/pom.xml`, and both on purpose. The host resolves the literal name with a
+direct existence check on each workspace root, but sends the glob to the search service under a
+7 second cancel budget that also honours `files.exclude`, `search.exclude` and `.gitignore`. With
+only the glob, activation in a large or deeply nested repository is a race the extension can lose.
 
 The prompt appears at most once per extension host lifetime, even in a multi-root workspace with
-several `pom.xml` files that fire the activation event repeatedly. Yes and No are remembered per
-workspace in `workspaceState`; Always is remembered in `globalState` and overrides an earlier
-per-workspace No. Closing the prompt with the X persists nothing, so you get asked again next
-session. `Jaenvtix: Reset Auto-Configuration Preference` clears both layers.
+several `pom.xml` files firing the event repeatedly.
+
+It follows the state of the project, not your answer history. A workspace with a `pom.xml` and no
+Jaenvtix configuration gets asked even if you answered before, because a past Yes does not
+configure anything today: delete `.vscode` and the question comes back. No is the exception and is
+permanent for that workspace, configured or not, which is what stops the rule from asking on every
+open of a project that deliberately keeps `.vscode` out of the repository. Running the command from
+the Command Palette still works if you change your mind, and counts as a Yes.
+
+Whether a workspace counts as configured is answered from the `settings.json` files the last
+successful run wrote, one per resolved project, recorded in `workspaceState`. A single missing file
+makes the whole workspace unconfigured, which is what covers a monorepo that lost one module. A
+workspace with no recorded list falls back to looking for a `jaenvtix.*` key in each folder root's
+`settings.json`.
+
+There is no global preference and no silent mode: every workspace answers for itself.
+`Jaenvtix: Reset Auto-Configuration Preference` clears every workspace at once by bumping a global
+generation counter that each answer carries, so older answers stop counting. Closing the prompt
+with the X persists nothing, and neither does a run that fails or stops early, since nothing was
+configured.
+
+While the Red Hat Java extension is missing the workspace is offered Install and Configure, or No,
+rather than being skipped quietly. `Jaenvtix: Java: Automatic Configuration` from the palette
+configures anyway, for anyone who wants the provisioning without the editor integration.
+
+One known limit: a module added to an already-configured monorepo is not detected, because every
+recorded file still exists. Run the command from the palette after adding one. Detecting it would
+mean scanning for `pom.xml` on every activation, which is the cost the activation events above
+exist to avoid.
 
 ## Local layout
 
