@@ -47,7 +47,7 @@ async function extractArchive(result: DownloadResult, targetPath: string): Promi
  * Defensive fallback for Linux / macOS: after extraction, ensure every file
  * under `<root>/bin` is executable. Covers edge cases where the archive did
  * not carry mode bits (e.g. a zip extracted on Unix) or where an entry's
- * mode was zero. Best-effort — a missing directory or a single chmod failure
+ * mode was zero. Best-effort: a missing directory or a single chmod failure
  * must not abort the configuration pipeline.
  */
 export async function ensureBinDirectoryExecutable(root: string, platform: PlatformType): Promise<void> {
@@ -183,7 +183,7 @@ export class ProcessDownloadsStep implements ConfigurationStep {
             }
 
             // Point downstream consumers (settings, toolchains, wrappers) at
-            // the directory that actually contains bin/java — on macOS that is
+            // the directory that actually contains bin/java; on macOS that is
             // <slot>/Contents/Home, not the cache slot itself.
             const slotHome = paths.jdkHome;
             paths.jdkHome = resolvedJdkHome;
@@ -205,7 +205,7 @@ export class ProcessDownloadsStep implements ConfigurationStep {
             // When `state.mavenDownload` is undefined the schedule step
             // decided no Maven download was needed (every project ships its
             // own `mvnw`). In that case, missing Maven in the cache is
-            // expected — not a failure.
+            // expected, not a failure.
             if (state.mavenDownload && !hasMavenInstallation(paths.toolBin, state.platform)) {
                 return StepResult.error(Messages.Error.MAVEN_EXTRACTION_FAILED(javaVersion));
             }

@@ -60,7 +60,7 @@ const UPSTREAM_EXTENSIONS = [
 /**
  * Extracts configuration property IDs and command IDs from an extension
  * manifest. `contributes.configuration` may be a single section object or an
- * array of sections — both shapes exist across the tracked extensions.
+ * array of sections; both shapes exist across the tracked extensions.
  */
 function extractSchema(manifest) {
     const settings = new Set();

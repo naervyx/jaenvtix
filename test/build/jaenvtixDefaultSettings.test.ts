@@ -21,7 +21,7 @@ function readPackageJaenvtixSettings(): Record<string, {default?: unknown}> {
     );
 }
 
-describe('JAENVTIX_DEFAULT_SETTINGS — drift guard against package.json', () => {
+describe('JAENVTIX_DEFAULT_SETTINGS: drift guard against package.json', () => {
     const pkgSettings = readPackageJaenvtixSettings();
 
     it('seeds exactly the jaenvtix.* settings contributed in package.json', () => {

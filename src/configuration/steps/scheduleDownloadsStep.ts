@@ -55,7 +55,7 @@ export interface ScheduleDownloadsDeps {
  *   because the user may still be able to configure the project manually.
  * - Security patch refresh: before reusing a cached Jaenvtix JDK, a
  *   rate-limited (24h) check against the vendor's API may delete the slot so
- *   a newer patch is downloaded — see `maybeInvalidateStaleJdk`.
+ *   a newer patch is downloaded; see `maybeInvalidateStaleJdk`.
  * - Accepts `deps` for dependency injection to allow unit testing without network access.
  */
 export class ScheduleDownloadsStep implements ConfigurationStep {
@@ -74,7 +74,7 @@ export class ScheduleDownloadsStep implements ConfigurationStep {
         // When every project either ships its own `mvnw` or pins a Maven
         // version (provisioned into its own isolated slot below), the shared
         // Jaenvtix-latest Maven is never invoked. Avoid downloading and
-        // extracting it in that case — the wrapper script generation step
+        // extracting it in that case; the wrapper script generation step
         // also short-circuits, and the settings step already leaves
         // `maven.executable.path` unset for mvnw projects.
         const projectsWithVersion = [...state.projectVersionMap.values()].flat();
@@ -158,7 +158,7 @@ export class ScheduleDownloadsStep implements ConfigurationStep {
      * - Rate-limited: runs at most once per 24h per slot (`checkedAt` stamp).
      * - Slots without metadata (downloaded before version tracking existed)
      *   are bootstrapped from the JDK's own `release` file; when even that
-     *   fails, the slot is left alone — never delete what we can't identify.
+     *   fails, the slot is left alone; never delete what we can't identify.
      * - A failed/unsupported "latest" lookup only re-stamps `checkedAt`.
      * - Deleting the slot also removes the co-located Maven (`mvn-custom/`);
      *   the scheduling loop re-downloads it together with the JDK.

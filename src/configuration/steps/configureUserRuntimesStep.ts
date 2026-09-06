@@ -36,7 +36,7 @@ export interface ConfigureUserRuntimesDeps {
  * Jaenvtix has staged in this run, so the Red Hat Language Server can resolve
  * each Maven project to the correct execution environment automatically.
  *
- * The merge with whatever the user already had is non-destructive — see
+ * The merge with whatever the user already had is non-destructive; see
  * `mergeUserRuntimes` for the exact rules. The intent is cooperation: feed
  * the official extension the data it needs, never overwrite the user's own
  * choices.

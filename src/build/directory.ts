@@ -99,10 +99,11 @@ export function buildVsCodeExtensionsPath(projectPath: string): string {
  * installed at `jdkHome`.
  *
  * Business rules:
- * - Plain layout (`<jdkHome>/bin/java[.exe]`) — Windows/Linux archives and
- *   paths that already point at a Java home — resolves to `jdkHome` itself.
- * - macOS bundle layout (`<jdkHome>/Contents/Home/bin/java`) — what a macOS
- *   JDK `.tar.gz` produces when extracted into the Jaenvtix cache slot —
+ * - Plain layout (`<jdkHome>/bin/java[.exe]`), used by Windows/Linux archives
+ *   and by paths that already point at a Java home, resolves to `jdkHome`
+ *   itself.
+ * - macOS bundle layout (`<jdkHome>/Contents/Home/bin/java`), what a macOS
+ *   JDK `.tar.gz` produces when extracted into the Jaenvtix cache slot,
  *   resolves to `<jdkHome>/Contents/Home`. Only probed on `darwin`; archives
  *   for other platforms never ship the bundle structure.
  * - Returns `undefined` when neither location contains the java binary,

@@ -106,7 +106,7 @@ export interface JavaConfigurationState {
      * Absolute paths of projects whose `.vscode/settings.json` content
      * actually changed in this run. Populated by `ConfigureSettingsStep`;
      * gates the Language Server refresh and verification steps so an
-     * idempotent re-run never waits for — or talks to — the server.
+     * idempotent re-run never waits for or talks to the server.
      */
     changedProjects: Set<string>;
     /**
@@ -131,7 +131,7 @@ export interface JavaConfigurationState {
     /**
      * True when `VerifyConfigurationStep` already surfaced a mismatch toast
      * in this run. That toast carries its own restart action, so the generic
-     * "JDK changed — restart?" toast is suppressed to avoid a double ask.
+     * "JDK changed, restart?" toast is suppressed to avoid a double ask.
      */
     mismatchNotified: boolean;
     /**
@@ -152,10 +152,10 @@ export interface JavaConfigurationState {
 /**
  * Outcome of a single configuration step.
  *
- * - `success: true` — the step completed without issues; the pipeline continues.
- * - `success: false, kind: 'warning'` — the step completed but with a non-fatal
+ * - `success: true`: the step completed without issues; the pipeline continues.
+ * - `success: false, kind: 'warning'`: the step completed but with a non-fatal
  *   issue that should be surfaced to the user (e.g. a missing optional feature).
- * - `success: false, kind: 'error'` — the step failed; the pipeline is aborted.
+ * - `success: false, kind: 'error'`: the step failed; the pipeline is aborted.
  */
 export interface ConfigurationStepResult {
     success: boolean;

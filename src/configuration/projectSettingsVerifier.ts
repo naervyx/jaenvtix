@@ -17,10 +17,10 @@ export interface ExpectedProjectSetup {
 /**
  * Result of checking one project against what the Language Server resolved.
  *
- * - `ok` — the resolved compliance matches the pom's Java version.
- * - `mismatch` — the Language Server compiled the project with a different
+ * - `ok`: the resolved compliance matches the pom's Java version.
+ * - `mismatch`: the Language Server compiled the project with a different
  *   Java level than Jaenvtix provisioned; the user should re-run or inspect.
- * - `unknown` — the setting could not be read (extension missing, LightWeight
+ * - `unknown`: the setting could not be read (extension missing, LightWeight
  *   mode, or project not imported yet). Not an error: verification is
  *   best-effort and must never fail the pipeline.
  */
@@ -57,7 +57,7 @@ export function parseJdtComplianceMajor(compliance: string): number {
  *   false alarm.
  * - A missing/unreadable compliance value yields `unknown`, never `mismatch`:
  *   the server may still be importing or running in LightWeight mode.
- * - An unparseable expected version (pom quirk) also yields `unknown` —
+ * - An unparseable expected version (pom quirk) also yields `unknown`;
  *   there is no reliable expectation to verify against.
  */
 export function verifyProjectCompliance(

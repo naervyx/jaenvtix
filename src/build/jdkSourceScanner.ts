@@ -57,7 +57,7 @@ function jdkHomesUnder(dir: string, javacName: string): string[] {
  * - Both layouts are covered: `<root>/<pkg>/tools/...` (default lib layout)
  *   and `<root>/<pkg>/...` directly (`ChocolateyToolsLocation` layout).
  * - Returns an empty list off Windows or when the root does not exist;
- *   scan failures are swallowed — discovery must never block the pipeline.
+ *   scan failures are swallowed; discovery must never block the pipeline.
  */
 export function scanChocolatey(
     root: string | null = getChocolateyToolsRoot(),
@@ -111,7 +111,7 @@ function homebrewJdkHome(formulaDir: string): string | null {
  *   `Cellar/openjdk.../<version>` directories (every installed version) are
  *   both scanned; the macOS bundle layout is resolved in either case.
  * - Returns an empty list on platforms without Homebrew prefixes; scan
- *   failures are swallowed — discovery must never block the pipeline.
+ *   failures are swallowed; discovery must never block the pipeline.
  */
 export function scanHomebrew(
     prefixes: readonly string[] = getHomebrewPrefixes(),

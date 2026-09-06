@@ -71,7 +71,7 @@ export class ConfigureSettingsStep implements ConfigurationStep {
             };
 
             // Seed the `jaenvtix.*` defaults only in the workspace-root
-            // project's settings.json — that is the file VS Code (and Jaenvtix)
+            // project's settings.json; that is the file VS Code (and Jaenvtix)
             // actually read the extension's own config from; writing them into
             // every nested module would duplicate noise that is never read.
             const documentJaenvtixSettings = projectContext.projectPath === projectContext.workspace;

@@ -7,7 +7,7 @@ import {fixPath} from '../../src/build/runtimePathFix';
 import {createTempDir, removeTempDir} from '../fixtures/tempDir';
 
 // Helper: create a fake JDK home by placing a binary under <dir>/bin/<name>.
-// Works cross-platform — the file content is irrelevant; existsSync is what matters.
+// Works cross-platform: the file content is irrelevant; existsSync is what matters.
 async function mkFakeJdk(dir: string, binaryName = 'javac'): Promise<string> {
     const binDir = join(dir, 'bin');
     await fs.mkdir(binDir, {recursive: true});
@@ -55,7 +55,7 @@ describe('fixPath', () => {
         const jdkHome = join(root, 'jdk-17');
         await mkFakeJdk(jdkHome);
 
-        // 3 levels deep — outside the search bound
+        // 3 levels deep, outside the search bound
         const result = fixPath(join(jdkHome, 'bin', 'javac', 'extra'), 'linux');
 
         assert.equal(result, undefined);
@@ -84,7 +84,7 @@ describe('fixPath', () => {
         const jdkHome = join(root, 'jdk-17');
         await mkFakeJdk(jdkHome, 'javac.exe');
 
-        // linux looks for 'javac', not 'javac.exe' — should fail to fix
+        // linux looks for 'javac', not 'javac.exe', so it should fail to fix
         const result = fixPath(join(jdkHome, 'bin'), 'linux');
 
         assert.equal(result, undefined);
@@ -109,7 +109,7 @@ describe('fixPath', () => {
         const home = join(bundle, 'Contents', 'Home');
         await mkFakeJdk(home, 'javac');
 
-        // User pointed to Contents/ — fixPath checks <path>/Home = Contents/Home ✓
+        // User pointed to Contents/; fixPath checks <path>/Home = Contents/Home ✓
         const result = fixPath(join(bundle, 'Contents'), 'darwin');
 
         assert.equal(result, home);
@@ -132,7 +132,7 @@ describe('fixPath', () => {
         const home = join(bundle, 'Contents', 'Home');
         await mkFakeJdk(home, 'javac');
 
-        // Linux — macOS branches are skipped entirely
+        // Linux: macOS branches are skipped entirely
         const result = fixPath(bundle, 'linux');
 
         assert.equal(result, undefined);

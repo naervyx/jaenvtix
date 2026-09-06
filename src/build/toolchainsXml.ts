@@ -20,8 +20,8 @@ const EMPTY_TOOLCHAINS_XML = [
  * Extracts the JDK vendor name from the contents of a JDK `release` file.
  *
  * The `release` file ships next to the JDK binaries (e.g. `<jdk-home>/release`)
- * and exposes shell-style `KEY="VALUE"` entries. We only need the implementor —
- * the first word, lowercased — which is enough for Maven's `<vendor>` field
+ * and exposes shell-style `KEY="VALUE"` entries. We only need the implementor,
+ * the first word lowercased, which is enough for Maven's `<vendor>` field
  * (Maven treats it as opaque metadata, but the convention is `amazon`,
  * `oracle`, `eclipse`, `azul`, etc.).
  *
@@ -74,7 +74,7 @@ function buildToolchainBlock(entry: ToolchainEntry): string {
 /**
  * Determines whether the given XML already references a `<toolchain>` for the
  * supplied `jdkHome`. We use a substring check on the escaped path because
- * `toolchains.xml` schema mandates a `<jdkHome>` per toolchain — there is no
+ * `toolchains.xml` schema mandates a `<jdkHome>` per toolchain; there is no
  * other place a path like that would legitimately appear.
  */
 function xmlContainsJdkHome(xml: string, jdkHome: string): boolean {
@@ -91,9 +91,9 @@ function xmlContainsJdkHome(xml: string, jdkHome: string): boolean {
  *   `<toolchains>` document.
  * - For each candidate, the function inserts a new `<toolchain>` block ONLY
  *   when no existing toolchain already references the same `<jdkHome>`. Path
- *   match (not `vendor`/`version`) is the de-duplication key — a single JDK
+ *   match (not `vendor`/`version`) is the de-duplication key; a single JDK
  *   should produce a single toolchain entry.
- * - Existing toolchains are preserved verbatim — Jaenvtix never edits or
+ * - Existing toolchains are preserved verbatim; Jaenvtix never edits or
  *   removes pre-existing entries.
  * - Insertion happens immediately before the closing `</toolchains>` tag, so
  *   ordering of pre-existing entries is preserved.
@@ -106,7 +106,7 @@ export function mergeToolchainsXml(
 
     const closingIndex = baseXml.lastIndexOf('</toolchains>');
     if (closingIndex < 0) {
-        // Existing file is malformed or missing the closing tag — start fresh
+        // Existing file is malformed or missing the closing tag; start fresh
         // rather than try to surgery something we don't understand. This is
         // the safest behaviour: a corrupt toolchains.xml shouldn't block
         // configuration and the user can always inspect git history.

@@ -176,7 +176,7 @@ describe('ConfigureSettingsStep', () => {
         assert.equal('maven.executable.path' in settings, false);
         assert.equal('maven.executable.preferMavenWrapper' in settings, false);
         assert.equal('maven.terminal.customEnv' in settings, false);
-        // terminal.integrated.env.* remains — it covers the Maven Explorer terminal
+        // terminal.integrated.env.* remains; it covers the Maven Explorer terminal
         // via VS Code core env injection.
         assert.ok(settings['terminal.integrated.env.linux']);
     });

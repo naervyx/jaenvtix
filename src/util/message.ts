@@ -5,27 +5,27 @@ const UNKNOWN_ERROR_DETAIL = 'Unknown error';
  * here prevents duplicated literals and makes it easy to review wording.
  *
  * Structure:
- * - `Info` — informational messages shown in VS Code notification toasts.
- * - `Warning` — non-fatal issues surfaced as warning notifications.
- * - `Error` — error messages for failed operations.
- * - `Progress` — labels displayed in the progress notification during the
+ * - `Info`: informational messages shown in VS Code notification toasts.
+ * - `Warning`: non-fatal issues surfaced as warning notifications.
+ * - `Error`: error messages for failed operations.
+ * - `Progress`: labels displayed in the progress notification during the
  *   configuration pipeline (one label per step).
- * - `Log` — structured messages written to the output channel.
- * - `Choice` — button labels for notification prompts.
+ * - `Log`: structured messages written to the output channel.
+ * - `Choice`: button labels for notification prompts.
  */
 export const Messages = {
     Info: {
         START_CONFIG: 'This project looks like a Java project. Do you want to start automatic configuration?',
         START_CONFIG_WITH_EXTENSIONS:
             'This project looks like a Java project, but Java language support is not installed. Jaenvtix can install the Extension Pack for Java and configure the workspace.',
-        CONFIGURATION_COMPLETED: 'Java and Maven environment configuration completed successfully!',
+        CONFIGURATION_COMPLETED: 'Java and Maven environment configuration completed.',
         AUTO_CONFIG_PREFERENCE_RESET:
       'Jaenvtix auto-configuration preference reset for every workspace. Reload the window (or open another workspace) to see the prompt again.',
         ALL_SELECTED_EXTENSIONS_INSTALLED: 'All selected extensions are already installed.',
         EXTENSIONS_INSTALLED: (count: number) =>
             `${count} extension${count === 1 ? '' : 's'} installed. Reload the window to activate ${count === 1 ? 'it' : 'them'}.`,
         LS_JDK_CHANGED_RESTART:
-            'Jaenvtix updated the JDK used by the Java Language Server (Red Hat). Restart the Language Server to apply it — no window reload needed.',
+            'Jaenvtix updated the JDK used by the Java Language Server (Red Hat). Restart the Language Server to apply it. No window reload needed.',
         PROJECT_VERIFICATION_MISMATCH: (folder: string, actualCompliance: string, expectedMajor: number) =>
             `Jaenvtix: "${folder}" is still compiling at Java ${actualCompliance}, but its pom requests Java ${expectedMajor}. The Java Language Server (Red Hat) applies the new JDK after a restart.`,
         PROJECT_VERIFICATION_MISMATCH_MANY: (count: number) =>
@@ -72,7 +72,7 @@ export const Messages = {
         EXTENSION_INSTALL_FAILED: (name: string, detail: string) => `Failed to install ${name}: ${detail}`,
     },
     Picker: {
-        RECOMMENDED_TITLE: 'Jaenvtix — Recommended Java Extensions',
+        RECOMMENDED_TITLE: 'Jaenvtix: Recommended Java Extensions',
         RECOMMENDED_PLACEHOLDER: 'Select extensions to install (already installed ones are ignored)',
         ALREADY_INSTALLED: '(already installed)',
     },
@@ -95,7 +95,7 @@ export const Messages = {
             WriteToolchains: 'Write ~/.m2/toolchains.xml',
             ConfigureSettings: 'Configure Visual Studio Code settings',
             ConfigureUserRuntimes: 'Register JDKs in Visual Studio Code user settings',
-            ApplyUserTunings: 'Apply sensible Java defaults to user settings',
+            ApplyUserTunings: 'Apply Java defaults to user settings',
             ConfigureOptionalExtensions: 'Configure companion extensions',
             ConfigureLaunch: 'Configure Visual Studio Code launch configuration',
             RecommendExtensions: 'Write workspace extension recommendations',
@@ -156,7 +156,7 @@ export const Messages = {
         VERIFY_BACKLOG_RESUMED: (count: number) =>
             `Re-verifying ${count} project${count === 1 ? '' : 's'} flagged with a mismatch in the previous run.`,
         VERIFY_PROJECT_NO_SOURCES: (projectPath: string) =>
-            `Project ${projectPath}: verification skipped (no src/main/java — aggregator or non-source project).`,
+            `Project ${projectPath}: verification skipped (no src/main/java; aggregator or non-source project).`,
         VERIFY_PROJECT_OK: (projectPath: string, expectedMajor: number) =>
             `Project ${projectPath}: Language Server resolved Java ${expectedMajor} as expected.`,
         VERIFY_PROJECT_MISMATCH: (projectPath: string, expectedMajor: number, actualCompliance: string) =>

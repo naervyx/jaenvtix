@@ -14,7 +14,7 @@ export interface RecommendedExtension {
 
 /**
  * Canonical list of extensions a Java/Maven workspace needs to be productive.
- * Jaenvtix provisions settings these extensions consume — it never bundles or
+ * Jaenvtix provisions settings these extensions consume; it never bundles or
  * force-installs them; this catalog only feeds the opt-in command.
  */
 export const RECOMMENDED_EXTENSIONS: readonly RecommendedExtension[] = [
@@ -22,7 +22,7 @@ export const RECOMMENDED_EXTENSIONS: readonly RecommendedExtension[] = [
         id: 'vscjava.vscode-java-pack',
         name: 'Extension Pack for Java',
         description: 'Official Microsoft/Red Hat pack with the Java language server, Maven, debugger, and test runner',
-        reason: 'Essential — Jaenvtix provisions the settings these extensions consume',
+        reason: 'Essential: Jaenvtix provisions the settings these extensions consume',
     },
     {
         id: 'vmware.vscode-boot-dev-pack',
@@ -58,7 +58,7 @@ export interface RecommendedExtensionPickItem {
  * Business rules:
  * - Already-installed extensions are flagged "(already installed)" and NOT
  *   pre-picked, so confirming the default selection never reinstalls.
- * - Missing extensions are pre-picked — the common case (fresh install)
+ * - Missing extensions are pre-picked; the common case (fresh install)
  *   becomes a single confirmation.
  */
 export function buildRecommendedExtensionPickItems(

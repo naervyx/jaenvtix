@@ -14,12 +14,12 @@ const JAENVTIX_SETTING_PREFIX = 'jaenvtix.';
  * Answers "is this workspace still configured?" for the activation decision.
  *
  * Business rules:
- * - **A recorded path list is the exact answer.** A successful run records the
+ * - A recorded path list is the exact answer. A successful run records the
  *   `settings.json` of every resolved project, so one missing file means the
  *   workspace lost its configuration and the question is live again. This is a
  *   handful of `stat` calls, never a directory scan: scanning at activation is
  *   the cost the `workspaceContains` fix exists to avoid.
- * - **Without a list, probe each workspace folder root.** Records written
+ * - Without a list, probe each workspace folder root. Records written
  *   before the list existed have no paths, and a folder configured inside a
  *   multi-root workspace has no record at all when opened on its own, because
  *   the host keys `workspaceState` to the `.code-workspace` file. Probing for a

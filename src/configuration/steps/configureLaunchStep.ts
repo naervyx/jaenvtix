@@ -26,7 +26,7 @@ export interface ConfigureLaunchDeps {
  *   `pom.xml` first (Spring Boot `<start-class>` / `<mainClass>`) and falls
  *   back to scanning `src/main/java` for a `main` method.
  * - Records the Spring Boot detection on each `ProjectContext` and on
- *   `state.springBootProjectDetected` — this step already pays the resolution
+ *   `state.springBootProjectDetected`; this step already pays the resolution
  *   cost, so later steps (Maven favorites, extension recommendations) reuse
  *   the result instead of re-scanning sources. It therefore MUST run before
  *   `ConfigureSettingsStep` in the pipeline.

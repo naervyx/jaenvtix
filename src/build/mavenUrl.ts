@@ -22,7 +22,7 @@ const MAVEN_DOWNLOAD_PAGE = 'https://maven.apache.org/download.cgi';
 /**
  * Builds the distribution for an exact Maven version pinned by a project's
  * pom. Apache's archive hosts every release at a deterministic URL, so no
- * page scraping or probing is needed — a wrong version simply fails the
+ * page scraping or probing is needed; a wrong version fails the
  * download, which the pipeline already surfaces.
  */
 export function buildPinnedMavenDistribution(version: string, platform: PlatformType): MavenDistribution {
@@ -116,7 +116,7 @@ function parseDownloadLinks(html: string): MavenDownloadInfo | null {
  * - Probes the resolved URL for accessibility before returning; returns `null`
  *   if the URL is unreachable.
  * - Returns `null` on any failure: fetch error, page with no recognizable links,
- *   or inaccessible URL — the caller treats this as a terminal warning.
+ *   or inaccessible URL; the caller treats this as a terminal warning.
  * - Accepts `deps` for dependency injection (custom fetch or probe function)
  *   to keep the function unit-testable without network access.
  */

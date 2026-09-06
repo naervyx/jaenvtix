@@ -8,7 +8,7 @@ import {buildMavenBinPath, buildMavenInstallationPath} from '../../build/directo
 /**
  * Returns the mvnw status for `project` from the cache populated by
  * `ResolveProjectsStep`. Falls back to a live filesystem check when the
- * cache entry is missing — defensive guard, should not occur in normal flow.
+ * cache entry is missing; defensive guard, should not occur in normal flow.
  */
 function resolveHasMvnw(state: JavaConfigurationState, project: string): boolean {
     const cached = state.projectsHasMvnw.get(project);
@@ -16,7 +16,7 @@ function resolveHasMvnw(state: JavaConfigurationState, project: string): boolean
         return cached;
     }
     // Fallback: detect on-demand if for some reason the resolution step
-    // didn't populate this entry (defensive — should not normally happen).
+    // didn't populate this entry (defensive; should not normally happen).
     return detectMavenWrapper(project);
 }
 
@@ -61,7 +61,7 @@ function resolveWorkspaceRoot(projectPath: string, workspaceFolders: string[]): 
  *   probe is used defensively if the cache entry is missing.
  * - A project that pins a Maven version (and does not ship `mvnw`) gets its
  *   `toolHome`/`toolBin` pointed at the isolated `mvn-<version>` slot instead
- *   of the shared `mvn-custom` — this is what makes the per-project Maven
+ *   of the shared `mvn-custom`; this is what makes the per-project Maven
  *   isolation reach `settings.json` and the terminal env.
  */
 export class BuildProjectContextsStep implements ConfigurationStep {

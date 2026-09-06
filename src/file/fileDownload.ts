@@ -73,7 +73,7 @@ function isRedirect(statusCode: number): boolean {
  *
  * Everything else fails fast: `ECONNREFUSED`/`ENOTFOUND` mean the server or
  * DNS is genuinely unavailable, and remaining 4xx mean the URL or permission
- * is wrong — retrying cannot help.
+ * is wrong; retrying cannot help.
  */
 export function isTransientDownloadFailure(result: DownloadResult): boolean {
     if (result.success) {

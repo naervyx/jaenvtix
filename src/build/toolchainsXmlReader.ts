@@ -8,7 +8,7 @@ import {Messages} from '../util/message';
 /**
  * One `<toolchain type="jdk">` entry discovered in the user's
  * `~/.m2/toolchains.xml`. Unlike the writer's `ToolchainEntry`, version and
- * vendor are optional — hand-authored files often carry only `<jdkHome>`.
+ * vendor are optional; hand-authored files often carry only `<jdkHome>`.
  */
 export interface DiscoveredToolchainJdk {
     jdkHome: string;
@@ -22,8 +22,8 @@ export interface DiscoveredToolchainJdk {
  * Business rules:
  * - Only toolchains with `<type>jdk</type>` qualify; other types (e.g.
  *   `maven`) are user configuration for other plugins and are ignored.
- * - A toolchain without `<jdkHome>` is skipped — there is nothing to detect.
- * - Tolerant of malformed XML: incomplete blocks simply produce no entries.
+ * - A toolchain without `<jdkHome>` is skipped; there is nothing to detect.
+ * - Tolerant of malformed XML: incomplete blocks produce no entries.
  */
 export function parseToolchainsXml(xml: string): DiscoveredToolchainJdk[] {
     const entries: DiscoveredToolchainJdk[] = [];

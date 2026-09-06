@@ -49,8 +49,8 @@ export function writeVersionInfo(jdkHome: string, info: VersionInfo): void {
     try {
         writeFileSync(getVersionFilePath(jdkHome), JSON.stringify(info, null, 2), 'utf-8');
     } catch {
-        // A read-only cache dir must not break the pipeline; the check simply
-        // repeats next run.
+        // A read-only cache dir must not break the pipeline; the check repeats
+        // next run.
     }
 }
 
@@ -114,7 +114,7 @@ function vendorFromImplementor(implementor: string): JdkVendor | null {
  * - `JAVA_RUNTIME_VERSION` (full, e.g. `21.0.5+11-LTS`) is preferred over
  *   `JAVA_VERSION` (no build number).
  * - Returns `null` when the release file is missing/unreadable or the
- *   implementor maps to no known vendor — callers must then skip the update
+ *   implementor maps to no known vendor; callers must then skip the update
  *   check rather than guess.
  */
 export function buildVersionInfoFromDisk(jdkHome: string, checkedAt: number = Date.now()): VersionInfo | null {

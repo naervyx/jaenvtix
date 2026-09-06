@@ -4,7 +4,7 @@ import {Messages} from '../../util/message';
 import {getArchitecture, getPlatform, isArchitectureSupported, isPlatformSupported} from '../../core/system';
 import {getMavenDistribution, MavenDistribution} from '../../build/mavenUrl';
 
-// Structural shape — matches vscode.WorkspaceFolder at runtime without a
+// Structural shape: matches vscode.WorkspaceFolder at runtime without a
 // runtime import on the `vscode` package, so this step (and its tests) load
 // cleanly under plain Node / tsx outside of the VS Code extension host.
 interface WorkspaceFolderLike {

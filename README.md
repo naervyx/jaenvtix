@@ -1,303 +1,212 @@
 # Jaenvtix
 
-[![License: EPL 2.0](https://img.shields.io/badge/license-EPL%202.0-blue?style=for-the-badge)](LICENSE.md)
+[![Marketplace](https://vsmarketplacebadges.dev/version-short/naervyx.jaenvtix.svg?style=flat-square&label=Marketplace&color=blue)](https://marketplace.visualstudio.com/items?itemName=naervyx.jaenvtix)
+[![Installs](https://vsmarketplacebadges.dev/installs-short/naervyx.jaenvtix.svg?style=flat-square&label=installs&color=blue)](https://marketplace.visualstudio.com/items?itemName=naervyx.jaenvtix)
+[![Open VSX](https://img.shields.io/open-vsx/v/Naervyx/jaenvtix?style=flat-square&label=Open%20VSX&color=blue)](https://open-vsx.org/extension/Naervyx/jaenvtix)
+[![Open VSX downloads](https://img.shields.io/open-vsx/dt/Naervyx/jaenvtix?style=flat-square&label=downloads&color=blue)](https://open-vsx.org/extension/Naervyx/jaenvtix)
+[![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.100-blue?style=flat-square)](https://code.visualstudio.com/)
+[![License: EPL 2.0](https://img.shields.io/badge/license-EPL%202.0-blue?style=flat-square)](LICENSE.md)
 
-**Jaenvtix — the Maven monorepo provisioner that respects your workspace.**
-Multi-module, multi-root, heterogeneous `mvnw`, multi-vendor JDK — working out of the box with
-explicit consent, non-destructive merges, and security-aware JDK patch updates.
+Jaenvtix configures Java and Maven workspaces in VS Code. It reads every `pom.xml` it finds,
+resolves the Java version each project needs, reuses a JDK you already have installed (or
+downloads a matching one), and writes that project's `.vscode/settings.json` so the project is
+ready to build. If you move between services that target different Java versions, including
+across multi-root workspaces, you stop editing `JAVA_HOME` by hand.
 
-Jaenvtix inspects every Maven project in your workspace, resolves the required Java version from
-`pom.xml`, **reuses an already-installed JDK when possible** (otherwise downloads a matching one),
-and wires each project's `.vscode/settings.json` so it is ready to build — no more manual
-`JAVA_HOME` juggling when you jump between services that target different Java versions, even
-inside multi-root workspaces.
+Jaenvtix is a provisioner, not a language server. It fills in the settings the official Red Hat
+and Microsoft Java extensions read, defers to a project's `mvnw` when there is one, and leaves
+alone whatever those extensions already get right.
 
-Designed to **cooperate** with the official Java extensions (Red Hat / Microsoft) instead of
-replacing them: Jaenvtix populates the settings those extensions read, respects each project's
-`mvnw` when present, and yields ownership when the ecosystem already does the right thing.
+## The three commands
 
----
+![The three Jaenvtix commands in the Command Palette](docs/images/01-command-palette.png)
 
-## What makes Jaenvtix different
+### Java: Automatic Configuration
 
-### 🤝 Cooperation & respect (philosophy)
+Runs the whole pipeline. It also runs on its own when you answer Yes to the activation prompt,
+which is the only thing Jaenvtix does before you agree to anything. When Java language support is
+missing the prompt offers to install it first and configures only once that succeeds. The progress
+notification names the step it is on, including the wait for the Red Hat language server to finish
+loading.
 
-- **Explicit consent, every workspace** — the first time Jaenvtix detects a `pom.xml` in a
-  workspace, it asks. There is no silent mode and no global opt-in: nothing is written anywhere
-  without an answer for the workspace in front of you.
-  `Jaenvtix: Reset Auto-Configuration Preference` brings the prompt back everywhere.
-- **All or nothing** — Jaenvtix installs nothing without being asked, and configures nothing it
-  cannot make work. If Java language support is missing it offers to install it, and stops if that
-  does not happen. No run ever reports success over a workspace where nothing works.
-- **Yields to `mvnw` when present** — if your project ships `mvnw`, Jaenvtix omits
-  `maven.executable.path` / `preferMavenWrapper` so `vscode-maven` uses your wrapper as intended.
-- **Auto-fixes broken `java.configuration.runtimes`** — recovers paths users typed wrong (e.g.
-  pointing at `bin/` instead of the JDK root) and removes orphans pointing to deleted JDKs.
-  Always tries to preserve before removing.
-- **Respects existing `~/.m2/toolchains.xml`** — reads JDKs you already registered there (for
-  `maven-toolchains-plugin` CI builds) instead of ignoring them and downloading duplicates.
+![A first run: the named progress steps, and the Maven favorites it seeds](docs/images/02-automatic-configuration.gif)
 
-### 🏗️ Power for Maven monorepos
+Running it again reuses everything already provisioned. Change detection means a re-run with
+nothing to do writes nothing, skips the language server wait, and finishes in seconds.
 
-- **Multi-module parent inheritance of `<java.version>`** — Spring Boot monorepos with
-  `<java.version>` only on the parent pom: child modules inherit transparently.
-- **Per-project Maven version isolation** — a workspace with Maven 3.6 in one module and
-  Maven 3.9 in another? Each gets its own download in `~/.jaenvtix/jdk-N/mvn-<version>/`.
-  No conflicts.
-- **Custom `jaenvtix-mvn` wrapper** — pins `JAVA_HOME`, `MAVEN_HOME`, `PATH`, and forces
-  `-s ~/.m2/settings.xml -Dmaven.repo.local=~/.m2/repository`. Robust from PowerShell, CI
-  shells, anywhere.
-- **Non-destructive `~/.m2/toolchains.xml` generation** — merges one `<toolchain>` per JDK
-  without touching what you wrote manually.
+![Re-running the command from the palette with the JDKs already cached](docs/images/03-automatic-configuration-rerun.gif)
 
-### ⚡ Java dev quality of life
+What the run writes, and what it leaves untouched, is in [Settings written per
+project](#settings-written-per-project) and the sections after it.
 
-- **Sensible Java tunings out of the box** — `java.debug.settings.hotCodeReplace: "auto"`
-  (only when auto-build is on — it is a no-op without it), parallel builds using your cores,
-  hierarchical package view, JUnit UTF-8 fix on Windows. Applied once, never overriding values
-  you already set.
-- **Maven favorites seeded like IntelliJ run configurations** — every project gets a
-  `clean install -DskipTests` favorite in the Maven explorer; Spring Boot apps also get
-  `spring-boot:run`. Seeded once (`maven.terminal.favorites`); yours to edit afterwards.
-- **Hierarchical Maven view for monorepos** — multi-module workspaces get
-  `maven.view: "hierarchical"` so the Maven panel mirrors the module tree, IntelliJ-style.
-- **Spring Boot Tools auto-configured** — detects `vmware.vscode-spring-boot` (or the Boot dev
-  pack) and points `spring-boot.ls.java.home` at a provisioned Java 21+ JDK, preventing
-  "wrong JDK" language-server crashes.
-- **Spring Initializr defaults that match your workspace** — when the Initializr extension is
-  installed, `spring.initializr.defaultJavaVersion` is seeded with the best provisioned LTS
-  (17+), so new projects start on a Java level your machine can actually build.
-- **Post-configuration verification (doctor)** — after a run that actually changed something,
-  Jaenvtix asks the Red Hat Language Server which Java level it *actually* resolved per project.
-  A mismatch is reported as one actionable toast — **Restart Language Server** applies the new
-  JDK in one click, no window reload — and re-checked on the next run until it is resolved.
-  Idempotent re-runs skip the whole dance, so reopening a big workspace stays instant.
-- **Choose your JDK vendor** — the `jaenvtix.preferredJdkVendor` setting supports Oracle,
-  Temurin, Corretto, Liberica, Microsoft, Zulu, and Semeru, with an automatic fallback chain
-  when your choice has no build for the requested version/platform.
-- **Auto-supports new Java versions** — reads the Red Hat Java Language Server's supported
-  versions at runtime. A new Java LTS works the day Red Hat publishes support for it — no
-  Jaenvtix release needed.
-- **Broader JDK discovery** — Chocolatey and Homebrew installations are scanned in addition to
-  everything `jdk-utils` covers (`JAVA_HOME`, `JDK_HOME`, `PATH`, SDKMAN, jEnv, jabba, asdf,
-  gradle, jbang) and the JDKs registered in `~/.m2/toolchains.xml`.
+### Install Recommended Extensions
 
-### 🔐 Security & reliability
+Opt-in, and never runs on its own. It offers the companion extensions in a multi-select list,
+ignores the ones you already have, and installs only what you pick.
 
-- **Auto-updates JDK patches** — once a JDK is cached, Jaenvtix checks at most once every 24h
-  whether the vendor published a newer patch (for vendors with a public metadata API: Temurin,
-  Corretto, Liberica, Zulu, Semeru) and re-downloads it to pick up security fixes. JDKs
-  installed outside the Jaenvtix cache are never touched. Toggle with
-  `jaenvtix.autoUpdatePatches`.
-- **Resilient downloads** — transient errors (timeout, 5xx, connection reset, 429) get
-  exponential backoff retries (1s → 2s → 4s). Configurable via `jaenvtix.downloadMaxRetries`.
-- **Native Alpine + Windows ARM** — devcontainers on Alpine Docker work natively (musl libc is
-  detected and musl JDK builds are downloaded). Native Windows ARM64 (Surface Pro X,
-  Copilot+ PCs) is supported too.
+![Picking the companion extensions and installing them](docs/images/04-install-recommended-extensions.gif)
 
-### 📦 Onboarding
+### Reset Auto-Configuration Preference
 
-- **`Jaenvtix: Install Recommended Extensions`** — opt-in command (never automatic): offers
-  XML, Spring Boot Extension Pack, and Extension Pack for Java in a multi-select QuickPick with
-  "(already installed)" markers. You choose; already-installed ones are never reinstalled.
-- **Native workspace recommendations** — the same catalog is written to
-  `.vscode/extensions.json` (merged, never replacing entries you added), so VS Code itself
-  suggests the companions to anyone who opens the repo. Spring Boot Dashboard is recommended
-  only when a Spring Boot app is actually detected.
+Clears the answer in every workspace at once, including the ones you do not have open. It bumps a global
+generation counter that each answer is stamped with, so older answers stop counting and the prompt
+comes back the next time you open a workspace with a `pom.xml`.
 
----
+## Quick start
 
-## Quick Start
+1. Install the extension, for example with `code --install-extension jaenvtix-<version>.vsix`.
+2. Open a workspace (single folder or multi-root) that contains at least one Maven project.
+3. Jaenvtix activates on `pom.xml` and asks: Yes or No. Yes configures this workspace. No does
+   nothing, now or later, for this workspace.
+4. Without Java language support installed the question becomes Install and Configure, or No.
+   Jaenvtix offers the Extension Pack for Java first and configures only once it is there, because
+   everything it writes is read by those extensions.
 
-1. Install the extension (e.g. `code --install-extension jaenvtix-<version>.vsix`).
-2. Open a workspace (single folder or multi-root) that contains one or more Maven projects.
-3. Jaenvtix activates automatically on `pom.xml` and asks: **Yes / No**.
-   * **Yes** — runs the configuration in this workspace.
-   * **No** — does nothing, now or later, for this workspace.
+Once a workspace is configured, reopening it is silent. If the configuration goes missing, say
+because `.vscode` was deleted or never committed, the question comes back on the next open. A No is
+respected either way. `Jaenvtix: Reset Auto-Configuration Preference` clears the answers everywhere
+and asks again from scratch. You can run `Jaenvtix: Java: Automatic Configuration` manually at any
+time, and `Jaenvtix: Install Recommended Extensions` if you are new to Java on VS Code.
 
-   Without Java language support installed, the question changes to
-   **Install and Configure / No**: Jaenvtix offers to install the Extension Pack for Java first,
-   and configures only once that succeeds. Everything it writes is consumed by those extensions,
-   so configuring without them would report success over a workspace where nothing works.
-4. Once configured, reopening the workspace is silent. If the configuration goes missing, say
-   because `.vscode` was deleted or never committed, the question comes back on the next open.
-   A `No` is respected either way. `Jaenvtix: Reset Auto-Configuration Preference` clears the
-   answers in every workspace and asks again from scratch.
+## What it will and will not touch
 
-You can also invoke `Jaenvtix: Java: Automatic Configuration` manually at any time. New to the
-Java ecosystem on VS Code? `Jaenvtix: Install Recommended Extensions` sets up the companion
-extensions in one step.
+Jaenvtix asks before its first run in a workspace and never edits your User Settings until you
+answer. It installs nothing without being asked and configures nothing it cannot make work: when
+Java language support is missing it offers to install it and stops if that does not happen, rather
+than reporting success over a workspace where nothing works. Every writer merges rather than overwrites: entries you wrote in `settings.json`,
+`~/.m2/toolchains.xml` and `java.configuration.runtimes` survive verbatim, and the `default` flag
+on a runtime is yours to set. Broken runtime paths are repaired where possible (a path pointing
+at `bin/` instead of the JDK root, say) and are removed only when repair fails and the JDK is
+gone. Writers do change detection, so a re-run that has nothing to do writes nothing.
 
----
+Downloads go to `~/.jaenvtix/`, toolchains to `~/.m2/`, settings to each project's `.vscode/`.
+JDKs installed anywhere else are read but never modified.
 
-## When NOT to use Jaenvtix
+## How JDKs are resolved
 
-Honest about what we don't cover:
+Jaenvtix reuses an installed JDK when it can. Discovery covers `JAVA_HOME`, `JDK_HOME`, `PATH`,
+SDKMAN, jEnv, jabba, asdf, gradle and jbang through
+[`jdk-utils`](https://www.npmjs.com/package/jdk-utils) (the same library Red Hat uses), plus
+Chocolatey and Homebrew install directories, plus any JDK registered in `~/.m2/toolchains.xml`.
 
-- **Gradle projects** — Jaenvtix is a Maven specialist (Gradle is a possible future addition).
-- **You want a JDK selector dropdown in the terminal** — Jaenvtix configures the terminal env
-  per folder, not VS Code terminal profiles per JDK.
-- **You want everything installed without asking** — Jaenvtix always asks before its first run
-  and never auto-installs companion extensions.
-- **Corporate proxy with a custom SSL certificate** — the current version has no explicit
-  proxy/certificate support (it relies on Node defaults). Open an issue if this blocks you.
+Anything still missing is downloaded to `~/.jaenvtix/jdk-<version>/`, following
+`jaenvtix.preferredJdkVendor`. The default `auto` tries Oracle for LTS 21+, then Corretto, then
+Temurin, with Microsoft and Liberica covering platforms the others do not build for. You can pin
+Oracle, Temurin, Corretto, Liberica, Microsoft, Zulu or Semeru instead; every candidate URL is
+probed first, so an unavailable vendor falls back to the next one.
 
-If any of these is critical,
-[cypher256/java-extension-pack](https://github.com/cypher256/java-extension-pack) might be a
-better fit.
+The set of supported Java versions comes from the Red Hat Java Language Server at runtime, so a
+new LTS works the day Red Hat supports it, without a Jaenvtix release.
 
----
+At most once every 24 hours, Jaenvtix asks the vendor metadata API whether a cached JDK has a
+newer patch and refreshes the cache slot if so. This covers Temurin, Corretto, Liberica, Zulu and
+Semeru, the vendors with a public API. Turn it off with `jaenvtix.autoUpdatePatches`.
 
-## Recommended companions
+Downloads retry on timeouts, connection resets, 5xx and 429 with exponential backoff (1s, 2s,
+4s), configurable via `jaenvtix.downloadMaxRetries`. Permanent failures such as 404 or DNS errors
+fail immediately.
 
-Jaenvtix is a **provisioner**, not a language server. It pairs with the official Java extensions
-and populates the settings each of them reads. The recommended baseline is the Microsoft
-**[Extension Pack for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-pack)**,
-which bundles:
+Supported platforms: Windows x64 and ARM64 (Surface Pro X, Copilot+ PCs); macOS Intel and Apple
+Silicon; Linux glibc x64 and ARM64; Linux musl x64 and ARM64, so Alpine devcontainers get
+musl-native builds from Temurin `alpine-linux` or Liberica.
 
-| Extension | What it does | What Jaenvtix feeds it |
-| --- | --- | --- |
-| **Language Support for Java™ by Red Hat** (`redhat.java`) | Compiler / IntelliSense / refactor via Eclipse JDT-LS | `java.configuration.runtimes`, `java.jdt.ls.java.home`, `java.configuration.maven.userSettings` |
-| **Maven for Java** (`vscjava.vscode-maven`) | Maven Explorer, goal execution | `maven.executable.path` (when no `mvnw`), `maven.executable.preferMavenWrapper`, `maven.terminal.favorites`, `maven.view`, `terminal.integrated.env.*` |
-| **Project Manager for Java** (`vscjava.vscode-java-dependency`) | Project tree / dependency view | `java.dependency.packagePresentation` tuning; reads the rest from Red Hat |
-| **Debugger for Java**, **Test Runner for Java** | run/debug, JUnit | launch configurations, `hotCodeReplace` tuning, `java.test.config` UTF-8 fix on Windows |
-| **Spring Boot Tools** (`vmware.vscode-spring-boot`) | Spring language server, live data | `spring-boot.ls.java.home` (a provisioned Java 21+ JDK) |
-| **Spring Initializr** (`vscjava.vscode-spring-initializr`) | project generation from start.spring.io | `spring.initializr.defaultJavaVersion` (best provisioned LTS) |
+## How Maven is resolved
 
-Without the Extension Pack, the per-folder `.vscode/settings.json` Jaenvtix writes still tries to
-do the right thing, but the language-server / build features only light up once the Red Hat
-extension is present.
+Maven is downloaded into `~/.jaenvtix/jdk-<version>/mvn-custom/` only when at least one project
+in the workspace neither ships `mvnw` nor pins its own Maven version. A workspace where every
+project uses `mvnw` skips this entirely.
 
-### How the pieces reinforce each other
+Inside each provisioned Maven's `bin/`, Jaenvtix generates a wrapper (`jaenvtix-mvn`, or
+`jaenvtix-mvn.cmd` on Windows) that pins `JAVA_HOME`, `MAVEN_HOME` and `PATH` and passes
+`-s ~/.m2/settings.xml -Dmaven.repo.local=~/.m2/repository` before calling Maven. It behaves the
+same from a plain PowerShell prompt or a CI shell, where the stock `mvn.cmd` would pick up
+whatever `JAVA_HOME` happens to be set.
 
-Side effects you get for free from the cooperation model — none of them require configuration:
+`~/.m2/toolchains.xml` gets one `<toolchain>` entry per JDK, merged into whatever is already
+there, so projects using `maven-toolchains-plugin` find a matching JDK without extra setup.
 
-* **No-Config Debug just works** — the `debugjava` command that Debugger for Java adds to the
-  terminal inherits the per-folder `JAVA_HOME`/`PATH` Jaenvtix injects, so it debugs with the
-  project's exact JDK.
-* **Spring Boot LS never complains about the JVM** — Spring Tools validates its JVM at startup
-  (`spring-boot.ls.checkJVM`); because Jaenvtix hands it a valid Java 21+ home, that check stays
-  green instead of greeting you with a warning dialog.
-* **CVE alerts get resolved, not just reported** — Project Manager's Dependency Checkup notifies
-  you when your runtime has known vulnerabilities; Jaenvtix's 24h patch auto-update is the other
-  half: it refreshes cached JDKs so the alert has nothing to point at.
-* **Initializr → ready-to-build in one flow** — generate a project with Spring Initializr, and
-  the new `pom.xml` triggers Jaenvtix's activation: JDK resolved, Maven wired, launch config
-  created, dashboard recommended. The IntelliJ "new project wizard" feel, assembled from
-  official parts.
-* **Spring Boot Dashboard finds runnable apps immediately** — it discovers apps through the
-  language server and debugger that Jaenvtix already pointed at the right JDK, and the
-  `Jaenvtix: Spring Boot (…)` launch configs give it named entries from the first click.
-* **Refreshes are event-driven, then verified** — when a run changes project settings, Jaenvtix
-  waits for the Red Hat server's `serverReady` signal (a short, labelled phase of the progress
-  notification) before asking it to re-import the changed projects, then reads back the resolved
-  Java level (doctor). If the server is still loading when the wait budget runs out, the refresh
-  and verification resume automatically the moment it finishes — never on a timer, never lost.
+## Settings written per project
 
----
-
-## How it works
-
-### Per Java version detected in your workspace
-
-* **Reuses an already-installed JDK** when possible — `JAVA_HOME`, `JDK_HOME`, `PATH`, SDKMAN,
-  jEnv, jabba, asdf, gradle and jbang locations are scanned (powered by the
-  [`jdk-utils`](https://www.npmjs.com/package/jdk-utils) library, the same one Red Hat uses
-  internally), plus Chocolatey and Homebrew installation directories, plus the JDKs registered
-  in your `~/.m2/toolchains.xml`.
-* **Downloads only what is missing** — following your `jaenvtix.preferredJdkVendor` (default
-  `auto`: Oracle for LTS 21+, then Corretto, then Temurin, with Microsoft and Liberica as last
-  resorts for platforms the primaries don't cover). Every candidate URL is probed first, so an
-  unavailable vendor falls back automatically. Cached at `~/.jaenvtix/jdk-<version>/`.
-* **Keeps cached JDKs patched** — at most once every 24h, Jaenvtix asks the vendor's metadata
-  API whether a newer patch of a cached JDK exists and refreshes the cache slot when it does.
-  Detected system JDKs are never modified.
-* **Retries transient download failures** — timeouts, connection resets, 5xx and 429 responses
-  are retried with exponential backoff; permanent failures (404, DNS) fail fast.
-* **Downloads Maven** into `~/.jaenvtix/jdk-<version>/mvn-custom/` *only* when at least one
-  project in the workspace neither ships `mvnw` nor pins its own Maven version — workspaces
-  that are 100 % mvnw-driven skip this entirely.
-* **Generates a Jaenvtix Maven wrapper** (`jaenvtix-mvn` on Unix / `jaenvtix-mvn.cmd` on
-  Windows) inside each provisioned Maven's `bin/`. It pins `JAVA_HOME`, `MAVEN_HOME`, `PATH`,
-  and forces `-s ~/.m2/settings.xml` / `-Dmaven.repo.local=~/.m2/repository` before invoking
-  Maven — robust even from a plain PowerShell or CI shell where the stock `mvn.cmd` would
-  resolve `JAVA_HOME` from an unpredictable environment.
-
-### Per project (the per-folder settings Jaenvtix writes)
-
-When a project **does NOT** ship `mvnw`:
+When a project does not ship `mvnw`:
 
 | Setting | Value |
 | --- | --- |
-| `maven.executable.path` | path to the Jaenvtix wrapper of the matching JDK/Maven |
-| `maven.executable.preferMavenWrapper` | `false` (so vscode-maven uses the explicit path) |
+| `maven.executable.path` | path to the Jaenvtix wrapper for the matching JDK and Maven |
+| `maven.executable.preferMavenWrapper` | `false`, so vscode-maven uses the explicit path |
 | `maven.terminal.customEnv` | per-folder `JAVA_HOME` / `MAVEN_HOME` / `M2_HOME` / `PATH` |
-| `terminal.integrated.env.{windows,linux,osx}` | same env, applied to every terminal opened in the folder |
-| `java.jdt.ls.java.home` *(Java 21+)* or `java.configuration.runtimes` *(Java < 21)* | the matching JDK; folder runtimes are **merged** — entries you authored (or repointed) win |
+| `terminal.integrated.env.{windows,linux,osx}` | the same env, for every terminal opened in the folder |
+| `java.jdt.ls.java.home` (Java 21+) or `java.configuration.runtimes` (Java < 21) | the matching JDK; folder runtimes are merged, and entries you authored or repointed win |
 | `java.configuration.maven.userSettings` | `~/.m2/settings.xml` |
-| `java.compile.nullAnalysis.mode` | `automatic` *(seeded once — change it and Jaenvtix won't touch it again)* |
-| `java.configuration.updateBuildConfiguration` | `automatic` *(seeded once, same rule)* |
-| `maven.terminal.favorites` | common goals (`clean install -DskipTests`, `spring-boot:run` for Spring apps) *(seeded once)* |
+| `java.compile.nullAnalysis.mode` | `automatic`, seeded once; change it and Jaenvtix leaves it alone |
+| `java.configuration.updateBuildConfiguration` | `automatic`, seeded once, same rule |
+| `maven.terminal.favorites` | `clean install -DskipTests`, plus `spring-boot:run` for Spring Boot apps, seeded once |
 
-If any terminal-affecting setting changed and you have terminals open, Jaenvtix tells you to
-reopen them — VS Code only applies the new environment to new terminals.
+The Maven favorites show up in the Maven explorer the way run configurations do in IntelliJ, and
+they are yours to edit afterwards. If a terminal-affecting setting changed while you had
+terminals open, Jaenvtix tells you to reopen them, since VS Code only applies the new environment
+to new terminals.
 
-When a project **DOES** ship `mvnw` (Spring Boot, Quarkus, etc.), Jaenvtix yields to it:
+When a project does ship `mvnw` (Spring Boot, Quarkus and friends), Jaenvtix stays out of the
+way: `maven.executable.path` is omitted so vscode-maven invokes the in-project wrapper,
+`maven.executable.preferMavenWrapper` is omitted because its default is already `true`, and
+`maven.terminal.customEnv` is omitted as redundant with `terminal.integrated.env.*`. The language
+server settings are still written, since they help Red Hat resolve types no matter how the build
+is launched.
 
-* `maven.executable.path` is **omitted** (vscode-maven invokes the in-project `mvnw`).
-* `maven.executable.preferMavenWrapper` is **omitted** (its default is already `true`).
-* `maven.terminal.customEnv` is **omitted** (redundant with `terminal.integrated.env.*`).
-* The other LS / Java settings remain — they help the Red Hat language server resolve types
-  regardless of how the build is launched.
+Jaenvtix also seeds its own `jaenvtix.*` keys with their defaults into the workspace
+`.vscode/settings.json`, so you can change one inline with VS Code autocomplete instead of
+hunting for it.
 
-### Per workspace (the global / cross-workspace settings Jaenvtix writes)
+## Settings written per workspace or user
 
-* **`java.configuration.runtimes` in User Settings** — populated with one entry per JDK in the
-  Jaenvtix cache, **non-destructively** (existing entries the user authored are preserved).
-  Invalid entries are auto-repaired when possible (`jaenvtix.enableRuntimePathFix`) and removed
-  only as a last resort.
-* **Sensible Java tunings in User Settings** — `hotCodeReplace`, `maxConcurrentBuilds`,
-  hierarchical package presentation, organize-imports threshold, and the JUnit UTF-8 fix on
-  Windows. Each value is written only if you haven't set it yourself
-  (`jaenvtix.applyJavaTunings` opts out).
-* **`spring-boot.ls.java.home`** — written when Spring Boot Tools is installed and a Java 21+
-  JDK is provisioned, never overwriting a value you set
-  (`jaenvtix.configureOptionalExtensions` opts out).
-* **`spring.initializr.defaultJavaVersion`** — seeded with the best provisioned LTS (17+) when
-  the Spring Initializr extension is installed, same never-overwrite rule.
-* **`.vscode/extensions.json`** — the recommended-extensions catalog is merged into the
-  workspace root's recommendations (your entries and `unwantedRecommendations` untouched);
-  Spring Boot Dashboard is added only when a Spring Boot app was detected.
-* **`~/.m2/toolchains.xml`** — generated / merged with one `<toolchain>` per JDK, so any project
-  that opts into `maven-toolchains-plugin` (CI builds, etc.) finds a matching JDK without manual
-  setup. Existing toolchains the user authored are preserved — and also read back as a JDK
-  discovery source.
-* After writing settings, and **only for projects whose settings actually changed**, Jaenvtix
-  waits for the Red Hat language server to signal readiness (`serverReady`, a labelled wait
-  inside the progress notification), invokes `java.projectConfiguration.update` per changed
-  `pom.xml` so the new runtime mapping is picked up without a window reload, then **verifies**
-  the resolved Java level per project (skipping aggregator poms with no `src/main/java`). A
-  project still compiling at the old level gets a single informational toast with a one-click
-  **Restart Language Server** action — restarting is how the server applies a new
-  `java.jdt.ls.java.home` — and stays flagged for re-verification on the next run until it
-  resolves. If the server is still loading after the wait budget (15 s), the refresh and
-  verification run automatically as soon as it becomes ready instead of reporting stale state.
+`java.configuration.runtimes` in User Settings gets one entry per JDK in the Jaenvtix cache,
+merged with what is already there. Invalid entries are repaired when `jaenvtix.enableRuntimePathFix`
+allows it and dropped only as a last resort.
 
-### Multi-module Maven monorepos
+A few Java tunings are written to User Settings on first run, each only if you have not set it
+yourself: `java.debug.settings.hotCodeReplace: "auto"` (a no-op unless auto-build is on),
+`maxConcurrentBuilds` matching your core count, hierarchical package presentation, an
+organize-imports threshold, and the JUnit UTF-8 fix on Windows. `jaenvtix.applyJavaTunings` opts
+out.
 
-> 🌟 **This is a Jaenvtix-exclusive feature.**
+When Spring Boot Tools is installed and a Java 21+ JDK is provisioned, `spring-boot.ls.java.home`
+points at it, which is what keeps the Spring language server from crashing on the wrong JDK. When
+the Spring Initializr extension is installed, `spring.initializr.defaultJavaVersion` is seeded
+with the best provisioned LTS (17 or newer), so generated projects start at a level your machine
+can build. Neither overwrites a value you set; `jaenvtix.configureOptionalExtensions` opts out.
 
-When the workspace contains a parent pom that declares `<java.version>` and modules that don't,
-each module **inherits the parent's version** automatically (Spring Boot monorepo style). The
-inheritance walks ancestors that are *also part of the workspace*, so importing only a single
-module without its parent still falls back gracefully.
+The recommended-extensions catalog is merged into the workspace root's
+`.vscode/extensions.json`, leaving your entries and `unwantedRecommendations` untouched, so VS
+Code suggests the companion extensions to anyone who opens the repo. Spring Boot Dashboard is
+added only when a Spring Boot app was detected.
 
-### Per-project Maven version isolation
+## Verification after a run
 
-If your workspace has projects requiring different Maven versions (e.g. a legacy module pinned
-to Maven 3.6 via `<prerequisites><maven>` and a modern one declaring
-`<properties><maven.version>3.9.5</maven.version>`), Jaenvtix downloads each version
-independently and points each project's `.vscode/settings.json` at the right one:
+For projects whose settings actually changed, Jaenvtix waits for the Red Hat language server to
+report `serverReady` (a labelled phase in the progress notification), then calls
+`java.projectConfiguration.update` per changed `pom.xml` so the new runtime mapping is picked up
+without reloading the window.
+
+It then reads back the Java level the server resolved for each project, skipping aggregator poms
+with no `src/main/java`. A project still compiling at the old level produces one informational
+toast with a Restart Language Server action, since restarting is how the server applies a new
+`java.jdt.ls.java.home`. The project stays flagged and is re-checked on the next run until it
+resolves. If the server is still loading when the 15 second budget runs out, the refresh and the
+check run as soon as it becomes ready rather than reporting stale state. Runs that changed
+nothing skip all of this, so reopening a large workspace stays fast.
+
+## Maven monorepos
+
+When a parent pom declares `<java.version>` and its modules do not, each module inherits the
+parent's version, the way Spring Boot monorepos are usually laid out. Inheritance only walks
+ancestors that are themselves part of the workspace, so opening a single module without its
+parent still resolves to something sensible. Multi-module workspaces also get
+`maven.view: "hierarchical"` so the Maven panel mirrors the module tree.
+
+Projects that need different Maven versions get different Maven installs. A legacy module pinned
+to 3.6 through `<prerequisites><maven>` and a modern one declaring
+`<properties><maven.version>3.9.5</maven.version>` are downloaded independently, and each
+project's `.vscode/settings.json` points at its own:
 
 ```
 ~/.jaenvtix/jdk-21/
@@ -309,71 +218,95 @@ independently and points each project's `.vscode/settings.json` at the right one
     └── bin/jaenvtix-mvn
 ```
 
-Each project's wrapper pins its own Maven, JDK, and env. No conflicts. Disable with
-`jaenvtix.isolatedMavenPerProject: false` if you prefer a single shared Maven.
+Each wrapper pins its own Maven, JDK and environment. Set
+`jaenvtix.isolatedMavenPerProject: false` if you would rather share one Maven.
 
-### Auto-activation contract
+## Working with the official Java extensions
 
-* Activation events: `workspaceContains:pom.xml` and `workspaceContains:**/pom.xml` (the
-  extension stays out of memory until there is something to do). Both are declared on purpose.
-  The host resolves a literal name with a direct `exists()` on each workspace root, but sends
-  any glob to the search service under a 7 second cancel budget that also honours
-  `files.exclude`, `search.exclude` and `.gitignore`. With only the glob, activation in a large
-  or deeply nested repository is a race the extension can lose.
-* The prompt is shown **at most once per extension host lifetime** even in multi-root
-  workspaces with several `pom.xml` files (the activation event can fire multiple times — the
-  prompt is single-shot).
-* **The prompt follows the state of the project, not your answer history.** A workspace with a
-  `pom.xml` and no Jaenvtix configuration gets asked, even if you answered before. Delete
-  `.vscode` and the question comes back, because a past `Yes` does not configure anything today.
-* `No` is the exception and it is permanent for that workspace, configured or not. That is what
-  keeps the rule above from asking again on every open of a project where you deliberately keep
-  `.vscode` out of the repository. `Jaenvtix: Java: Automatic Configuration` still works from the
-  Command Palette if you change your mind.
-* "Is it configured?" is answered from the `settings.json` files the last successful run wrote,
-  one per resolved project, recorded in `workspaceState`. A single deleted file makes the whole
-  workspace unconfigured, which is what covers a monorepo that lost one module. A workspace with
-  no recorded list falls back to looking for a `jaenvtix.*` key in each folder root's
-  `settings.json`.
-* Running the configuration from the Command Palette counts as a `Yes`, so configuring by hand is
-  not followed by a prompt on the next open.
-* There is no global preference and no silent mode. Every workspace answers for itself.
-* `Jaenvtix: Reset Auto-Configuration Preference` clears **every** workspace at once, not just the
-  one in front of you. It bumps a global generation counter that every answer is stamped with, so
-  older answers stop counting. Those rows stay in the host's storage because there is no API to
-  reach another workspace's state, but they no longer silence anything.
-* Closing the prompt with the X button does **not** persist anything — the user gets another
-  chance next session. Neither does a run that fails or stops early: nothing was configured, so
-  nothing is recorded.
-* Known limit: a module added to an already-configured monorepo is not detected, because the
-  recorded files all still exist. Run the command from the Command Palette after adding one.
-  Detecting it would mean scanning for `pom.xml` on every activation, which is the cost the
-  activation events above exist to avoid.
-* Nothing is configured while the Red Hat Java extension (`redhat.java`) is missing. That case
-  is a prompt, not a silence: the workspace is offered **Install and Configure / No**. Running
-  `Jaenvtix: Java: Automatic Configuration` from the Command Palette still configures anyway, for
-  anyone who wants the provisioning without the editor integration.
+The recommended baseline is Microsoft's
+[Extension Pack for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-pack).
+Jaenvtix populates the settings each extension reads:
 
----
+| Extension | What it does | What Jaenvtix feeds it |
+| --- | --- | --- |
+| **Language Support for Java™ by Red Hat** (`redhat.java`) | compiler, IntelliSense and refactoring via Eclipse JDT-LS | `java.configuration.runtimes`, `java.jdt.ls.java.home`, `java.configuration.maven.userSettings` |
+| **Maven for Java** (`vscjava.vscode-maven`) | Maven explorer, goal execution | `maven.executable.path` (when there is no `mvnw`), `maven.executable.preferMavenWrapper`, `maven.terminal.favorites`, `maven.view`, `terminal.integrated.env.*` |
+| **Project Manager for Java** (`vscjava.vscode-java-dependency`) | project tree, dependency view | `java.dependency.packagePresentation`; the rest comes from Red Hat |
+| **Debugger for Java**, **Test Runner for Java** | run, debug, JUnit | launch configurations, `hotCodeReplace`, the `java.test.config` UTF-8 fix on Windows |
+| **Spring Boot Tools** (`vmware.vscode-spring-boot`) | Spring language server, live data | `spring-boot.ls.java.home` (a provisioned Java 21+ JDK) |
+| **Spring Initializr** (`vscjava.vscode-spring-initializr`) | project generation from start.spring.io | `spring.initializr.defaultJavaVersion` (best provisioned LTS) |
 
-## Supported platforms
+Without the pack the per-folder settings are still written, but the language server and build
+features only appear once the Red Hat extension is installed.
 
-* **Windows**: x64 + ARM64 native (Surface Pro X, Copilot+ PCs)
-* **macOS**: x64 (Intel) + ARM64 (Apple Silicon)
-* **Linux (glibc)**: x64 + ARM64
-* **Linux (musl / Alpine)**: x64 + ARM64 — devcontainers and Alpine-based Docker images, served
-  by musl-native JDK builds (Temurin `alpine-linux`, Liberica)
+A few things follow from this without any extra configuration. The `debugjava` command that
+Debugger for Java adds to the terminal inherits the per-folder `JAVA_HOME` and `PATH`, so it
+debugs with the project's JDK. Spring Tools validates its JVM at startup through
+`spring-boot.ls.checkJVM`, and that check passes because it was handed a valid Java 21+ home.
+Project Manager's Dependency Checkup reports known vulnerabilities in your runtime; the 24 hour
+patch refresh is what clears them. Generating a project with Spring Initializr writes a `pom.xml`,
+which triggers Jaenvtix, which resolves the JDK, wires Maven and creates the
+`Jaenvtix: Spring Boot (…)` launch configurations that Spring Boot Dashboard then lists.
 
-## Project discovery
+`Jaenvtix: Install Recommended Extensions` offers XML, Spring Boot Extension Pack and Extension
+Pack for Java in a multi-select QuickPick, marking the ones you already have. Nothing is
+installed unless you pick it, and this command is never run automatically.
 
-Jaenvtix looks for `pom.xml` files in each workspace folder and its immediate child folders.
-Each detected project is configured independently. Modules inside a multi-module monorepo also
-benefit from version inheritance (see above).
+## When not to use Jaenvtix
+
+Gradle projects are out of scope; Jaenvtix only understands Maven. It configures the terminal
+environment per folder, so if you want a JDK selector dropdown in the terminal, this is not it.
+It always asks before its first run and never auto-installs companion extensions, so it is a poor
+fit if you want everything set up without being asked. There is no explicit proxy or custom SSL
+certificate support yet, only Node's defaults, which matters behind a corporate proxy; open an
+issue if that blocks you.
+
+If any of those is a dealbreaker,
+[cypher256/java-extension-pack](https://github.com/cypher256/java-extension-pack) may suit you
+better.
+
+## Activation
+
+Two activation events are declared, `workspaceContains:pom.xml` and
+`workspaceContains:**/pom.xml`, and both on purpose. The host resolves the literal name with a
+direct existence check on each workspace root, but sends the glob to the search service under a
+7 second cancel budget that also honours `files.exclude`, `search.exclude` and `.gitignore`. With
+only the glob, activation in a large or deeply nested repository is a race the extension can lose.
+
+The prompt appears at most once per extension host lifetime, even in a multi-root workspace with
+several `pom.xml` files firing the event repeatedly.
+
+It follows the state of the project, not your answer history. A workspace with a `pom.xml` and no
+Jaenvtix configuration gets asked even if you answered before, because a past Yes does not
+configure anything today: delete `.vscode` and the question comes back. No is the exception and is
+permanent for that workspace, configured or not, which is what stops the rule from asking on every
+open of a project that deliberately keeps `.vscode` out of the repository. Running the command from
+the Command Palette still works if you change your mind, and counts as a Yes.
+
+Whether a workspace counts as configured is answered from the `settings.json` files the last
+successful run wrote, one per resolved project, recorded in `workspaceState`. A single missing file
+makes the whole workspace unconfigured, which is what covers a monorepo that lost one module. A
+workspace with no recorded list falls back to looking for a `jaenvtix.*` key in each folder root's
+`settings.json`.
+
+There is no global preference and no silent mode: every workspace answers for itself.
+`Jaenvtix: Reset Auto-Configuration Preference` clears every workspace at once by bumping a global
+generation counter that each answer carries, so older answers stop counting. Closing the prompt
+with the X persists nothing, and neither does a run that fails or stops early, since nothing was
+configured.
+
+While the Red Hat Java extension is missing the workspace is offered Install and Configure, or No,
+rather than being skipped quietly. `Jaenvtix: Java: Automatic Configuration` from the palette
+configures anyway, for anyone who wants the provisioning without the editor integration.
+
+One known limit: a module added to an already-configured monorepo is not detected, because every
+recorded file still exists. Run the command from the palette after adding one. Detecting it would
+mean scanning for `pom.xml` on every activation, which is the cost the activation events above
+exist to avoid.
 
 ## Local layout
 
-File names below use the Unix convention; on Windows the binaries gain `.exe` / `.cmd`
-suffixes automatically.
+File names below use the Unix convention; on Windows the binaries gain `.exe` or `.cmd` suffixes.
 
 ```
 ~/.jaenvtix/
@@ -381,19 +314,19 @@ suffixes automatically.
 │   ├── .jaenvtix-version.json         ← exact version + vendor, drives the 24h patch check
 │   ├── bin/
 │   │   └── java                       ← JDK launcher
-│   ├── mvn-custom/                    ← absent when the workspace is 100 % mvnw-driven
+│   ├── mvn-custom/                    ← absent when every project uses mvnw
 │   │   └── bin/
 │   │       ├── mvn                    ← stock Maven launcher
-│   │       └── jaenvtix-mvn           ← Jaenvtix wrapper (enforces JAVA_HOME + -s / -Dmaven.repo.local)
+│   │       └── jaenvtix-mvn           ← wrapper (pins JAVA_HOME, forces -s / -Dmaven.repo.local)
 │   └── mvn-3.9.5/                     ← only when a project pins Maven 3.9.5
 ├── jdk-21/ ...
 └── temp/                              ← download staging; cleared after extraction
 
 ~/.m2/
-└── toolchains.xml                     ← merged non-destructively with one <toolchain> per JDK
+└── toolchains.xml                     ← merged with one <toolchain> per JDK
 ```
 
-## Available commands
+## Commands
 
 | Command ID                                  | Title                                              |
 | ------------------------------------------- | -------------------------------------------------- |
@@ -401,33 +334,29 @@ suffixes automatically.
 | `jaenvtix.resetAutoConfigPreference`        | `Jaenvtix: Reset Auto-Configuration Preference`    |
 | `jaenvtix.installRecommendedExtensions`     | `Jaenvtix: Install Recommended Extensions`         |
 
-## Jaenvtix configuration settings
+## Settings
 
-All settings live under the `jaenvtix.*` namespace. All have sensible defaults; nothing is
-required. On first configuration Jaenvtix also seeds these keys (with their defaults) into the
-workspace `.vscode/settings.json`, so you can change one inline without hunting for it — VS Code
-shows the accepted values as you edit (autocomplete / hover).
+Everything lives under `jaenvtix.*` and has a default; nothing is required.
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| `jaenvtix.preferredJdkVendor` | `"auto"` | Preferred JDK vendor for downloads: `auto`, `oracle`, `temurin`, `corretto`, `liberica`, `microsoft`, `zulu`, `semeru`. Automatic fallback when unavailable. |
-| `jaenvtix.applyJavaTunings` | `true` | Apply sensible Java tunings (hotCodeReplace, maxConcurrentBuilds, JUnit UTF-8 on Windows, …) to User Settings on first run. |
-| `jaenvtix.configureOptionalExtensions` | `true` | Auto-configure detected companion extensions (Spring Boot Tools) to use the right JDK. |
+| `jaenvtix.preferredJdkVendor` | `"auto"` | Preferred vendor for downloads: `auto`, `oracle`, `temurin`, `corretto`, `liberica`, `microsoft`, `zulu`, `semeru`. Falls back automatically when unavailable. |
+| `jaenvtix.applyJavaTunings` | `true` | Write the Java tunings (hotCodeReplace, maxConcurrentBuilds, JUnit UTF-8 on Windows and the rest) to User Settings on first run. |
+| `jaenvtix.configureOptionalExtensions` | `true` | Point detected companion extensions such as Spring Boot Tools at the right JDK. |
 | `jaenvtix.discoverFromToolchainsXml` | `true` | Read `~/.m2/toolchains.xml` as a JDK discovery source. |
-| `jaenvtix.enableRuntimePathFix` | `true` | Try to recover invalid `java.configuration.runtimes` paths before removing the entry. |
-| `jaenvtix.autoUpdatePatches` | `true` | Check every 24h for newer patches of Jaenvtix-cached JDKs; re-download for security fixes. |
-| `jaenvtix.downloadMaxRetries` | `3` | Maximum retries for failed downloads (transient errors only; `0` disables retries). |
-| `jaenvtix.isolatedMavenPerProject` | `true` | Provision an isolated Maven per version pinned in a project's pom. |
+| `jaenvtix.enableRuntimePathFix` | `true` | Try to repair an invalid `java.configuration.runtimes` path before removing the entry. |
+| `jaenvtix.autoUpdatePatches` | `true` | Check every 24h for newer patches of cached JDKs and re-download them. |
+| `jaenvtix.downloadMaxRetries` | `3` | Retries for transient download failures; `0` disables them. |
+| `jaenvtix.isolatedMavenPerProject` | `true` | Provision one Maven per version pinned in a project's pom. |
 
 ## Dependencies
 
-Runtime:
-* [`jdk-utils`](https://www.npmjs.com/package/jdk-utils) — JDK detection across `JAVA_HOME`,
-  `PATH`, SDKMAN, jEnv, jabba, asdf, gradle, jbang.
+The only runtime dependency is [`jdk-utils`](https://www.npmjs.com/package/jdk-utils), used for
+JDK detection across `JAVA_HOME`, `PATH`, SDKMAN, jEnv, jabba, asdf, gradle and jbang.
 
-Recommended at install time (the user's responsibility, not bundled):
-* [Extension Pack for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-pack)
-  — see "Recommended companions" above, or run `Jaenvtix: Install Recommended Extensions`.
+The [Extension Pack for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-pack)
+is recommended but not bundled; install it yourself or run
+`Jaenvtix: Install Recommended Extensions`.
 
 ## Contributing
 
@@ -443,4 +372,4 @@ Press `F5` in VS Code to launch an Extension Development Host.
 
 ## License
 
-Eclipse Public License v2.0 — see [LICENSE.md](LICENSE.md).
+Eclipse Public License v2.0, see [LICENSE.md](LICENSE.md).

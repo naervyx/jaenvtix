@@ -6,7 +6,7 @@ export type LogSink = (message: string) => void;
  *
  * Defaults to `console.log` so every module stays loadable under plain Node
  * in unit tests. `activate()` swaps the sink for the "Jaenvtix" output
- * channel, making the messages visible to users — the extension-host console
+ * channel, so the messages are visible to users; the extension-host console
  * is only reachable through developer tools.
  */
 let sink: LogSink = (message) => console.log(message);

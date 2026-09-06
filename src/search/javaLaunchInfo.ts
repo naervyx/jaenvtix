@@ -252,7 +252,7 @@ function findMainClassInSources(projectPath: string): {mainClass: string | null;
  *   under `src/main/java`. A `@SpringBootApplication` class takes priority
  *   over a class with a bare `main` method.
  * - Always returns a `JavaLaunchInfo`; `mainClass` is `null` when no main
- *   entry point can be found — the caller decides whether to skip or warn.
+ *   entry point can be found; the caller decides whether to skip or warn.
  */
 export function resolveJavaLaunchInfo(projectPath: string): JavaLaunchInfo {
     const pomPath = join(projectPath, 'pom.xml');

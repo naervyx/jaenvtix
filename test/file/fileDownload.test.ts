@@ -87,7 +87,7 @@ describe('downloadFile', () => {
             targetDir: tempRoot,
             timeout: 2000,
             // This regression test is about redirect-chain failure surfacing,
-            // not the retry layer — keep it on the fail-fast path.
+            // not the retry layer; keep it on the fail-fast path.
             maxRetries: 0,
         });
 

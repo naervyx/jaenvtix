@@ -15,7 +15,7 @@ const SPRING_BOOT_DASHBOARD_EXTENSION_ID = 'vscjava.vscode-spring-boot-dashboard
 /**
  * Writes the curated extension catalog into each workspace root's
  * `.vscode/extensions.json` so VS Code itself suggests the companion
- * extensions to anyone opening the folder — the native counterpart of the
+ * extensions to anyone opening the folder; the native counterpart of the
  * opt-in "Install Recommended Extensions" command.
  *
  * Business rules:

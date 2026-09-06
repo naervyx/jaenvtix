@@ -34,7 +34,7 @@ export interface OptionalExtensionsUserConfig {
  *   `jaenvtix.configureOptionalExtensions: false`.
  * - Writes only settings of extensions actually installed; absent extensions
  *   produce no writes.
- * - A value the user already set globally is never overwritten — only the
+ * - A value the user already set globally is never overwritten; only the
  *   `globalValue` is checked, because the owning extension's registered
  *   default would mask "never set" if read through `get`.
  * - No qualifying JDK → nothing to write (see the selectors in
