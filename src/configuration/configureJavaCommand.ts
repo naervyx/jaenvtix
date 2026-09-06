@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import {buildVsCodeSettingPath} from '../build/directory';
 import {ConfirmConfigurationStep} from './steps/confirmConfigurationStep';
 import {ValidateEnvironmentStep} from './steps/validateEnvironmentStep';
 import {ResolveProjectsStep} from './steps/resolveProjectsStep';
@@ -118,6 +119,15 @@ export interface ConfigureJavaDeps {
     mismatchMemento: MismatchMementoAccessor;
     /** Reveals the "Jaenvtix" output channel (the mismatch toast's Show Logs action). */
     showLogs: () => void;
+    /**
+     * Reports the `settings.json` of every project this run configured, so
+     * activation can tell later whether the workspace is still configured.
+     *
+     * Called only on success, and with every resolved project, not just the
+     * ones whose contents changed: an idempotent re-run leaves the same files
+     * in place and they are exactly what must still exist.
+     */
+    recordConfigured?: (settingsPaths: string[]) => void | Promise<void>;
 }
 
 /**
@@ -369,6 +379,12 @@ export async function runConfigureJavaCommand(
         }
         return;
     }
+
+    // Before any toast: this is what makes the next activation able to tell a
+    // configured workspace from one whose .vscode was deleted.
+    await deps.recordConfigured?.(
+        state.projectContexts.map((context) => buildVsCodeSettingPath(context.projectPath)),
+    );
 
     vscode.window.showInformationMessage(Messages.Info.CONFIGURATION_COMPLETED);
 
