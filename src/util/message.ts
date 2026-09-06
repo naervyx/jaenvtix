@@ -16,6 +16,8 @@ const UNKNOWN_ERROR_DETAIL = 'Unknown error';
 export const Messages = {
     Info: {
         START_CONFIG: 'This project looks like a Java project. Do you want to start automatic configuration?',
+        START_CONFIG_WITH_EXTENSIONS:
+            'This project looks like a Java project, but Java language support is not installed. Jaenvtix can install the Extension Pack for Java and configure the workspace.',
         CONFIGURATION_COMPLETED: 'Java and Maven environment configuration completed successfully!',
         AUTO_CONFIG_PREFERENCE_RESET:
       'Jaenvtix auto-configuration preference reset. Reload the window (or open another workspace) to see the prompt again.',
@@ -40,6 +42,8 @@ export const Messages = {
         MAVEN_DISTRIBUTION_NOT_FOUND: 'Unable to resolve a Maven distribution for this platform.',
         JDK_DISTRIBUTION_NOT_FOUND: 'Unable to resolve a Java Development Kit distribution for this platform and version.',
         CONFIGURATION_CANCELLED: 'Configuration canceled by the user.',
+        CONFIG_SKIPPED_NO_LANGUAGE_SUPPORT:
+            'Jaenvtix did not configure this workspace: Java language support is still not active. Reload the window, or install and enable the Extension Pack for Java, then open the project again.',
         TEMP_CLEANUP_FAILED: (filePath: string, detail: string) =>
             `Failed to remove temporary archive ${filePath}: ${detail}`,
         LAUNCH_JSON_MALFORMED: (filePath: string) =>
@@ -75,6 +79,7 @@ export const Messages = {
     Progress: {
         TITLE: 'Java and Maven configuration',
         INSTALL_EXTENSIONS_TITLE: 'Jaenvtix: Installing recommended extensions',
+        INSTALL_LANGUAGE_SUPPORT_TITLE: 'Jaenvtix: Installing Extension Pack for Java',
         DEFAULT: 'Running configuration step',
         STEPS: {
             ValidateEnvironment: 'Validate environment',
@@ -160,12 +165,26 @@ export const Messages = {
             `Project ${projectPath}: verification skipped (project settings unavailable).`,
         EXTENSIONS_JSON_UPDATED: (workspace: string, added: string[]) =>
             `Workspace ${workspace}: .vscode/extensions.json recommendations updated - ${added.join(', ')}`,
+        EXTENSION_PACK_INSTALLING: (extensionId: string) =>
+            `Installing ${extensionId} before configuring, at the user's request.`,
+        EXTENSION_PACK_INSTALL_FAILED: (extensionId: string, detail: string) =>
+            `Could not install ${extensionId}: ${detail}`,
+        LANGUAGE_SERVER_READY: (extensionId: string) =>
+            `${extensionId} is available; continuing with the configuration.`,
+        LANGUAGE_SERVER_STILL_ABSENT: (extensionId: string) =>
+            `${extensionId} is still unavailable, so nothing was configured. It may need a window reload, or it may be installed but disabled.`,
+        LANGUAGE_SERVER_ABSENT_AUTO_RUN: (extensionId: string) =>
+            `Automatic configuration skipped: ${extensionId} is not installed, so there would be nothing to consume the provisioned settings.`,
+        EXTENSION_PAGE_NOT_OPENED: (extensionId: string) =>
+            `Could not open the extension page for ${extensionId}.`,
     },
     Choice: {
         YES: 'Yes',
         ALWAYS: 'Always',
         NO: 'No',
         RELOAD_NOW: 'Reload Now',
+        INSTALL_AND_CONFIGURE: 'Install and Configure',
+        SHOW_EXTENSION: 'Show Extension',
         RESTART_LANGUAGE_SERVER: 'Restart Language Server',
         SHOW_LOGS: 'Show Logs',
     },
