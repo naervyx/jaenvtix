@@ -48,7 +48,7 @@ ignores the ones you already have, and installs only what you pick.
 
 ### Reset Auto-Configuration Preference
 
-Clears the answer in every workspace at once, not only the one in front of you. It bumps a global
+Clears the answer in every workspace at once, including the ones you do not have open. It bumps a global
 generation counter that each answer is stamped with, so older answers stop counting and the prompt
 comes back the next time you open a workspace with a `pom.xml`.
 

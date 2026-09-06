@@ -123,9 +123,9 @@ export interface ConfigureJavaDeps {
      * Reports the `settings.json` of every project this run configured, so
      * activation can tell later whether the workspace is still configured.
      *
-     * Called only on success, and with every resolved project, not just the
-     * ones whose contents changed: an idempotent re-run leaves the same files
-     * in place and they are exactly what must still exist.
+     * Called only on success, and with every resolved project, including the
+     * ones an idempotent re-run left untouched: those files stay in place and
+     * they are exactly what must still exist.
      */
     recordConfigured?: (settingsPaths: string[]) => void | Promise<void>;
 }
