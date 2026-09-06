@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Activation offers to install Java language support when it is missing. Opening a Maven project
+  without the Red Hat Java extension now shows **Install and Configure / No** instead of the usual
+  Yes / Always / No: accepting installs the Extension Pack for Java, then configures the workspace.
+  The gate is the `redhat.java` member, never the pack, because a pack contributes no settings of
+  its own and can be installed with members missing.
+- The install path is all or nothing. Configuration runs only once the language server is actually
+  visible; a rejected install, a host without access to those extensions, a registration still
+  waiting on a window reload, and an extension that is installed but disabled all end the same way:
+  nothing is written, and a notification offers **Reload Now** and **Show Extension**. The
+  per-workspace answer is not persisted in that case, so the next open asks again.
+
+### Changed
+- The silent `Always` path no longer configures a workspace with no Java language support
+  installed. It stays silent, as that preference asks, and logs why to the "Jaenvtix" output
+  channel. Configuring there would have written settings nothing could consume and reported
+  success over a workspace where nothing works. Installing the extension and reopening restores the
+  normal automatic behaviour; `Jaenvtix: Java: Automatic Configuration` still configures on demand.
+
 ### Fixed
 - Configuration aborted on a partial Java extension pack install. `ApplyUserTuningsStep`
   wrote its five tunings without isolating failures, and VS Code rejects a write to a setting

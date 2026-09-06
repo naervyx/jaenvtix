@@ -8,8 +8,13 @@ import {
     AUTO_CONFIG_DISMISSED_KEY,
     decideAutoConfigAction,
 } from './activation/autoConfigPrompt';
+import {
+    installLanguageSupport,
+    JAVA_EXTENSION_PACK_ID,
+    JAVA_LANGUAGE_SERVER_ID,
+} from './activation/installLanguageSupport';
 import {Messages} from './util/message';
-import {setLogSink} from './util/logger';
+import {log, setLogSink} from './util/logger';
 
 const CONFIGURE_JAVA_COMMAND = 'jaenvtix.configureJava';
 const RESET_AUTO_CONFIG_PREFERENCE_COMMAND = 'jaenvtix.resetAutoConfigPreference';
@@ -96,13 +101,130 @@ export async function activate(context: vscode.ExtensionContext) {
     void offerAutoConfigIfNeeded(context);
 }
 
+/** True when the Red Hat Java extension is visible to the extension host. */
+function isLanguageServerVisible(): boolean {
+    return vscode.extensions.getExtension(JAVA_LANGUAGE_SERVER_ID) !== undefined;
+}
+
+/**
+ * Resolves on the next extension-host change, or after `ms` elapse, whichever
+ * comes first. Used as a safety net while waiting for a freshly installed
+ * extension to be published.
+ */
+function waitForExtensionChange(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+        const subscription = vscode.extensions.onDidChange(() => {
+            clearTimeout(timer);
+            subscription.dispose();
+            resolve();
+        });
+        const timer = setTimeout(() => {
+            subscription.dispose();
+            resolve();
+        }, ms);
+    });
+}
+
+/**
+ * Opens the extension's page so the user can install or enable it by hand.
+ *
+ * Uses `env.openExternal` with the host's own URI scheme rather than an
+ * internal command: it is public API, it reports success, and reading the
+ * scheme from `env.uriScheme` keeps it working on forks (measured `cursor` on
+ * Cursor, where a hardcoded `vscode:` would have failed).
+ */
+async function showLanguageServerExtensionPage(): Promise<void> {
+    const uri = vscode.Uri.parse(`${vscode.env.uriScheme}:extension/${JAVA_LANGUAGE_SERVER_ID}`);
+    try {
+        const opened = await vscode.env.openExternal(uri);
+        if (!opened) {
+            log(Messages.Log.EXTENSION_PAGE_NOT_OPENED(JAVA_LANGUAGE_SERVER_ID));
+        }
+    } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        log(Messages.Log.EXTENSION_PAGE_NOT_OPENED(`${JAVA_LANGUAGE_SERVER_ID} (${detail})`));
+    }
+}
+
+/**
+ * Told the user nothing was configured, and offers the two things that can fix
+ * it. Deliberately a warning and not an error: nothing broke, the environment
+ * is simply not ready yet.
+ */
+function notifyLanguageSupportUnavailable(): void {
+    void vscode.window.showWarningMessage(
+        Messages.Warning.CONFIG_SKIPPED_NO_LANGUAGE_SUPPORT,
+        Messages.Choice.RELOAD_NOW,
+        Messages.Choice.SHOW_EXTENSION,
+    ).then((choice) => {
+        if (choice === Messages.Choice.RELOAD_NOW) {
+            void vscode.commands.executeCommand('workbench.action.reloadWindow');
+        } else if (choice === Messages.Choice.SHOW_EXTENSION) {
+            void showLanguageServerExtensionPage();
+        }
+    });
+}
+
+/**
+ * The `'prompt-install'` branch: offer to install Java language support and,
+ * only when it becomes available, configure the workspace.
+ *
+ * Business rules:
+ * - All or nothing. Configuration runs only on `'ready'`; anything else leaves
+ *   the workspace untouched and tells the user why.
+ * - The per-workspace answer is persisted ONLY when the flow completes. A
+ *   failed install is an unfinished intention, so the next open asks again,
+ *   the same rule the dismissed-with-X case already follows.
+ */
+async function offerInstallThenConfigure(context: vscode.ExtensionContext): Promise<void> {
+    const choice = await vscode.window.showInformationMessage(
+        Messages.Info.START_CONFIG_WITH_EXTENSIONS,
+        Messages.Choice.INSTALL_AND_CONFIGURE,
+        Messages.Choice.NO,
+    );
+
+    if (choice === Messages.Choice.NO) {
+        await context.workspaceState.update(AUTO_CONFIG_DISMISSED_KEY, true);
+        return;
+    }
+
+    if (choice !== Messages.Choice.INSTALL_AND_CONFIGURE) {
+        // Dismissed with the X: ambiguous, so ask again next session.
+        return;
+    }
+
+    const outcome = await installLanguageSupport({
+        isLanguageServerVisible,
+        installExtensionPack: () =>
+            vscode.commands.executeCommand('workbench.extensions.installExtension', JAVA_EXTENSION_PACK_ID),
+        withProgress: (title, task) => vscode.window.withProgress(
+            {location: vscode.ProgressLocation.Notification, title, cancellable: false},
+            () => task(),
+        ),
+        waitForExtensionChange,
+    });
+
+    if (outcome === 'unavailable') {
+        notifyLanguageSupportUnavailable();
+        return;
+    }
+
+    await vscode.commands.executeCommand(CONFIGURE_JAVA_COMMAND, {skipConfirmation: true});
+    await context.workspaceState.update(AUTO_CONFIG_DISMISSED_KEY, true);
+}
+
 /**
  * On activation (triggered by the `workspaceContains` event for any
- * pom.xml in the workspace), decide between three paths:
+ * pom.xml in the workspace), pick one of five paths:
  *
- *   1. Auto-run (silent) — when the user has previously chosen "Always".
- *   2. Prompt — when no decision has been made for this workspace yet.
- *   3. Skip — when the user already answered Yes/No for this workspace.
+ *   1. Auto-run (silent) — "Always" was chosen and language support is present.
+ *   2. Prompt — no decision yet for this workspace, language support present.
+ *   3. Prompt-install — no decision yet and language support missing: offer to
+ *      install it, and configure only if that succeeds.
+ *   4. Skip, logged — "Always" was chosen but language support is missing, so
+ *      there is nothing to consume what would be written and the silence the
+ *      user asked for is kept.
+ *   5. Skip — no folders, or the user already answered Yes/No here.
  *
  * Errors are swallowed: failing to show the prompt or run the command
  * must never block the extension from being usable via the Command
@@ -121,9 +243,20 @@ async function offerAutoConfigIfNeeded(context: vscode.ExtensionContext): Promis
             vscode.workspace.workspaceFolders,
             workspaceDismissed,
             alwaysAccepted,
+            isLanguageServerVisible(),
         );
 
         if (decision === 'skip') {
+            return;
+        }
+
+        if (decision === 'skip-no-language-support') {
+            log(Messages.Log.LANGUAGE_SERVER_ABSENT_AUTO_RUN(JAVA_LANGUAGE_SERVER_ID));
+            return;
+        }
+
+        if (decision === 'prompt-install') {
+            await offerInstallThenConfigure(context);
             return;
         }
 

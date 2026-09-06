@@ -25,6 +25,9 @@ replacing them: Jaenvtix populates the settings those extensions read, respects 
 - **Explicit consent: Yes / Always / No** — the first time Jaenvtix detects a `pom.xml`, it asks.
   It never modifies your User Settings silently. `Jaenvtix: Reset Auto-Configuration Preference`
   brings the prompt back.
+- **All or nothing** — Jaenvtix installs nothing without being asked, and configures nothing it
+  cannot make work. If Java language support is missing it offers to install it, and stops if that
+  does not happen. No run ever reports success over a workspace where nothing works.
 - **Yields to `mvnw` when present** — if your project ships `mvnw`, Jaenvtix omits
   `maven.executable.path` / `preferMavenWrapper` so `vscode-maven` uses your wrapper as intended.
 - **Auto-fixes broken `java.configuration.runtimes`** — recovers paths users typed wrong (e.g.
@@ -111,6 +114,11 @@ replacing them: Jaenvtix populates the settings those extensions read, respects 
    * **Yes** — runs the configuration in this workspace.
    * **Always** — runs it now and silently in every future workspace with a `pom.xml`.
    * **No** — does nothing now and remembers it for this workspace.
+
+   Without Java language support installed, the question changes to
+   **Install and Configure / No**: Jaenvtix offers to install the Extension Pack for Java first,
+   and configures only once that succeeds. Everything it writes is consumed by those extensions,
+   so configuring without them would report success over a workspace where nothing works.
 4. After the first run, every subsequent open follows the choice you persisted. Use
    `Jaenvtix: Reset Auto-Configuration Preference` from the Command Palette to bring the prompt
    back.
@@ -315,6 +323,10 @@ Each project's wrapper pins its own Maven, JDK, and env. No conflicts. Disable w
 * Closing the prompt with the X button does **not** persist anything — the user gets another
   chance next session.
 * `Jaenvtix: Reset Auto-Configuration Preference` clears both layers.
+* Nothing is configured while the Red Hat Java extension (`redhat.java`) is missing, on any path
+  including the silent `Always` one, which logs the reason to the "Jaenvtix" output channel
+  instead. Install the extension and reopen the project to get the normal behaviour back, or run
+  `Jaenvtix: Java: Automatic Configuration` from the Command Palette to configure anyway.
 
 ---
 
