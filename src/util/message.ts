@@ -11,7 +11,7 @@ const UNKNOWN_ERROR_DETAIL = 'Unknown error';
  * - `Progress` — labels displayed in the progress notification during the
  *   configuration pipeline (one label per step).
  * - `Log` — structured messages written to the output channel.
- * - `Choice` — button labels for Yes/Always/No prompts.
+ * - `Choice` — button labels for notification prompts.
  */
 export const Messages = {
     Info: {
@@ -20,7 +20,7 @@ export const Messages = {
             'This project looks like a Java project, but Java language support is not installed. Jaenvtix can install the Extension Pack for Java and configure the workspace.',
         CONFIGURATION_COMPLETED: 'Java and Maven environment configuration completed successfully!',
         AUTO_CONFIG_PREFERENCE_RESET:
-      'Jaenvtix auto-configuration preference reset. Reload the window (or open another workspace) to see the prompt again.',
+      'Jaenvtix auto-configuration preference reset for every workspace. Reload the window (or open another workspace) to see the prompt again.',
         ALL_SELECTED_EXTENSIONS_INSTALLED: 'All selected extensions are already installed.',
         EXTENSIONS_INSTALLED: (count: number) =>
             `${count} extension${count === 1 ? '' : 's'} installed. Reload the window to activate ${count === 1 ? 'it' : 'them'}.`,
@@ -173,14 +173,21 @@ export const Messages = {
             `${extensionId} is available; continuing with the configuration.`,
         LANGUAGE_SERVER_STILL_ABSENT: (extensionId: string) =>
             `${extensionId} is still unavailable, so nothing was configured. It may need a window reload, or it may be installed but disabled.`,
-        LANGUAGE_SERVER_ABSENT_AUTO_RUN: (extensionId: string) =>
-            `Automatic configuration skipped: ${extensionId} is not installed, so there would be nothing to consume the provisioned settings.`,
         EXTENSION_PAGE_NOT_OPENED: (extensionId: string) =>
             `Could not open the extension page for ${extensionId}.`,
+        ACTIVATED: (folderCount: number) =>
+            `Jaenvtix activated with ${folderCount} workspace folder${folderCount === 1 ? '' : 's'}.`,
+        AUTO_CONFIG_SKIPPED_NO_FOLDERS:
+            'Automatic configuration skipped: this window has no workspace folders.',
+        AUTO_CONFIG_SKIPPED_DECLINED:
+            'Automatic configuration skipped: this workspace was declined. Run "Jaenvtix: Java: Automatic Configuration" to configure it anyway, or "Jaenvtix: Reset Auto-Configuration Preference" to be asked again.',
+        AUTO_CONFIG_SKIPPED_CONFIGURED:
+            'Automatic configuration skipped: this workspace is already configured.',
+        AUTO_CONFIG_PROMPT_FAILED: (detail: string) =>
+            `The activation prompt failed: ${detail}. Jaenvtix is still available from the Command Palette.`,
     },
     Choice: {
         YES: 'Yes',
-        ALWAYS: 'Always',
         NO: 'No',
         RELOAD_NOW: 'Reload Now',
         INSTALL_AND_CONFIGURE: 'Install and Configure',

@@ -43,6 +43,7 @@
 		"theme": "dark"
 	},
 	"activationEvents": [
+		"workspaceContains:pom.xml",
 		"workspaceContains:**/pom.xml"
 	],
 	"main": "./out/extension.js",
