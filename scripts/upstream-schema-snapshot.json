@@ -2,6 +2,7 @@
     "redhat.java": {
         "settings": [
             "java.autobuild.enabled",
+            "java.classpath.variables",
             "java.cleanup.actions",
             "java.cleanup.actionsOnSave",
             "java.codeAction.sortMembers.avoidVolatileChanges",
@@ -90,6 +91,7 @@
             "java.jdt.ls.javac.enabled",
             "java.jdt.ls.kotlinSupport.enabled",
             "java.jdt.ls.lombokSupport.enabled",
+            "java.jdt.ls.mavenProjectCacheSize",
             "java.jdt.ls.protobufSupport.enabled",
             "java.jdt.ls.scalaSupport.enabled",
             "java.jdt.ls.vmargs",
