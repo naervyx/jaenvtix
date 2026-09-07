@@ -24,17 +24,17 @@ alone whatever those extensions already get right.
 ### Java: Automatic Configuration
 
 Runs the whole pipeline. It also runs on its own when you answer Yes to the activation prompt,
-which is the only thing Jaenvtix does before you agree to anything. When Java language support is
-missing the prompt offers to install it first and configures only once that succeeds. The progress
-notification names the step it is on, including the wait for the Red Hat language server to finish
-loading.
+which is the only thing Jaenvtix does before you agree to anything. The progress notification names
+the step it is on, and after a run that changed the JDK the language server uses, the doctor reports
+any project still compiling at the old level and offers a restart in one click.
 
-![A first run: the named progress steps, and the Maven favorites it seeds](docs/images/02-automatic-configuration.gif)
+![Answering Yes, the named progress steps, the doctor notice and the Maven favorites the run seeds](docs/images/02-automatic-configuration.gif)
 
-Running it again reuses everything already provisioned. Change detection means a re-run with
-nothing to do writes nothing, skips the language server wait, and finishes in seconds.
+Without Java language support installed the question becomes Install and Configure, or No. Jaenvtix
+offers the Extension Pack for Java first and configures only once it is there, because everything it
+writes is read by those extensions. Nothing is written if the install does not happen.
 
-![Re-running the command from the palette with the JDKs already cached](docs/images/03-automatic-configuration-rerun.gif)
+![Offering to install the Extension Pack for Java, then configuring once it is present](docs/images/03-install-and-configure.gif)
 
 What the run writes, and what it leaves untouched, is in [Settings written per
 project](#settings-written-per-project) and the sections after it.
@@ -48,9 +48,11 @@ ignores the ones you already have, and installs only what you pick.
 
 ### Reset Auto-Configuration Preference
 
-Clears the answer in every workspace at once, including the ones you do not have open. It bumps a global
-generation counter that each answer is stamped with, so older answers stop counting and the prompt
-comes back the next time you open a workspace with a `pom.xml`.
+Clears the answer in every workspace at once, including the ones you do not have open. It bumps a
+global generation counter that each answer is stamped with, so older answers stop counting and the
+prompt comes back the next time you open a workspace with a `pom.xml`.
+
+![Answering No, then running the reset and getting the question back](docs/images/05-decline-and-reset.gif)
 
 ## Quick start
 
