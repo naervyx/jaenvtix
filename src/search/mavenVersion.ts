@@ -3,16 +3,16 @@ import {join} from 'node:path';
 
 import {scanXml} from './xmlScanner';
 
-/** Accepts `3.9`, `3.9.5`, `4.0.0` — plain dotted numeric versions only. */
+/** Accepts `3.9`, `3.9.5`, `4.0.0`: plain dotted numeric versions only. */
 const MAVEN_VERSION_PATTERN = /^\d+(\.\d+)+$/;
 
 /**
  * Extracts the Maven version a `pom.xml` pins, if any.
  *
  * Recognized configuration patterns (in priority order):
- * - `<prerequisites><maven>X.Y.Z</maven></prerequisites>` — Maven's own
+ * - `<prerequisites><maven>X.Y.Z</maven></prerequisites>`: Maven's own
  *   minimum-version contract; the strongest signal of intent.
- * - `<properties><maven.version>X.Y.Z</maven.version></properties>` — common
+ * - `<properties><maven.version>X.Y.Z</maven.version></properties>`: common
  *   team convention.
  *
  * Business rules:

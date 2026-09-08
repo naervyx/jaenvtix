@@ -144,14 +144,14 @@ export function decideAutoConfigAction(
 }
 
 /**
- * Workspace-state key — holds the `AutoConfigRecord` for this workspace. The
+ * Workspace-state key. Holds the `AutoConfigRecord` for this workspace. The
  * literal string is part of the persistence contract: changing it would forget
  * every existing answer and ask every user once more.
  */
 export const AUTO_CONFIG_RECORD_KEY = 'jaenvtix.autoConfigPromptDismissed';
 
 /**
- * Global-state key — a counter bumped by
+ * Global-state key. A counter bumped by
  * `jaenvtix.resetAutoConfigPreference`. Every workspace stamps the generation
  * in force when it answered; a record older than the current generation is
  * ignored, so one command resets every workspace at once.
@@ -159,6 +159,6 @@ export const AUTO_CONFIG_RECORD_KEY = 'jaenvtix.autoConfigPromptDismissed';
  * This exists because `workspaceState` is reachable only for the workspace
  * currently open. Bumping a global counter is the only way, using public API,
  * to invalidate answers recorded elsewhere. Those rows stay in the host's
- * storage; they simply stop counting.
+ * storage; they stop counting.
  */
 export const AUTO_CONFIG_GENERATION_KEY = 'jaenvtix.autoConfigGeneration';

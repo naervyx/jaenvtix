@@ -149,7 +149,7 @@ describe('ScheduleDownloadsStep', () => {
 
         assert.equal(state.mavenDownload, undefined);
         assert.equal(calls.filter((c) => c.fileName === 'maven-3.9.6').length, 0);
-        // JDK download still happens — JDK is needed regardless of mvnw.
+        // JDK download still happens; the JDK is needed regardless of mvnw.
         assert.equal(state.jdkDownloads.has('17'), true);
     });
 

@@ -12,7 +12,7 @@ export interface DefaultSetting {
 
 /**
  * The canonical `jaenvtix.*` settings with their defaults. These MUST mirror
- * `package.json` `contributes.configuration` — a drift test guards it.
+ * `package.json` `contributes.configuration`; a drift test guards it.
  * Ordered by how likely a user is to change each one.
  */
 export const JAENVTIX_DEFAULT_SETTINGS: readonly DefaultSetting[] = [

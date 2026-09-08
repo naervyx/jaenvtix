@@ -6,7 +6,7 @@ import {arch, platform} from 'node:os';
  *
  * - `'windows'`: mapped from Node.js `'win32'`.
  * - `'linux'`: mapped from Node.js `'linux'` (glibc).
- * - `'linux-musl'`: Linux with the musl libc (Alpine and derivatives) —
+ * - `'linux-musl'`: Linux with the musl libc (Alpine and derivatives);
  *   needs JDK builds linked against musl (Adoptium `alpine-linux`, Liberica).
  * - `'darwin'`: mapped from Node.js `'darwin'` (macOS).
  * - `'unknown'`: any other platform; treated as unsupported.

@@ -25,7 +25,7 @@ export interface VerifyConfigurationDeps {
     /**
      * Surfaces the mismatch summary to the user. The orchestrator wires it
      * to an information toast carrying [Restart Language Server] and
-     * [Show Logs] actions — restarting is the fix, so the message must not
+     * [Show Logs] actions; restarting is the fix, so the message must not
      * read like an error.
      */
     notifyMismatch: (message: string) => void;
@@ -50,9 +50,9 @@ export interface VerifyConfigurationDeps {
  *
  * Business rules:
  * - Best-effort by design: every failure path degrades to a log line, never
- *   to a pipeline warning/error — verification is cooperative, not core.
+ *   to a pipeline warning/error; verification is cooperative, not core.
  * - Verifies only projects that changed this run plus the backlog flagged by
- *   the previous run — the physical environment is already re-provisioned on
+ *   the previous run; the physical environment is already re-provisioned on
  *   every run by the earlier steps; what the server RESOLVED only moves when
  *   settings change or the server restarts, so anything else is a no-op.
  * - Never verifies by the clock: on `timeout` the step defers entirely to
@@ -64,7 +64,7 @@ export interface VerifyConfigurationDeps {
  *   Jaenvtix mismatch.
  * - Memento: mismatches found now are recorded for the next run; a flagged
  *   project that now verifies `ok` is cleared; a flagged project whose
- *   answer is `unknown` STAYS flagged — an unreadable answer is not a
+ *   answer is `unknown` STAYS flagged; an unreadable answer is not a
  *   resolution.
  * - Reads run through a small concurrency pool; per-project results are
  *   logged individually; the user-facing toast is a single message naming
@@ -154,8 +154,8 @@ function defaultHasMainJavaSources(projectPath: string): boolean {
 /**
  * Computes the backlog to persist: every mismatch found now, plus previously
  * flagged projects whose answer came back `unknown` (couldn't confirm the
- * mismatch was resolved). Projects that verified `ok` — or were skipped as
- * aggregators, which can never verify — drop off.
+ * mismatch was resolved). Projects that verified `ok`, or were skipped as
+ * aggregators that can never verify, drop off.
  */
 function nextBacklog(
     verifications: readonly ProjectVerification[],

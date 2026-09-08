@@ -34,3 +34,4 @@ tsconfig.test.json
 **/*.tsbuildinfo
 *.vsix
 .tmp-*
+docs/**

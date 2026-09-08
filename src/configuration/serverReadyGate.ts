@@ -1,28 +1,28 @@
 /**
  * Outcome of waiting for the Red Hat Java Language Server to become ready.
  *
- * - `ready` — the server confirmed initialization; project-level commands
+ * - `ready`: the server confirmed initialization; project-level commands
  *   (`java.projectConfiguration.update`, `java.project.getSettings`) are safe.
- * - `timeout` — the server is still loading. The `becameReady` promise stays
+ * - `timeout`: the server is still loading. The `becameReady` promise stays
  *   live so the caller can resume deferred work once the server finishes,
  *   instead of acting on stale state now.
- * - `unconfirmed` — the extension is installed but readiness can never be
+ * - `unconfirmed`: the extension is installed but readiness can never be
  *   confirmed (activation failure, an API version that predates
  *   `serverReady`, or a rejected readiness promise). Callers should attempt
  *   their commands best-effort, matching Jaenvtix's pre-gate behaviour.
- * - `extension-missing` — the Red Hat extension is not installed; there is no
+ * - `extension-missing`: the Red Hat extension is not installed; there is no
  *   Language Server to talk to, so dependent commands should be skipped.
- * - `lightweight` — the user runs the server in LightWeight mode
+ * - `lightweight`: the user runs the server in LightWeight mode
  *   (`java.server.launchMode`). The Standard server never starts, so there is
- *   no resolved project configuration to refresh or verify. This is the
- *   user's deliberate choice: dependent work is a correct no-op, not a gap.
+ *   no resolved project configuration to refresh or verify. The user chose
+ *   this, so skipping the dependent work is correct.
  */
 export type ServerReadyOutcome = 'ready' | 'timeout' | 'unconfirmed' | 'extension-missing' | 'lightweight';
 
 /**
  * Result of one wait attempt. `becameReady` is present only for `timeout`:
  * it resolves when the still-loading server eventually finishes, and never
- * settles if the server fails — so a detached continuation chained on it
+ * settles if the server fails, so a detached continuation chained on it
  * either runs with a genuinely ready server or not at all.
  */
 export interface ServerReadyWait {
@@ -40,10 +40,10 @@ export type RedhatApiResolver = () => Promise<unknown>;
 
 /**
  * How long to wait for `serverReady` before letting the pipeline finish.
- * The promise resolves once jdt.ls finishes initializing — normally seconds.
- * A timeout is not a dead end: the caller arms a continuation on
- * `becameReady`, so the cap only bounds how long the progress notification
- * stays visible, not whether the deferred work eventually happens.
+ * The promise resolves once jdt.ls finishes initializing, normally seconds.
+ * On timeout the caller arms a continuation on `becameReady`, so the cap only
+ * bounds how long the progress notification stays visible, not whether the
+ * deferred work eventually happens.
  */
 export const DEFAULT_SERVER_READY_TIMEOUT_MS = 15_000;
 

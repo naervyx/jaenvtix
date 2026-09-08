@@ -30,7 +30,7 @@ export interface RefreshProjectConfigurationDeps {
  *   refreshes on `ready`, best-effort on `unconfirmed` (pre-gate behaviour),
  *   and skips silently on `extension-missing` / `lightweight` (nothing to
  *   notify) and on `timeout` (the orchestrator's continuation re-runs this
- *   step once the server finishes loading — never act on a loading server).
+ *   step once the server finishes loading; never act on a loading server).
  * - Refresh calls run through a small concurrency pool; per-pom failures
  *   stay isolated and swallowed.
  */

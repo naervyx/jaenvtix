@@ -25,7 +25,7 @@ function isRedirect(statusCode: number): boolean {
  * - Selects HTTP or HTTPS transport based on the URL protocol.
  * - Follows redirects (301, 302, 303, 307, 308) up to `redirectsLeft` hops.
  * - Rejects on malformed URLs, network errors, timeouts, non-2xx responses,
- *   and redirect chains that are broken or too long — callers decide how to
+ *   and redirect chains that are broken or too long; callers decide how to
  *   surface the failure.
  * - Fully asynchronous: never blocks the extension-host event loop.
  */

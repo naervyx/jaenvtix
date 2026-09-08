@@ -153,6 +153,6 @@ describe('mergeToolchainsXml', () => {
         assert.equal(updated, true);
         assert.match(xml, /<\/toolchains>/);
         assert.match(xml, /<jdkHome>\/jdk-17<\/jdkHome>/);
-        // The malformed content is dropped intentionally — see mergeToolchainsXml docs.
+        // The malformed content is dropped intentionally; see mergeToolchainsXml docs.
     });
 });

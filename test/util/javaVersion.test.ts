@@ -8,7 +8,7 @@ import {
 } from '../../src/util/javaVersion';
 
 describe('TOOLING_JAVA_MIN_VERSION', () => {
-    it('pins the tooling cutoff at 21 — VS Code Java tooling requires it', () => {
+    it('pins the tooling cutoff at 21 because VS Code Java tooling requires it', () => {
         assert.equal(TOOLING_JAVA_MIN_VERSION, 21);
     });
 });

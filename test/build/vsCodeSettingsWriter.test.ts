@@ -44,7 +44,7 @@ async function readSettings(settingsPath: string): Promise<Record<string, unknow
     return JSON.parse(content) as Record<string, unknown>;
 }
 
-describe('updateVsCodeSettings — required keys', () => {
+describe('updateVsCodeSettings: required keys', () => {
     const cleanups: (() => Promise<void>)[] = [];
 
     afterEach(async () => {
@@ -66,7 +66,7 @@ describe('updateVsCodeSettings — required keys', () => {
         assert.equal(settings['java.compile.nullAnalysis.mode'], 'automatic');
         assert.equal(settings['java.configuration.updateBuildConfiguration'], 'automatic');
         // The key the redhat.java manifest declares today. Its README once led
-        // us to a `java.import.*` variant that does not exist upstream — the
+        // us to a `java.import.*` variant that does not exist upstream; the
         // contract test (test/contract/) now guards this name.
         assert.equal(settings['java.configuration.maven.userSettings'], '/home/dev/.m2/settings.xml');
     });
@@ -160,7 +160,7 @@ describe('updateVsCodeSettings — required keys', () => {
     });
 });
 
-describe('updateVsCodeSettings — runtimes gating', () => {
+describe('updateVsCodeSettings: runtimes gating', () => {
     const cleanups: (() => Promise<void>)[] = [];
 
     afterEach(async () => {
@@ -182,8 +182,8 @@ describe('updateVsCodeSettings — runtimes gating', () => {
     });
 
     it('removes the runtimes key only when it holds the single Jaenvtix-provisioned entry', async () => {
-        // paths.terminalJavaHome is '/home/dev/.jaenvtix/jdk-17' in this scenario —
-        // a single entry pointing there is the fingerprint of a previous Jaenvtix run.
+        // paths.terminalJavaHome is '/home/dev/.jaenvtix/jdk-17' in this scenario,
+        // and a single entry pointing there is the fingerprint of a previous Jaenvtix run.
         const {settingsPath, paths, cleanup} = await withSettingsFile(
             {platform: 'linux'},
             {'java.configuration.runtimes': [{name: 'JavaSE-17', path: '/home/dev/.jaenvtix/jdk-17', default: true}]},
@@ -253,7 +253,7 @@ describe('updateVsCodeSettings — runtimes gating', () => {
         const settings = await readSettings(settingsPath);
 
         assert.deepEqual(settings['java.configuration.runtimes'], [{name: 'JavaSE-17', path: userJdk}]);
-        // No runtime change was needed — but other keys may still update on
+        // No runtime change was needed, but other keys may still update on
         // this first write, so only the runtimes key is asserted stable.
         assert.equal(result.updatedKeys.includes('java.configuration.runtimes'), false);
     });
@@ -278,7 +278,7 @@ describe('updateVsCodeSettings — runtimes gating', () => {
     });
 });
 
-describe('updateVsCodeSettings — terminal.integrated.env per platform', () => {
+describe('updateVsCodeSettings: terminal.integrated.env per platform', () => {
     const cleanups: (() => Promise<void>)[] = [];
 
     afterEach(async () => {
@@ -357,7 +357,7 @@ describe('updateVsCodeSettings — terminal.integrated.env per platform', () => 
     });
 });
 
-describe('updateVsCodeSettings — maven.terminal.customEnv per-folder', () => {
+describe('updateVsCodeSettings: maven.terminal.customEnv per-folder', () => {
     // Business rule: vscode-maven applies `maven.terminal.customEnv` to its
     // own Maven Explorer terminal. We must write it explicitly so that
     // `mvn` invocations from that flow run with the project's JAVA_HOME,
@@ -420,7 +420,7 @@ describe('updateVsCodeSettings — maven.terminal.customEnv per-folder', () => {
 
         const javaHome = customEnv.find((entry) => entry.environmentVariable === 'JAVA_HOME');
         assert.equal(javaHome?.value, '/home/dev/.jaenvtix/jdk-17');
-        // Only one JAVA_HOME entry — no duplicates.
+        // Only one JAVA_HOME entry, no duplicates.
         assert.equal(customEnv.filter((e) => e.environmentVariable === 'JAVA_HOME').length, 1);
     });
 
@@ -434,7 +434,7 @@ describe('updateVsCodeSettings — maven.terminal.customEnv per-folder', () => {
     });
 });
 
-describe('updateVsCodeSettings — mvnw vs Jaenvtix wrapper', () => {
+describe('updateVsCodeSettings: mvnw vs Jaenvtix wrapper', () => {
     // Business rule: when the project ships its own `mvnw`, Jaenvtix yields to it.
     // Concretely:
     //   - `maven.executable.path` is NOT written (so vscode-maven keeps using mvnw)
@@ -450,7 +450,7 @@ describe('updateVsCodeSettings — mvnw vs Jaenvtix wrapper', () => {
     });
 
     it('yields to mvnw: omits maven.executable.path AND maven.executable.preferMavenWrapper when mavenExecutablePath is undefined', async () => {
-        // Both keys are dropped — vscode-maven's default `preferMavenWrapper: true`
+        // Both keys are dropped; vscode-maven's default `preferMavenWrapper: true`
         // is already what we want, so writing it would be redundant noise.
         const {settingsPath, paths, cleanup} = await withSettingsFile({platform: 'linux'});
         cleanups.push(cleanup);
@@ -503,7 +503,7 @@ describe('updateVsCodeSettings — mvnw vs Jaenvtix wrapper', () => {
         const settings = await readSettings(settingsPath);
 
         assert.equal('maven.terminal.customEnv' in settings, false);
-        // The general-purpose terminal env still IS written — vscode-maven's
+        // The general-purpose terminal env still IS written; vscode-maven's
         // own terminal inherits it via VS Code core.
         assert.ok(settings['terminal.integrated.env.linux']);
     });
@@ -527,7 +527,7 @@ describe('updateVsCodeSettings — mvnw vs Jaenvtix wrapper', () => {
     });
 });
 
-describe('updateVsCodeSettings — jaenvtix.* defaults seeding', () => {
+describe('updateVsCodeSettings: jaenvtix.* defaults seeding', () => {
     const cleanups: (() => Promise<void>)[] = [];
 
     afterEach(async () => {
@@ -596,7 +596,7 @@ describe('updateVsCodeSettings — jaenvtix.* defaults seeding', () => {
     });
 });
 
-describe('updateVsCodeSettings — maven.terminal.favorites seeding', () => {
+describe('updateVsCodeSettings: maven.terminal.favorites seeding', () => {
     const cleanups: (() => Promise<void>)[] = [];
 
     afterEach(async () => {
@@ -653,7 +653,7 @@ describe('updateVsCodeSettings — maven.terminal.favorites seeding', () => {
     });
 });
 
-describe('updateVsCodeSettings — maven.view seeding', () => {
+describe('updateVsCodeSettings: maven.view seeding', () => {
     const cleanups: (() => Promise<void>)[] = [];
 
     afterEach(async () => {

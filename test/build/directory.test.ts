@@ -22,7 +22,7 @@ import {
 } from '../../src/build/directory';
 import {createTempDir, removeTempDir} from '../fixtures/tempDir';
 
-describe('path builders — pure logic', () => {
+describe('path builders: pure logic', () => {
     it('builds the per-version JDK home under ~/.jaenvtix', () => {
         assert.equal(buildJdkVersionPath('21'), join(homedir(), '.jaenvtix', 'jdk-21'));
     });

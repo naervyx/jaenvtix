@@ -57,7 +57,7 @@ function readyState(...contexts: ProjectContext[]): JavaConfigurationState {
 // - Verifies only changed projects plus the backlog from the previous run;
 //   idempotent runs read nothing.
 // - Never verifies by the clock: timeout defers to the continuation.
-// - Aggregators (no src/main/java) are skipped — JDT resolves a default
+// - Aggregators (no src/main/java) are skipped; JDT resolves a default
 //   compliance for them, which is not a Jaenvtix mismatch.
 // - Memento: mismatches recorded; ok clears; unknown keeps a flagged project.
 // - Single mismatch → actionable message naming the folder; several → count.

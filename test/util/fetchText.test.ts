@@ -66,7 +66,7 @@ describe('fetchTextContent', () => {
 
     it('rejects on timeout when the server hangs', async () => {
         const server = await startTestServer(() => {
-            // Never respond — force the client-side timeout.
+            // Never respond; force the client-side timeout.
         });
 
         try {

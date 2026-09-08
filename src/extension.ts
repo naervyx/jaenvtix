@@ -172,7 +172,7 @@ async function showLanguageServerExtensionPage(): Promise<void> {
 /**
  * Told the user nothing was configured, and offers the two things that can fix
  * it. Deliberately a warning and not an error: nothing broke, the environment
- * is simply not ready yet.
+ * is not ready yet.
  */
 function notifyLanguageSupportUnavailable(): void {
     void vscode.window.showWarningMessage(
@@ -280,10 +280,10 @@ async function offerInstallThenConfigure(context: vscode.ExtensionContext): Prom
  * On activation (triggered by the `workspaceContains` events for any
  * pom.xml in the workspace), pick one of three paths:
  *
- *   1. Prompt — no decision yet for this workspace, language support present.
- *   2. Prompt-install — no decision yet and language support missing: offer to
+ *   1. Prompt: no decision yet for this workspace, language support present.
+ *   2. Prompt-install: no decision yet and language support missing: offer to
  *      install it, and configure only if that succeeds.
- *   3. Skip — no folders, or the user already answered the question that
+ *   3. Skip: no folders, or the user already answered the question that
  *      applies here.
  *
  * Errors are swallowed: failing to show the prompt or run the command
@@ -341,7 +341,7 @@ async function offerAutoConfigIfNeeded(context: vscode.ExtensionContext): Promis
             await rememberAnswer(context, 'declined');
         }
         // A `null`/`undefined` choice means the notification was dismissed
-        // via the X button. We deliberately do NOT persist that — it's
+        // via the X button. We deliberately do NOT persist that; it's
         // ambiguous (user may have just been busy), so we re-ask next session.
     } catch (error) {
         // The output channel, not the extension-host console: a user who sees

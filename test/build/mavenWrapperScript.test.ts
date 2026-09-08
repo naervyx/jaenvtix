@@ -32,7 +32,7 @@ async function buildScenario({platform, scriptName, overrides}: ScenarioInput): 
     return {input, cleanup: () => removeTempDir(tempRoot)};
 }
 
-describe('writeJaenvtixMavenWrapper — Windows batch script', () => {
+describe('writeJaenvtixMavenWrapper: Windows batch script', () => {
     const cleanups: (() => Promise<void>)[] = [];
 
     afterEach(async () => {
@@ -86,7 +86,7 @@ describe('writeJaenvtixMavenWrapper — Windows batch script', () => {
             // Caller hands us a normalized path with forward slashes (can happen
             // when a path was built via path.posix.join or fed by the Maven
             // distribution metadata). The wrapper must still emit a valid
-            // Windows `call "...\\mvn.cmd"` line — never a stray forward slash.
+            // Windows `call "...\\mvn.cmd"` line, never a stray forward slash.
             overrides: {toolBin: 'C:/maven/3.9.6/bin'},
         });
         cleanups.push(cleanup);
@@ -98,7 +98,7 @@ describe('writeJaenvtixMavenWrapper — Windows batch script', () => {
     });
 });
 
-describe('writeJaenvtixMavenWrapper — Unix shell script', () => {
+describe('writeJaenvtixMavenWrapper: Unix shell script', () => {
     const cleanups: (() => Promise<void>)[] = [];
 
     afterEach(async () => {

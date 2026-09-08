@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {buildDistribution, getJdkDistribution, normalizeVendorPreference} from '../../src/build/javaUrl';
 import type {SupportedJavaVersions} from '../../src/build/redhatRuntimeReader';
 
-describe('buildDistribution — Oracle (Java 21 / 25)', () => {
+describe('buildDistribution: Oracle (Java 21 / 25)', () => {
     it('emits the documented Oracle download URL with macos OS spelling on darwin', () => {
         const distribution = buildDistribution('oracle', '21', 'darwin', 'arm64');
         assert.deepEqual(distribution, {
@@ -33,7 +33,7 @@ describe('buildDistribution — Oracle (Java 21 / 25)', () => {
     });
 });
 
-describe('buildDistribution — Amazon Corretto (Java < 21)', () => {
+describe('buildDistribution: Amazon Corretto (Java < 21)', () => {
     it('uses the corretto.aws latest URL with x64 + linux for Java 11', () => {
         const distribution = buildDistribution('corretto', '11', 'linux', 'x64');
         assert.deepEqual(distribution, {
@@ -62,7 +62,7 @@ describe('buildDistribution — Amazon Corretto (Java < 21)', () => {
     });
 });
 
-describe('buildDistribution — Eclipse Temurin (Adoptium)', () => {
+describe('buildDistribution: Eclipse Temurin (Adoptium)', () => {
     it('uses the api.adoptium.net binary endpoint with mac OS spelling on darwin', () => {
         const distribution = buildDistribution('temurin', '17', 'darwin', 'arm64');
         assert.deepEqual(distribution, {
@@ -82,7 +82,7 @@ describe('buildDistribution — Eclipse Temurin (Adoptium)', () => {
     });
 });
 
-describe('buildDistribution — invalid combinations', () => {
+describe('buildDistribution: invalid combinations', () => {
     it('returns null when the platform has no vendor mapping', () => {
         assert.equal(buildDistribution('corretto', '17', 'unknown', 'x64'), null);
     });
@@ -94,7 +94,7 @@ describe('buildDistribution — invalid combinations', () => {
 
 const allReachable = async () => true;
 
-describe('getJdkDistribution — Oracle-hosted version gate', () => {
+describe('getJdkDistribution: Oracle-hosted version gate', () => {
     it('resolves Java 21 to Oracle directly with the default supported versions', async () => {
         const distribution = await getJdkDistribution('21', 'linux', 'x64', {isUrlAccessible: allReachable});
 
@@ -121,7 +121,7 @@ describe('getJdkDistribution — Oracle-hosted version gate', () => {
     });
 });
 
-describe('getJdkDistribution — vendor preference chains', () => {
+describe('getJdkDistribution: vendor preference chains', () => {
     const libericaResolver = (url: string) => async (vendor: string) =>
         vendor === 'liberica' ? {name: 'Liberica21', url, extension: 'tar.gz'} : null;
 
@@ -198,7 +198,7 @@ describe('getJdkDistribution — vendor preference chains', () => {
     });
 });
 
-describe('getJdkDistribution — Linux musl (Alpine) and native Windows ARM64', () => {
+describe('getJdkDistribution: Linux musl (Alpine) and native Windows ARM64', () => {
     it('serves musl Linux from Temurin alpine-linux builds in auto mode', async () => {
         const distribution = await getJdkDistribution('17', 'linux-musl', 'x64', {
             preferredVendor: 'auto',
@@ -247,7 +247,7 @@ describe('getJdkDistribution — Linux musl (Alpine) and native Windows ARM64', 
     it('auto mode reaches Microsoft for Java 17 on Windows ARM64 when the primaries fail', async () => {
         const distribution = await getJdkDistribution('17', 'windows', 'arm64', {
             preferredVendor: 'auto',
-            // Corretto has no native win-arm64 build in practice — simulate its 404.
+            // Corretto has no native win-arm64 build in practice; simulate its 404.
             isUrlAccessible: async (url) => !url.includes('corretto'),
         });
 

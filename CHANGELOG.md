@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Activation offers to install Java language support when it is missing. Opening a Maven project
   without the Red Hat Java extension now shows **Install and Configure / No** instead of the usual
-  Yes / Always / No: accepting installs the Extension Pack for Java, then configures the workspace.
+  Yes or No: accepting installs the Extension Pack for Java, then configures the workspace.
   The gate is the `redhat.java` member, never the pack, because a pack contributes no settings of
   its own and can be installed with members missing.
 - The install path is all or nothing. Configuration runs only once the language server is actually
@@ -19,11 +19,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per-workspace answer is not persisted in that case, so the next open asks again.
 
 ### Changed
-- The silent `Always` path no longer configures a workspace with no Java language support
-  installed. It stays silent, as that preference asks, and logs why to the "Jaenvtix" output
-  channel. Configuring there would have written settings nothing could consume and reported
-  success over a workspace where nothing works. Installing the extension and reopening restores the
-  normal automatic behaviour; `Jaenvtix: Java: Automatic Configuration` still configures on demand.
+- The global `Always` preference was removed. It produced a state the user could neither see nor
+  escape, where a workspace with no language support was neither configured nor offered the
+  install. Every workspace now answers for itself and there is no silent mode, so the prompt is
+  Yes or No.
+- The activation prompt follows the state of the project instead of your answer history. A
+  workspace with a `pom.xml` and no Jaenvtix configuration is asked again, because a past Yes does
+  not configure anything today: delete `.vscode` and the question comes back. A No stays permanent
+  for that workspace, which is what keeps the rule from asking on every open of a project that
+  deliberately keeps `.vscode` out of the repository. Running
+  `Jaenvtix: Java: Automatic Configuration` from the Command Palette counts as a Yes.
+- Whether a workspace counts as configured is read from the `settings.json` files the last
+  successful run recorded, one per resolved project, rather than from the fact that a question was
+  once answered. A workspace with no recorded list falls back to probing each folder root for a
+  `jaenvtix.*` key.
+- `Jaenvtix: Reset Auto-Configuration Preference` clears every workspace at once instead of only
+  the current one. It bumps a global generation counter that each answer carries, so older answers
+  stop counting.
+- A second activation event, `workspaceContains:pom.xml`, sits next to the existing glob. The host
+  resolves a literal name with a direct existence check on each workspace root, but sends a glob to
+  the search service under a 7 second cancel budget that also honours `.gitignore`, which
+  activation in a large or deeply nested repository can lose.
+- Four notification texts were reworded by the documentation pass: the completion notice drops its
+  exclamation mark, the recommended-extensions picker and the verification log use a colon where
+  they used a dash, and the user-tunings progress label reads "Apply Java defaults to user
+  settings".
 
 ### Fixed
 - Configuration aborted on a partial Java extension pack install. `ApplyUserTuningsStep`
@@ -49,6 +69,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The **Restart Language Server** action on the mismatch and JDK-changed toasts could fail as
   an unhandled rejection, with no feedback to the user, when the Red Hat extension was removed
   after the toast appeared. The failure is now logged.
+
+### Internal
+- The README was rewritten in plain language and now shows the flow of each of the three commands,
+  with badges for the Marketplace, Open VSX and the supported VS Code engine. The same pass went
+  over the CHANGELOG, CLAUDE.md, JSDoc, inline comments and test titles: no em dashes, no puffery.
+- CLAUDE.md records why a `.vsix` built from a feature branch shows broken README images, since
+  `vsce` rewrites relative image paths to the default branch.
 
 ## [0.0.9] - 2026-08-30
 
@@ -130,15 +157,15 @@ Red Hat / Microsoft Java extensions. No new `jaenvtix.*` settings or commands.
 ### Added
 - Spring Boot Tools auto-configuration: `spring-boot.ls.java.home` is pointed at a provisioned
   Java 21+ JDK when `vmware.vscode-spring-boot` (or the Boot dev pack) is installed (MP-15).
-- `Jaenvtix: Install Recommended Extensions` — opt-in Command Palette command that offers XML,
+- `Jaenvtix: Install Recommended Extensions`, an opt-in Command Palette command that offers XML,
   Spring Boot Extension Pack, and Extension Pack for Java in a multi-select QuickPick (MP-08).
-- `~/.m2/toolchains.xml` is now also **read** as a JDK discovery source; entries registered for
+- `~/.m2/toolchains.xml` is now also read as a JDK discovery source; entries registered for
   `maven-toolchains-plugin` are validated and reused instead of re-downloaded (MP-04).
 - Supported Java versions are read from the Red Hat Language Server's own `package.json` at
   runtime, so new LTS releases are recognized without a Jaenvtix release (MP-16).
 - JDKs installed via Chocolatey (Windows) and Homebrew (macOS / Linuxbrew) are detected (MP-01).
-- New JDK vendors — Microsoft, Liberica (BellSoft), Zulu (Azul), and Semeru (IBM) — selectable
-  through the new `jaenvtix.preferredJdkVendor` setting, with automatic fallback chains (MP-02).
+- New JDK vendors selectable through the new `jaenvtix.preferredJdkVendor` setting: Microsoft,
+  Liberica (BellSoft), Zulu (Azul), and Semeru (IBM), with automatic fallback chains (MP-02).
 - Security patch auto-update: cached JDKs are checked against the vendor's metadata API at most
   once every 24h and refreshed when a newer patch ships (`jaenvtix.autoUpdatePatches`) (MP-17).
 - Downloads retry transient failures (timeout, reset, 5xx, 429) with exponential backoff
@@ -165,7 +192,7 @@ Red Hat / Microsoft Java extensions. No new `jaenvtix.*` settings or commands.
     failed" error. Installation detection and every downstream path (settings,
     `toolchains.xml`, wrapper scripts) now resolve to `Contents/Home`.
   - `EACCES: permission denied` when re-extracting a JDK over the read-only `legal/**`
-    files left by a previous extraction — those files are now made writable before
+    files left by a previous extraction; those files are now made writable before
     being overwritten.
   - Oracle JDK 21 and 25 macOS archives, whose entries are prefixed with `./`, extracted
     one directory too deep and failed; common-root detection now strips the `./` prefix
@@ -182,7 +209,7 @@ Red Hat / Microsoft Java extensions. No new `jaenvtix.*` settings or commands.
 
 ### Changed
 - The Maven download page is now fetched with an asynchronous HTTP client instead of
-  a blocking `curl` subprocess — the editor no longer freezes (up to 15s) during
+  a blocking `curl` subprocess; the editor no longer freezes (up to 15s) during
   activation, and `curl` is no longer required on the system.
 - Archive extraction no longer loads whole archives into memory: ZIP entries are read
   on demand via positioned file reads and `.tar.gz` archives are processed in two
@@ -368,7 +395,7 @@ Red Hat / Microsoft Java extensions. No new `jaenvtix.*` settings or commands.
 - JDK download and extraction to `~/.jaenvtix/jdk-<version>/` (Oracle for 21+, Corretto /
   Temurin fallback).
 - Maven download and extraction to `~/.jaenvtix/jdk-<version>/mvn-custom/`.
-- **Jaenvtix Maven wrapper script** (`jaenvtix-mvn` / `jaenvtix-mvn.cmd`) generated per JDK,
+- Jaenvtix Maven wrapper script (`jaenvtix-mvn` / `jaenvtix-mvn.cmd`) generated per JDK,
   enforcing `JAVA_HOME`, `MAVEN_HOME`, `-s settings.xml`, and `-Dmaven.repo.local=<repo>`
   (JetBrains-style invocation).
 - Per-project `.vscode/settings.json` wiring: `java.jdt.ls.java.home` /
@@ -379,7 +406,7 @@ Red Hat / Microsoft Java extensions. No new `jaenvtix.*` settings or commands.
   detected.
 
 ### Security
-- Hardened archive extraction against path traversal (zip-slip) — entries resolving outside
+- Hardened archive extraction against path traversal (zip-slip); entries resolving outside
   the target directory are skipped.
 - Temporary download archives are now removed after successful extraction.
 - `decompressGzip` cleans up its read / gunzip streams even on error.

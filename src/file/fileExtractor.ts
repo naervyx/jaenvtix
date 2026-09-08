@@ -11,7 +11,7 @@ export async function ensureDirectory(dirPath: string): Promise<void> {
  * and strips a single leading `./`.
  *
  * The `./` prefix is a no-op ("current directory") that some tar producers add
- * to every entry — notably Oracle JDK *macOS* archives, whose entries look like
+ * to every entry, notably Oracle JDK *macOS* archives, whose entries look like
  * `./jdk-21.0.11.jdk/Contents/Home/...`. Left in place it defeats common-root
  * detection: `findCommonRoot` would see `.` as the shared root and strip only
  * `./`, nesting the JDK one level too deep (`<jdkHome>/jdk-21.0.11.jdk/...`) and
@@ -34,7 +34,7 @@ function normalizeEntryName(entryName: string): string {
  * - Returns `null` when the list is empty or entries have different top-level
  *   directories (no single root to strip).
  * - Returns `root + '/'` only when every non-root entry is nested under that
- *   root — i.e., it is safe to strip the prefix without collapsing siblings.
+ *   root, so it is safe to strip the prefix without collapsing siblings.
  * - Used by the ZIP and TAR.GZ extractors to flatten single-root archives so
  *   the JDK lands directly in `<jdkHome>/` rather than `<jdkHome>/jdk-21.0.3/`.
  */
@@ -80,8 +80,8 @@ export function stripRootFromPath(entryPath: string, root: string | null): strin
  *   or `EPERM` (Windows) even for the file's owner, so on those codes the
  *   file is made writable and the write retried once. The TAR extractor
  *   re-applies the archive's mode afterwards, restoring the read-only bit.
- * - Any other write error — and any failure of the retry itself (e.g. the
- *   denial comes from directory permissions) — propagates to the caller.
+ * - Any other write error, and any failure of the retry itself (e.g. the
+ *   denial comes from directory permissions), propagates to the caller.
  */
 export async function writeFileWithDirectory(fullPath: string, content: Buffer): Promise<void> {
     await ensureDirectory(dirname(fullPath));
@@ -106,7 +106,7 @@ export async function writeFileWithDirectory(fullPath: string, content: Buffer):
  *   leading `./`) so root stripping matches the root computed by
  *   `findCommonRoot`, which normalizes the same way.
  * - Returns `null` for directory entries (trailing `/`), empty names, and absolute
- *   entry paths — these are skipped by the caller.
+ *   entry paths; these are skipped by the caller.
  * - Guards against path traversal attacks: if the resolved path escapes `destPath`
  *   (i.e. the relative path starts with `..`), returns `null` and the entry is
  *   silently skipped rather than written outside the destination directory.

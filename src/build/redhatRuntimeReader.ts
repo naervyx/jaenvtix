@@ -96,7 +96,7 @@ function getPath(value: unknown, ...keys: string[]): unknown {
  * - `readRedhatPackageJson` is injected by the orchestrator (it queries
  *   `vscode.extensions.getExtension('redhat.java')`); this module never
  *   imports `vscode` so it stays loadable under plain Node in unit tests.
- * - Any failure — extension absent, schema moved, enum empty — falls back to
+ * - Any failure (extension absent, schema moved, enum empty) falls back to
  *   the static list that mirrors Jaenvtix 0.0.6 behaviour. The fallback makes
  *   this a silent improvement with no opt-out setting.
  */

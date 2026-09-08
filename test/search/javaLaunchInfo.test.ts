@@ -17,7 +17,7 @@ async function project(files: ProjectFile[]): Promise<string> {
     return root;
 }
 
-describe('resolveJavaLaunchInfo — pom-based detection', () => {
+describe('resolveJavaLaunchInfo: pom-based detection', () => {
     it('reads <start-class> from a Spring Boot pom and flags isSpringBoot', async () => {
         const root = await project([
             pom(`<?xml version="1.0"?>
@@ -88,7 +88,7 @@ public class App {
     });
 });
 
-describe('resolveJavaLaunchInfo — source scanning', () => {
+describe('resolveJavaLaunchInfo: source scanning', () => {
     it('locates a public-static-void-main class under src/main/java', async () => {
         const root = await project([
             javaSource('com.example.cli', 'Cli.java', `package com.example.cli;

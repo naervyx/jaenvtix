@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {fetchLatestJdkVersion, resolveApiDistribution} from '../../src/build/vendorApiResolvers';
 
-describe('resolveApiDistribution — Liberica', () => {
+describe('resolveApiDistribution: Liberica', () => {
     it('queries the BellSoft API with the platform mapping and returns the first downloadUrl', async () => {
         const requested: string[] = [];
         const distribution = await resolveApiDistribution('liberica', '21', 'linux', 'x64', {
@@ -50,7 +50,7 @@ describe('resolveApiDistribution — Liberica', () => {
     });
 });
 
-describe('resolveApiDistribution — musl exclusions', () => {
+describe('resolveApiDistribution: musl exclusions', () => {
     it('Zulu and Semeru self-exclude on musl without calling their APIs', async () => {
         let called = false;
         const deps = {fetchJson: async () => { called = true; return {}; }};
@@ -61,7 +61,7 @@ describe('resolveApiDistribution — musl exclusions', () => {
     });
 });
 
-describe('resolveApiDistribution — Zulu', () => {
+describe('resolveApiDistribution: Zulu', () => {
     it('queries the Azul community API and returns the bundle url', async () => {
         const requested: string[] = [];
         const distribution = await resolveApiDistribution('zulu', '21', 'windows', 'x64', {
@@ -88,7 +88,7 @@ describe('resolveApiDistribution — Zulu', () => {
     });
 });
 
-describe('resolveApiDistribution — Semeru', () => {
+describe('resolveApiDistribution: Semeru', () => {
     const assets = [
         {name: 'ibm-semeru-open-jdk_x64_windows_21.0.5_11_openj9-0.48.0.zip', browser_download_url: 'https://github.com/dl/win.zip'},
         {name: 'ibm-semeru-open-jdk_x64_linux_21.0.5_11_openj9-0.48.0.tar.gz', browser_download_url: 'https://github.com/dl/linux.tar.gz'},
@@ -183,7 +183,7 @@ describe('fetchLatestJdkVersion', () => {
     });
 });
 
-describe('resolveApiDistribution — resilience', () => {
+describe('resolveApiDistribution: resilience', () => {
     it('returns null when the API call throws', async () => {
         const distribution = await resolveApiDistribution('liberica', '21', 'linux', 'x64', {
             fetchJson: async () => { throw new Error('API offline'); },

@@ -53,11 +53,11 @@ function normalizeJavaVersion(rawInput: string): string | null {
  * delegated to `scanXml`; this function owns the pom-specific state machine.
  *
  * Recognized configuration patterns (in priority order):
- * - `<properties><java.version>` — Spring Boot convention.
- * - `<properties><maven.compiler.release>` — preferred modern form.
- * - `<properties><maven.compiler.source>` — older form, lower priority.
- * - `<build><plugins><plugin>maven-compiler-plugin<configuration><release>` — plugin-level release.
- * - `<build><plugins><plugin>maven-compiler-plugin<configuration><compilerVersion>` — legacy plugin config.
+ * - `<properties><java.version>`: Spring Boot convention.
+ * - `<properties><maven.compiler.release>`: preferred modern form.
+ * - `<properties><maven.compiler.source>`: older form, lower priority.
+ * - `<build><plugins><plugin>maven-compiler-plugin<configuration><release>`: plugin-level release.
+ * - `<build><plugins><plugin>maven-compiler-plugin<configuration><compilerVersion>`: legacy plugin config.
  * - `<build><plugins><plugin>toolchains-maven-plugin|maven-toolchains-plugin<configuration><jdkToolchain><version>`.
  *
  * Business rules:
@@ -264,7 +264,7 @@ function parseJavaVersionFromXml(xml: string): string | null {
 
     /**
      * Commits accumulators that are still pending when the `<plugin>` block
-     * closes — covers poms where the `<configuration>` precedes the
+     * closes; covers poms where the `<configuration>` precedes the
      * `<artifactId>` and no commit happened inline.
      */
     const commitPendingPluginValues = (): void => {

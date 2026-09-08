@@ -76,7 +76,7 @@ export function validateAndCleanRuntimes(
  * - A candidate is also skipped when an existing entry already has the same
  *   `path` (regardless of `name`), so we never end up with two entries
  *   pointing to the same JDK.
- * - The `default` flag is solely the user's responsibility — Jaenvtix neither
+ * - The `default` flag is solely the user's responsibility; Jaenvtix neither
  *   sets nor strips it.
  *
  * The function is pure: it never reads the filesystem nor the VS Code API.

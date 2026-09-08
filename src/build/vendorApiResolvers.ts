@@ -62,7 +62,7 @@ async function resolveLiberica(
     return {name: `Liberica${javaVersion}`, url: downloadUrl, extension};
 }
 
-/** Azul's community bundle API has no musl variant — musl self-excludes. */
+/** Azul's community bundle API has no musl variant; musl self-excludes. */
 const ZULU_OS_NAMES: Readonly<Record<PlatformType, string | undefined>> = {
     windows: 'windows',
     linux: 'linux',
@@ -100,7 +100,7 @@ async function resolveZulu(
     return {name: `Zulu${javaVersion}`, url: downloadUrl, extension};
 }
 
-/** IBM Semeru ships no musl build — musl self-excludes. */
+/** IBM Semeru ships no musl build; musl self-excludes. */
 const SEMERU_OS_NAMES: Readonly<Record<PlatformType, string | undefined>> = {
     windows: 'windows',
     linux: 'linux',
@@ -162,7 +162,7 @@ async function resolveSemeru(
  * Business rules:
  * - Liberica and Zulu need their metadata APIs because direct download URLs
  *   embed the full patch version; Semeru publishes through GitHub releases.
- * - Any failure — API offline, schema drift, no matching bundle — yields
+ * - Any failure (API offline, schema drift, no matching bundle) yields
  *   `null` so the caller's vendor fallback chain continues.
  * - The JSON transport is injectable for unit tests (repo convention: no
  *   network in tests).
@@ -236,7 +236,7 @@ async function fetchZuluLatest(major: string, fetchJson: FetchJsonFn): Promise<s
  * - Oracle and Microsoft expose no public "latest version" endpoint → `null`,
  *   which callers treat exactly like an API failure (skip the update, retry
  *   after the rate-limit window).
- * - Any network/schema failure also yields `null` — an update check must
+ * - Any network/schema failure also yields `null`; an update check must
  *   never block or fail the pipeline.
  */
 export async function fetchLatestJdkVersion(

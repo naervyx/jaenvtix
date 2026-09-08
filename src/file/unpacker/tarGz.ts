@@ -122,7 +122,7 @@ class ChunkQueue {
  * without buffering (used by the name-collection pass).
  *
  * Stops at the first all-zero header block (end-of-archive marker). Peak
- * memory is a single entry's content plus the small chunk backlog — the
+ * memory is a single entry's content plus the small chunk backlog; the
  * decompressed archive is never held in memory as a whole.
  */
 async function* readTarEntries(
@@ -196,7 +196,7 @@ async function* readTarEntries(
  * - Strips a single common root directory when all content entries share one.
  * - Preserves Unix file permissions (`mode` field) via `chmod` on POSIX systems;
  *   on Windows the chmod call is skipped because the field is not meaningful.
- * - A failed `chmod` on a single file is silently ignored — it must not abort
+ * - A failed `chmod` on a single file is silently ignored; it must not abort
  *   the rest of the extraction.
  */
 export async function extractTarGz(sourcePath: string, destPath: string): Promise<void> {

@@ -19,8 +19,8 @@ function readReleaseFile(jdkHome: string): string {
 /**
  * Writes/updates `~/.m2/toolchains.xml` with one `<toolchain>` per JDK staged
  * in this run, so any project that opts into `maven-toolchains-plugin` can
- * resolve a JDK without manual configuration. This is cooperation, not
- * substitution: existing toolchains the user authored are preserved.
+ * resolve a JDK without manual configuration. Existing toolchains the user
+ * authored are preserved.
  */
 export class WriteToolchainsStep implements ConfigurationStep {
     readonly name = 'WriteToolchains';

@@ -9,7 +9,7 @@ import {createTempDir, removeTempDir} from '../fixtures/tempDir';
 
 // Business rule: Jaenvtix populates the user's `java.configuration.runtimes`
 // cooperatively. The Red Hat Language Server reads this array to resolve which
-// JDK to use per Maven project. Whatever the user already mapped is sacred —
+// JDK to use per Maven project. Whatever the user already mapped stays:
 // Jaenvtix only ADDS missing entries and never overwrites existing ones.
 
 describe('mergeUserRuntimes', () => {
@@ -123,7 +123,7 @@ describe('mergeUserRuntimes', () => {
 });
 
 // ---------------------------------------------------------------------------
-// validateAndCleanRuntimes — validate + optionally fix existing runtimes
+// validateAndCleanRuntimes: validate + optionally fix existing runtimes
 // ---------------------------------------------------------------------------
 
 // Helper: create a fake JDK home under dir with a bin/javac file.

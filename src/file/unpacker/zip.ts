@@ -37,7 +37,7 @@ async function readExact(handle: FileHandle, position: number, length: number): 
 /**
  * Walks sequential local file headers via positioned reads until the signature
  * no longer matches (e.g. the central directory begins). Only headers and file
- * names are read here — entry data stays on disk until extraction.
+ * names are read here; entry data stays on disk until extraction.
  */
 async function parseZipEntries(handle: FileHandle): Promise<ZipEntry[]> {
     const entries: ZipEntry[] = [];

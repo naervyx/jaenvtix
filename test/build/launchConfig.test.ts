@@ -41,13 +41,13 @@ describe('updateVsCodeLaunchConfig', () => {
         const result = updateVsCodeLaunchConfig(launchPath, [{
             type: 'java',
             request: 'launch',
-            name: 'Spring Boot — demo',
+            name: 'Spring Boot demo',
             mainClass: 'com.example.DemoApplication',
             projectName: 'demo',
         }]);
 
         assert.equal(result.updated, true);
-        assert.deepEqual(result.updatedNames, ['Spring Boot — demo']);
+        assert.deepEqual(result.updatedNames, ['Spring Boot demo']);
 
         const launch = await readLaunch(launchPath);
         assert.equal(launch.version, '0.2.0');

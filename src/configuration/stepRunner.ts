@@ -25,7 +25,7 @@ export async function runStep(
 /**
  * Run a sequence of steps until either all succeed or one returns a
  * non-success result. The first non-success short-circuits and is returned
- * verbatim — preserving its kind/message so downstream UI can decide
+ * verbatim, preserving its kind/message so downstream UI can decide
  * whether to surface it as a warning or an error.
  */
 export async function runSteps(

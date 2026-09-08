@@ -8,7 +8,7 @@ import {request as httpRequest} from 'node:http';
  * Business rules:
  * - Selects HTTP or HTTPS transport based on the URL protocol.
  * - Resolves `false` for malformed URLs, network errors, timeouts, or
- *   4xx/5xx responses — any condition that indicates the resource is not
+ *   4xx/5xx responses, any condition that indicates the resource is not
  *   reachable or does not exist.
  * - Used by JDK and Maven URL builders to verify a candidate download URL
  *   before committing to it.

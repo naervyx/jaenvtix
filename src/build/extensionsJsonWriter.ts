@@ -14,7 +14,7 @@ export interface ExtensionsJsonUpdateResult {
 
 /**
  * Reads and parses `.vscode/extensions.json`. Recovers from a missing or
- * malformed file by returning an empty object — recommendations are additive
+ * malformed file by returning an empty object; recommendations are additive
  * data, so resetting a broken file loses nothing Jaenvtix cannot rewrite.
  */
 function readExtensionsJson(extensionsJsonPath: string): ExtensionsJson {
@@ -35,7 +35,7 @@ function readExtensionsJson(extensionsJsonPath: string): ExtensionsJson {
 
 /**
  * Merges `recommendedIds` into the `recommendations` array of the workspace
- * `.vscode/extensions.json` — VS Code's native mechanism for suggesting
+ * `.vscode/extensions.json`, VS Code's native mechanism for suggesting
  * extensions to anyone who opens the folder.
  *
  * Business rules:

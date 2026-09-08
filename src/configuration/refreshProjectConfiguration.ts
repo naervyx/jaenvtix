@@ -16,7 +16,7 @@ export interface RefreshSummary {
  * - Requests run concurrently (pool of `concurrency`): each call just
  *   enqueues an import job inside JDT, which m2e serializes internally, so
  *   issuing them one-by-one would only add idle round-trips in monorepos.
- * - A failure on any single pom does NOT affect the others — isolation per
+ * - A failure on any single pom does NOT affect the others; isolation per
  *   pom is preserved. This is critical because the Red Hat Language Server
  *   may not be installed (in which case every call rejects), and we don't
  *   want the Jaenvtix configuration step to fail noisily for a cooperative

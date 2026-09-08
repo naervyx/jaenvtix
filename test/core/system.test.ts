@@ -100,7 +100,7 @@ describe('isMusl', () => {
     });
 });
 
-describe('getPlatform — musl split', () => {
+describe('getPlatform: musl split', () => {
     it('maps musl Linux to linux-musl', () => {
         assert.equal(getPlatform('linux', () => true), 'linux-musl');
     });

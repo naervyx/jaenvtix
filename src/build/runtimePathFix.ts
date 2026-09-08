@@ -20,7 +20,7 @@ function hasJavac(homePath: string, os: NodeJS.Platform): boolean {
  */
 export function fixPath(homePath: string, os: NodeJS.Platform): string | undefined {
     // Guard: dirname(root) === root on every OS ('/' on Unix, 'C:\' on Windows).
-    // Never report a filesystem root as a valid JDK home — on CI runners Java is
+    // Never report a filesystem root as a valid JDK home; on CI runners Java is
     // often installed system-wide, so /bin/javac exists and a shallow path like
     // '/nonexistent' would otherwise traverse up to '/' and match spuriously.
 

@@ -9,7 +9,7 @@ import {refreshAllProjects} from '../../src/configuration/refreshProjectConfigur
 //   serializes the actual imports internally).
 // - Failures are isolated: a rejection on pom A does not stop pom B from
 //   being attempted. The Red Hat Java extension may not be installed,
-//   which would cause every call to reject — Jaenvtix must keep working.
+//   which would cause every call to reject; Jaenvtix must keep working.
 
 describe('refreshAllProjects', () => {
     it('invokes the refresher exactly once per pom path, starting in order', async () => {

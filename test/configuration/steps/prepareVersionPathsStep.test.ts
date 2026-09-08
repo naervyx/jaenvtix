@@ -40,7 +40,7 @@ describe('PrepareVersionPathsStep', () => {
     });
 
     // Business rule: when an installed JDK was detected for a given version,
-    // the resulting `jdkHome` must point at that external installation —
+    // the resulting `jdkHome` must point at that external installation,
     // not at the Jaenvtix download cache slot. This is what skips the download.
     it('reuses a detected JDK as jdkHome when one was registered for the version', async () => {
         const state = createInitialState();

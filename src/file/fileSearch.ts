@@ -37,7 +37,7 @@ export function findProjectsWithFile(root: string, fileName: string): string[] {
  * The wrapper is committed at the project root as `mvnw` (POSIX) and/or
  * `mvnw.cmd` (Windows). When present, it represents an explicit choice from
  * the project owners (frequently coupled with `.mvn/wrapper/maven-wrapper.properties`)
- * to pin the Maven version used during the build — Spring Initializr, Quarkus
+ * to pin the Maven version used during the build. Spring Initializr, Quarkus
  * and other modern generators ship it by default, and CI pipelines typically
  * rely on it for reproducibility.
  *
